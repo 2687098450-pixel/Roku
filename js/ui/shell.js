@@ -175,6 +175,45 @@ export function createUI(ctx) {
     autoEditIdx = -1;
   }
 
+  function closeSkillDetail() {
+    $("skillDetailModal")?.classList.add("hidden");
+  }
+
+  const SKILL_FACE = {
+    attack: "斩",
+    radiant: "光",
+    quake: "震",
+    boost: "衡",
+    aftercare: "愈",
+    pink_shot: "箭",
+    pink_burst: "爆",
+    pink_barrage: "雨",
+    pink_fervor: "燃",
+    pink_focus: "专",
+    green_bolt: "叶",
+    green_mend: "愈",
+    green_bloom: "芽",
+    green_life: "生",
+    green_aftercare: "疗",
+  };
+
+  function skillFace(skill) {
+    return SKILL_FACE[skill?.id] || (skill?.kind === "passive" ? "被" : "技");
+  }
+
+  function skillKindLabel(skill) {
+    if (!skill) return "";
+    if (skill.kind === "passive") return "被动";
+    if (skill.style === "buff") return "增益";
+    if (skill.style === "heal") return "治疗";
+    return "主动";
+  }
+
+  function skillIcoClass(skill) {
+    if (skill?.kind === "passive") return "passive";
+    return skill?.style || "melee";
+  }
+
   function closeEquipPick() {
     $("equipPickModal")?.classList.add("hidden");
   }
@@ -196,6 +235,7 @@ export function createUI(ctx) {
 
   function closeModals() {
     closeSkillPick();
+    closeSkillDetail();
     closeEquipPreview();
     closeBagSell();
     closeWarp();
@@ -861,44 +901,101 @@ export function createUI(ctx) {
         const lv = getSkillLevel(hero, s.id);
         const canUp =
           s.kind === "active" && points > 0 && lv < MAX_SKILL_LEVEL;
-        const lvTag =
-          s.kind === "active"
-            ? `<span class="stag skill-lv">Lv.${lv}</span>`
-            : "";
+        const typeLine =
+          s.kind === "passive"
+            ? "被动"
+            : `${skillKindLabel(s)}${s.style ? ` · ${styleTag(s.style)}` : ""}`;
         const upBtn =
           s.kind === "active"
-            ? `<button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"}>${
-                lv >= MAX_SKILL_LEVEL ? "已满" : "升级"
+            ? `<button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
+                lv >= MAX_SKILL_LEVEL ? "满" : "+"
               }</button>`
-            : "";
-        return `<li title="${s.desc || ""}">
-          <div class="skill-row">
-            <div class="skill-ico">${s.kind === "passive" ? "被" : "主"}</div>
+            : `<span class="skill-up-spacer" aria-hidden="true"></span>`;
+        return `<li class="skill-item" data-skill="${s.id}">
+          <button type="button" class="skill-row skill-open" data-skill="${s.id}">
+            <div class="skill-ico ${skillIcoClass(s)}">${skillFace(s)}</div>
             <div class="skill-meta">
-              <div class="sname">${s.name}
-                <span class="stag ${s.kind}">${s.kind === "passive" ? "被动" : "主动"}</span>
-                ${s.style ? `<span class="stag">${styleTag(s.style)}</span>` : ""}
-                ${lvTag}
-              </div>
-              <div class="snums">${s.nums || ""}</div>
+              <div class="sname">${s.name}</div>
+              <div class="stype">${typeLine}</div>
+              <div class="slv">等级 ${lv}</div>
             </div>
-            ${upBtn}
-          </div>
+          </button>
+          ${upBtn}
         </li>`;
       })
       .join("");
 
+    $("skillList")?.querySelectorAll(".skill-open").forEach((btn) => {
+      btn.addEventListener("click", () => openSkillDetail(hero.id, btn.dataset.skill));
+    });
     $("skillList")?.querySelectorAll(".skill-up-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (upgradeSkill(hero, btn.dataset.skill)) {
           openDetail(hero.id);
           refreshExploreHud();
+          const modal = $("skillDetailModal");
+          if (modal && !modal.classList.contains("hidden")) {
+            openSkillDetail(hero.id, btn.dataset.skill);
+          }
         }
       });
     });
 
     renderAutoSlots(hero);
+  }
+
+  function openSkillDetail(heroId, skillId) {
+    const hero = getState().party.find((h) => h.id === heroId);
+    const skill = hero?.skills?.find((s) => s.id === skillId);
+    const title = $("skillDetailTitle");
+    const body = $("skillDetailBody");
+    const modal = $("skillDetailModal");
+    if (!hero || !skill || !body || !modal) return;
+
+    const lv = getSkillLevel(hero, skill.id);
+    const points = hero.skillPoints ?? 0;
+    const canUp =
+      skill.kind === "active" && points > 0 && lv < MAX_SKILL_LEVEL;
+    const typeLine =
+      skill.kind === "passive"
+        ? "被动技能"
+        : `${skillKindLabel(skill)}${skill.style ? ` · ${styleTag(skill.style)}` : ""}`;
+
+    if (title) title.textContent = skill.name;
+    body.innerHTML = `
+      <div class="skill-detail-top">
+        <div class="skill-detail-ico ${skillIcoClass(skill)}">${skillFace(skill)}</div>
+        <div class="skill-detail-meta">
+          <div class="skill-detail-name">${skill.name}</div>
+          <div class="skill-detail-type">${typeLine}</div>
+          <div class="skill-detail-lv">等级 ${lv}${skill.kind === "active" ? ` / ${MAX_SKILL_LEVEL}` : ""}</div>
+        </div>
+      </div>
+      ${skill.nums ? `<div class="skill-detail-nums">${skill.nums}</div>` : ""}
+      <p class="skill-detail-desc">${skill.desc || "暂无说明。"}</p>
+      ${
+        skill.kind === "active"
+          ? `<div class="skill-detail-actions">
+              <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
+                ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
+              </button>
+            </div>`
+          : ""
+      }`;
+
+    const up = body.querySelector("#btnSkillDetailUp");
+    if (up) {
+      up.onclick = () => {
+        if (upgradeSkill(hero, skill.id)) {
+          openDetail(hero.id);
+          openSkillDetail(hero.id, skill.id);
+          refreshExploreHud();
+        }
+      };
+    }
+
+    modal.classList.remove("hidden");
   }
 
   function openBag() {
@@ -1283,6 +1380,7 @@ export function createUI(ctx) {
     $("closeBag")?.addEventListener("click", closeModals);
     $("closeFormation")?.addEventListener("click", closeModals);
     $("closeSkillPick")?.addEventListener("click", closeSkillPick);
+    $("closeSkillDetail")?.addEventListener("click", closeSkillDetail);
     $("closeEquipPreview")?.addEventListener("click", closeEquipPreview);
     $("closeEquipPick")?.addEventListener("click", closeEquipPick);
     $("closeBagSell")?.addEventListener("click", closeBagSell);

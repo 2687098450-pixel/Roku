@@ -566,6 +566,11 @@ function bindExplore() {
         equipPrev.querySelector("#closeEquipPreview")?.click();
         return;
       }
+      const skillDetail = $("skillDetailModal");
+      if (skillDetail && !skillDetail.classList.contains("hidden")) {
+        skillDetail.querySelector("#closeSkillDetail")?.click();
+        return;
+      }
       const pick = $("skillPickModal");
       if (pick && !pick.classList.contains("hidden")) {
         pick.querySelector("#closeSkillPick")?.click();

@@ -2201,103 +2201,222 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .stat-list li span { color: var(--muted); font-weight: 600; }
 
-.skill-list li {
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 10px;
-  padding: 8px;
+.skill-list {
+  margin: 0;
+  padding: 0;
+  gap: 8px;
 }
 
-.skill-row {
+.skill-list .skill-item {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 8px 8px 8px 6px;
+  border: 1px solid rgba(255, 184, 77, 0.22);
+}
+
+.skill-row.skill-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.skill-row.skill-open:active {
+  background: rgba(255, 184, 77, 0.12);
 }
 
 .skill-ico {
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 900;
   color: #fff;
   background: linear-gradient(180deg, #ffc56d, #ff9f43);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08);
 }
+.skill-ico.melee { background: linear-gradient(180deg, #ffc56d, #f0892a); }
+.skill-ico.ranged { background: linear-gradient(180deg, #ff9ec8, #ff5aa0); }
+.skill-ico.heal { background: linear-gradient(180deg, #9be88a, #3dbf5c); }
+.skill-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
+.skill-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
 
 .skill-meta { min-width: 0; flex: 1; }
 
 .skill-list .sname {
   font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 14px;
+  font-size: 16px;
   color: #3b2460;
-  line-height: 1.2;
+  line-height: 1.15;
 }
-
-.skill-list .stag {
-  display: inline-block;
-  margin-left: 6px;
+.skill-list .stype {
+  margin-top: 2px;
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: #ffe0a8;
-  color: var(--ink);
-  font-family: "Nunito", sans-serif;
-  font-weight: 800;
+  font-weight: 700;
+  color: var(--muted);
 }
-
-.skill-list .stag.passive { background: #c9f0d7; }
-.skill-list .stag.skill-lv {
-  background: rgba(240, 137, 42, 0.2);
+.skill-list .slv {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 800;
   color: #c06818;
 }
-.skill-list .skill-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.skill-list .skill-meta { flex: 1; min-width: 0; }
+
 .skill-up-btn {
   flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 10px;
+  padding: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: 22px;
   font-weight: 900;
+  line-height: 1;
   cursor: pointer;
   background: linear-gradient(180deg, #ffc857, #f0892a);
   color: #4a2a10;
+  box-shadow: 0 2px 0 rgba(200, 120, 40, 0.35);
 }
 .skill-up-btn.off,
 .skill-up-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: default;
-  background: #d5d0c6;
-  color: #666;
+  background: #d8d2c6;
+  color: #777;
+  box-shadow: none;
 }
+.skill-up-spacer {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}
+
 .skill-points-bar {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 6px;
   margin-bottom: 8px;
+  padding-right: 2px;
   font-size: 13px;
   font-weight: 800;
   color: var(--ink);
 }
 .skill-points-bar b {
-  color: #e08920;
+  color: #2f9d6a;
   font-size: 18px;
 }
-.skill-list .snums {
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #e08920;
-}
 
-.skill-list .sdesc { display: none; }
+/* 技能详情弹层 */
+.modal-card.skill-detail-card {
+  width: min(360px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 16px;
+  background: #fff9f0;
+  border-radius: 24px;
+  overflow: hidden;
+}
+.skill-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.skill-detail-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.skill-detail-ico {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+  flex: 0 0 auto;
+}
+.skill-detail-ico.melee { background: linear-gradient(180deg, #ffc56d, #f0892a); }
+.skill-detail-ico.ranged { background: linear-gradient(180deg, #ff9ec8, #ff5aa0); }
+.skill-detail-ico.heal { background: linear-gradient(180deg, #9be88a, #3dbf5c); }
+.skill-detail-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
+.skill-detail-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
+.skill-detail-name {
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 24px;
+  color: #3b2460;
+  line-height: 1.2;
+}
+.skill-detail-type {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.skill-detail-lv {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #c06818;
+}
+.skill-detail-nums {
+  font-size: 16px;
+  font-weight: 900;
+  color: #e08920;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+}
+.skill-detail-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #6b5540;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.skill-detail-actions {
+  margin-top: 4px;
+}
+.skill-detail-up {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ffc857, #f0892a);
+  color: #4a2a10;
+}
+.skill-detail-up.off,
+.skill-detail-up:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: #d5d0c6;
+  color: #666;
+}
 
 @keyframes bobDiamond {
   0%, 100% { transform: translateY(0); }
