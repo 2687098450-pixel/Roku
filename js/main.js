@@ -80,6 +80,7 @@ function applyFloor(state, floorNum) {
   state.camReady = false;
   state.moving = false;
   state.step = null;
+  state.path = null;
   markVisited(state, built.floor);
 }
 
@@ -120,6 +121,8 @@ const state = {
   battle: null,
   moving: false,
   step: null,
+  /** 自动寻路剩余格子 [{x,y}, ...] */
+  path: null,
   tile: 64,
   viewW: 0,
   viewH: 0,
@@ -370,8 +373,86 @@ function tryEnterExit() {
   return true;
 }
 
+/** BFS 四向寻路，返回不含起点、含终点的格子列表；不可达则 null */
+function findPath(from, to) {
+  if (!from || !to) return null;
+  if (from.x === to.x && from.y === to.y) return [];
+  if (!canPlayerWalk(to.x, to.y)) return null;
+
+  const key = (x, y) => `${x},${y}`;
+  const q = [{ x: from.x, y: from.y }];
+  const prev = new Map([[key(from.x, from.y), null]]);
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+
+  for (let i = 0; i < q.length; i++) {
+    const cur = q[i];
+    for (const [dx, dy] of dirs) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      const k = key(nx, ny);
+      if (prev.has(k)) continue;
+      if (!canPlayerWalk(nx, ny)) continue;
+      prev.set(k, cur);
+      if (nx === to.x && ny === to.y) {
+        const path = [];
+        let p = { x: nx, y: ny };
+        while (p && !(p.x === from.x && p.y === from.y)) {
+          path.push(p);
+          p = prev.get(key(p.x, p.y));
+        }
+        path.reverse();
+        return path;
+      }
+      q.push({ x: nx, y: ny });
+    }
+  }
+  return null;
+}
+
+function clearPath() {
+  state.path = null;
+}
+
+function startStepTo(nx, ny) {
+  state.moving = true;
+  state.step = {
+    fromX: state.displayPos.x,
+    fromY: state.displayPos.y,
+    toX: nx,
+    toY: ny,
+    t: 0,
+    dur: STEP_DUR,
+  };
+  state.playerPos.x = nx;
+  state.playerPos.y = ny;
+}
+
+/** 沿 path 走出下一步；途中被挡则清空 */
+function continuePath() {
+  if (state.mode !== "explore" || state.moving || state.step) return;
+  if (!state.path?.length) {
+    clearPath();
+    return;
+  }
+  const next = state.path[0];
+  const dx = next.x - state.playerPos.x;
+  const dy = next.y - state.playerPos.y;
+  if (Math.abs(dx) + Math.abs(dy) !== 1 || !canPlayerWalk(next.x, next.y)) {
+    clearPath();
+    return;
+  }
+  state.path.shift();
+  startStepTo(next.x, next.y);
+}
+
 function finishStep() {
   if (tryEnterBattle()) {
+    clearPath();
     state.moving = false;
     return;
   }
@@ -381,16 +462,19 @@ function finishStep() {
   }
 
   if (tryEnterBattle()) {
+    clearPath();
     state.moving = false;
     return;
   }
 
   if (tryEnterExit()) {
+    clearPath();
     state.moving = false;
     return;
   }
 
   state.moving = false;
+  continuePath();
 }
 
 function updateStep(dt) {
@@ -417,21 +501,35 @@ function movePlayer(dx, dy) {
     showToast("没有存活英雄，请打开角色详情花费金币复活", 2800);
     return;
   }
+  clearPath();
   const nx = state.playerPos.x + dx;
   const ny = state.playerPos.y + dy;
   if (!canPlayerWalk(nx, ny)) return;
+  startStepTo(nx, ny);
+}
 
-  state.moving = true;
-  state.step = {
-    fromX: state.displayPos.x,
-    fromY: state.displayPos.y,
-    toX: nx,
-    toY: ny,
-    t: 0,
-    dur: STEP_DUR,
-  };
-  state.playerPos.x = nx;
-  state.playerPos.y = ny;
+/** 点击/触屏：寻路到目标格并自动走过去 */
+function pathToTile(x, y) {
+  if (state.mode !== "explore") return;
+  if (!state.party.some(isLiving)) {
+    showToast("没有存活英雄，请打开角色详情花费金币复活", 2800);
+    return;
+  }
+  const goal = { x: Math.floor(x), y: Math.floor(y) };
+  // 逻辑坐标在迈步时已到目标格，寻路从该点开始
+  const from = { x: state.playerPos.x, y: state.playerPos.y };
+  if (from.x === goal.x && from.y === goal.y) return;
+
+  const path = findPath(from, goal);
+  if (!path) {
+    showToast("无法到达", 1200);
+    return;
+  }
+  if (!path.length) return;
+
+  state.path = path;
+  // 空闲时立刻开走；迈步动画中则等本步结束后接上
+  if (!state.moving && !state.step) continuePath();
 }
 
 function bindExplore() {
@@ -443,9 +541,7 @@ function bindExplore() {
     const localX = (e.clientX - rect.left) * scaleX;
     const localY = (e.clientY - rect.top) * scaleY;
     const { x, y } = screenToTile(state.cam, state.tile, localX, localY);
-    const dx = x - state.playerPos.x;
-    const dy = y - state.playerPos.y;
-    if (Math.abs(dx) + Math.abs(dy) === 1) movePlayer(dx, dy);
+    pathToTile(x, y);
   });
 
   window.addEventListener("keydown", (e) => {
@@ -509,5 +605,5 @@ bindExplore();
 battle.bind();
 resize();
 ui.refreshExploreHud();
-showToast("出口在蓝色楼梯处，紫色 Boss 守关。击败后可前进。", 3600);
+showToast("点击地面可自动寻路。出口在蓝色楼梯，击败紫色 Boss 后前进。", 3600);
 requestAnimationFrame(frame);
