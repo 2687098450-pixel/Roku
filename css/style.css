@@ -1861,10 +1861,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .auto-chip.summary:active { transform: translateY(1px); }
 
-.auto-arrow {
-  color: var(--muted);
-  font-weight: 800;
-}
+.auto-arrow { display: none; }
 
 .auto-slot-list {
   display: flex;
@@ -2218,9 +2215,11 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 }
 
 .skill-row.skill-open {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   display: flex;
+  flex-direction: row;
   gap: 10px;
   align-items: center;
   border: none;
@@ -2232,6 +2231,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: inherit;
   cursor: pointer;
   border-radius: 10px;
+  writing-mode: horizontal-tb;
 }
 .skill-row.skill-open:active {
   background: rgba(255, 184, 77, 0.12);
@@ -2256,22 +2256,39 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
 .skill-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
 
-.skill-meta { min-width: 0; flex: 1; }
+.skill-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+}
+
+.skill-list .sname,
+.skill-list .stype,
+.skill-list .slv {
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  white-space: nowrap;
+  display: inline;
+}
 
 .skill-list .sname {
   font-family: "ZCOOL KuaiLe", cursive;
   font-size: 16px;
   color: #3b2460;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 .skill-list .stype {
-  margin-top: 2px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--muted);
 }
 .skill-list .slv {
-  margin-top: 1px;
   font-size: 12px;
   font-weight: 800;
   color: #c06818;

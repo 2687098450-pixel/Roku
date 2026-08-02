@@ -3,14 +3,30 @@
 import { getCharacterStats, getAutoRotation } from "./stats.js";
 import { calcStats } from "./omni/attributes.js";
 import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js";
-import { createHeroSkills } from "./skills.js";
+import {
+  createHeroSkills,
+  refreshSkillTexts,
+  attrPassiveSkillId,
+  scaledPassiveBoost,
+} from "./skills.js";
 import {
   expToNext,
+  getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
 } from "./progression.js";
 
 export function refreshHeroStats(hero) {
+  if (!hero.basePassiveBoost) {
+    hero.basePassiveBoost = { ...(hero.passiveBoost || {}) };
+  }
+  const attrId = attrPassiveSkillId(hero.statsId);
+  if (attrId) {
+    hero.passiveBoost = scaledPassiveBoost(
+      hero.basePassiveBoost,
+      getSkillLevel(hero, attrId)
+    );
+  }
   const eq = sumEquipBonus(hero.equip);
   const stats = calcStats(hero.base, hero.passiveBoost, eq, hero.level || 1);
   hero.maxHp = stats.maxHp;
@@ -51,6 +67,7 @@ export function createHero(statsId) {
     color: sheet.color,
     shape: "diamond",
     base: { ...sheet.base },
+    basePassiveBoost: { ...sheet.passiveBoost },
     passiveBoost: { ...sheet.passiveBoost },
     equip: createDefaultEquip(statsId),
     skills: createHeroSkills(statsId),
@@ -58,6 +75,7 @@ export function createHero(statsId) {
     hp: 0,
     maxHp: 0,
   };
+  refreshSkillTexts(hero);
   refreshHeroStats(hero);
   hero.hp = hero.maxHp;
   hero.mp = hero.maxMp;

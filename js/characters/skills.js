@@ -158,24 +158,60 @@ function makeSkill(partial) {
   };
 }
 
+/** 属性型被动：omni/pink/green */
+export function attrPassiveSkillId(statsId) {
+  if (statsId === "pink") return "pink_focus";
+  if (statsId === "green") return "green_life";
+  if (statsId === "omni") return "boost";
+  return null;
+}
+
+/** 属性被动随等级成长（每级约 +10% 基础被动） */
+export function scaledPassiveBoost(baseBoost = {}, level = 1) {
+  const lv = Math.max(1, Math.floor(level || 1));
+  const mult = 1 + (lv - 1) * 0.1;
+  return {
+    hp: Math.round((baseBoost.hp || 0) * mult),
+    atk: Math.round((baseBoost.atk || 0) * mult),
+    def: Math.round((baseBoost.def || 0) * mult),
+    spd: Math.round((baseBoost.spd || 0) * mult),
+  };
+}
+
+function formatBoostNums(boost) {
+  const parts = [];
+  if (boost.hp) parts.push(`生命+${boost.hp}`);
+  if (boost.atk) parts.push(`攻击+${boost.atk}`);
+  if (boost.def) parts.push(`防御+${boost.def}`);
+  if (boost.spd) parts.push(`速度+${boost.spd}`);
+  return parts.join(" ") || "—";
+}
+
 export function refreshSkillTexts(hero) {
   if (!hero?.skills) return;
+  const attrId = attrPassiveSkillId(hero.statsId);
   for (const sk of hero.skills) {
     const lv = getSkillLevel(hero, sk.id);
     sk.level = lv;
+    if (attrId && sk.id === attrId) {
+      const base = hero.basePassiveBoost || hero.passiveBoost || {};
+      const boosted = scaledPassiveBoost(base, lv);
+      sk.nums = formatBoostNums(boosted);
+      sk.desc = `被动属性强化，随技能等级提升。当前：${sk.nums}。`;
+      continue;
+    }
     const { nums, desc } = skillNumsAndDesc(sk.id, lv);
-    if (sk.id === "boost" || sk.id === "pink_focus" || sk.id === "green_life") continue;
     sk.nums = nums;
     sk.desc = desc;
   }
 }
 
-/** 消耗 1 技能点升级主动技能 */
+/** 消耗 1 技能点升级技能（主动 / 被动均可） */
 export function upgradeSkill(hero, skillId) {
   if (!hero || !skillId) return false;
   if ((hero.skillPoints || 0) < 1) return false;
   const sk = hero.skills?.find((s) => s.id === skillId);
-  if (!sk || sk.kind !== "active") return false;
+  if (!sk) return false;
   const lv = getSkillLevel(hero, skillId);
   if (lv >= MAX_SKILL_LEVEL) return false;
 

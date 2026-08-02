@@ -47,6 +47,8 @@ export {
   refreshSkillTexts,
   upgradeSkill,
   createHeroSkills,
+  attrPassiveSkillId,
+  scaledPassiveBoost,
 } from "./skills.js";
 export {
   gainExp,

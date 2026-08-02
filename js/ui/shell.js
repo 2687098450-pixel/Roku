@@ -672,7 +672,7 @@ export function createUI(ctx) {
           ${i + 1}.${sk ? sk.name : "?"}
         </button>`;
       })
-      .join('<span class="auto-arrow">→</span>');
+      .join("");
 
     const slots = hero.autoRotation
       .map((sid, i) => {
@@ -914,28 +914,23 @@ export function createUI(ctx) {
     $("skillList").innerHTML = hero.skills
       .map((s) => {
         const lv = getSkillLevel(hero, s.id);
-        const canUp =
-          s.kind === "active" && points > 0 && lv < MAX_SKILL_LEVEL;
+        const canUp = points > 0 && lv < MAX_SKILL_LEVEL;
         const typeLine =
           s.kind === "passive"
             ? "被动"
             : `${skillKindLabel(s)}${s.style ? ` · ${styleTag(s.style)}` : ""}`;
-        const upBtn =
-          s.kind === "active"
-            ? `<button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
-                lv >= MAX_SKILL_LEVEL ? "满" : "+"
-              }</button>`
-            : `<span class="skill-up-spacer" aria-hidden="true"></span>`;
         return `<li class="skill-item" data-skill="${s.id}">
           <button type="button" class="skill-row skill-open" data-skill="${s.id}">
             <div class="skill-ico ${skillIcoClass(s)}">${skillFace(s)}</div>
             <div class="skill-meta">
-              <div class="sname">${s.name}</div>
-              <div class="stype">${typeLine}</div>
-              <div class="slv">等级 ${lv}</div>
+              <span class="sname">${s.name}</span>
+              <span class="stype">${typeLine}</span>
+              <span class="slv">等级 ${lv}</span>
             </div>
           </button>
-          ${upBtn}
+          <button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
+            lv >= MAX_SKILL_LEVEL ? "满" : "+"
+          }</button>
         </li>`;
       })
       .join("");
@@ -947,6 +942,7 @@ export function createUI(ctx) {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (upgradeSkill(hero, btn.dataset.skill)) {
+          refreshHeroStats(hero);
           openDetail(hero.id);
           refreshExploreHud();
           const modal = $("skillDetailModal");
@@ -970,8 +966,7 @@ export function createUI(ctx) {
 
     const lv = getSkillLevel(hero, skill.id);
     const points = hero.skillPoints ?? 0;
-    const canUp =
-      skill.kind === "active" && points > 0 && lv < MAX_SKILL_LEVEL;
+    const canUp = points > 0 && lv < MAX_SKILL_LEVEL;
     const typeLine =
       skill.kind === "passive"
         ? "被动技能"
@@ -984,25 +979,22 @@ export function createUI(ctx) {
         <div class="skill-detail-meta">
           <div class="skill-detail-name">${skill.name}</div>
           <div class="skill-detail-type">${typeLine}</div>
-          <div class="skill-detail-lv">等级 ${lv}${skill.kind === "active" ? ` / ${MAX_SKILL_LEVEL}` : ""}</div>
+          <div class="skill-detail-lv">等级 ${lv} / ${MAX_SKILL_LEVEL}</div>
         </div>
       </div>
       ${skill.nums ? `<div class="skill-detail-nums">${skill.nums}</div>` : ""}
       <p class="skill-detail-desc">${skill.desc || "暂无说明。"}</p>
-      ${
-        skill.kind === "active"
-          ? `<div class="skill-detail-actions">
-              <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
-                ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
-              </button>
-            </div>`
-          : ""
-      }`;
+      <div class="skill-detail-actions">
+        <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
+          ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
+        </button>
+      </div>`;
 
     const up = body.querySelector("#btnSkillDetailUp");
     if (up) {
       up.onclick = () => {
         if (upgradeSkill(hero, skill.id)) {
+          refreshHeroStats(hero);
           openDetail(hero.id);
           openSkillDetail(hero.id, skill.id);
           refreshExploreHud();
