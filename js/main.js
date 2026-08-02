@@ -1,0 +1,513 @@
+import { $ } from "./core/utils.js";
+import {
+  canWalk,
+  isExitCell,
+  drawMap,
+  computeCamera,
+  screenToTile,
+  VIEW_COLS,
+} from "./map/island15.js";
+import { buildFloor } from "./map/dungeon.js";
+import { MAX_FLOOR } from "./map/floors.js";
+import {
+  createOmniHero,
+  createPinkHero,
+  createGreenHero,
+  getDeployedHeroes,
+  normalizeFormation,
+  FORMATION_SLOTS,
+  diamondDims,
+  makeItem,
+  toBagEquip,
+} from "./characters/omni/index.js";
+import { getSavedFormation } from "./characters/stats.js";
+import { moveSlimeOnce } from "./monsters/slime.js";
+import { createBattleApi } from "./battle/system.js";
+import { createUI } from "./ui/shell.js";
+
+const canvas = $("map");
+const ctx = canvas.getContext("2d");
+
+/** 相机跟随速度（越大越快贴上） */
+const CAM_SMOOTH = 10;
+/** 走一格动画时长（秒） */
+const STEP_DUR = 0.16;
+
+const omni = createOmniHero();
+const pink = createPinkHero();
+const green = createGreenHero();
+
+function defaultFormation() {
+  return [omni.id, null, null, pink.id, green.id, null];
+}
+
+function restoreFormation(party) {
+  const saved = getSavedFormation();
+  if (!saved) return defaultFormation();
+  const next = saved.map((statsId) => {
+    if (!statsId) return null;
+    const hero = party.find((h) => h.statsId === statsId);
+    return hero ? hero.id : null;
+  });
+  while (next.length < FORMATION_SLOTS) next.push(null);
+  const stateLike = { formation: next.slice(0, FORMATION_SLOTS), party };
+  normalizeFormation(stateLike, FORMATION_SLOTS);
+  if (!getDeployedHeroes(stateLike).length) return defaultFormation();
+  return stateLike.formation;
+}
+
+function markVisited(state, floorNum) {
+  if (!Array.isArray(state.visitedFloors)) state.visitedFloors = [];
+  const f = Math.max(1, Math.min(MAX_FLOOR, Number(floorNum) || 1));
+  if (!state.visitedFloors.includes(f)) {
+    state.visitedFloors.push(f);
+    state.visitedFloors.sort((a, b) => a - b);
+  }
+}
+
+/** 进入 / 传送到某层：重建地图与怪物（传送会刷新本层怪物） */
+function applyFloor(state, floorNum) {
+  const built = buildFloor(floorNum);
+  state.map = built.map;
+  state.monsters = built.monsters;
+  state.monsterTotal = built.monsters.length;
+  state.floor = built.floor;
+  state.floorScale = built.scale;
+  state.placeName = built.name;
+  state.placeFloor = `${built.floor}层`;
+  state.playerPos = { ...built.map.spawn };
+  state.displayPos = { ...built.map.spawn };
+  state.camReady = false;
+  state.moving = false;
+  state.step = null;
+  markVisited(state, built.floor);
+}
+
+const state = {
+  mode: "explore",
+  floor: 1,
+  floorScale: 1,
+  map: null,
+  playerPos: null,
+  displayPos: null,
+  party: [omni, pink, green],
+  formation: restoreFormation([omni, pink, green]),
+  inventory: [
+    { id: "potion_hp", name: "小红药", kind: "consumable", qty: 3, tint: "#ff8a9a" },
+    { id: "potion_mp", name: "小蓝药", kind: "consumable", qty: 2, tint: "#7ec8ff" },
+    { id: "cake", name: "奶油蛋糕", kind: "consumable", qty: 1, tint: "#ffe0a0" },
+    { id: "seed", name: "阳光种子", kind: "material", qty: 5, tint: "#9ad66a" },
+    {
+      id: "warp_refresh_orb",
+      name: "传送刷新球",
+      kind: "tool",
+      useId: "warp_refresh",
+      qty: 1,
+      tint: "#c4a0ff",
+      desc: "传送到已到过的任意楼层，并刷新该层全部怪物。从高层回到低层后，仍可再传回高层。",
+    },
+    toBagEquip(makeItem("短剑", "weapon", { atk: 4 }, { id: "sword_bag", rarity: "blue", icon: "sword.png", kind: "剑", level: 10 })),
+    toBagEquip(makeItem("木戒", "ringL", { atk: 1 }, { id: "ring_bag", rarity: "purple", icon: "ring.png", level: 5 })),
+    toBagEquip(makeItem("木盾", "shield", { def: 2 }, { id: "wood_shield_bag", rarity: "orange", icon: "wood_shield.png", level: 8 })),
+  ],
+  visitedFloors: [1],
+  monsters: [],
+  monsterTotal: 0,
+  gold: 120,
+  gem: 15,
+  placeName: "阳光海岛",
+  placeFloor: "1层",
+  battle: null,
+  moving: false,
+  step: null,
+  tile: 64,
+  viewW: 0,
+  viewH: 0,
+  camX: 0,
+  camY: 0,
+  camReady: false,
+  cam: { camX: 0, camY: 0, viewW: 0, viewH: 0 },
+  time: 0,
+};
+
+applyFloor(state, 1);
+
+let toastTimer = 0;
+
+function showToast(msg, ms = 2600) {
+  const el = $("lootToast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), ms);
+}
+
+function isLiving(h) {
+  return h && !h.dead && h.hp > 0;
+}
+
+function getHero() {
+  return (
+    getDeployedHeroes(state).find(isLiving) ||
+    state.party.find(isLiving) ||
+    state.party[0]
+  );
+}
+
+function getDeployed() {
+  return getDeployedHeroes(state).filter(isLiving);
+}
+
+function setMode(mode) {
+  state.mode = mode;
+}
+
+function showExplore() {
+  $("explore").classList.remove("hidden");
+  ui.refreshExploreHud();
+  state.camReady = false;
+  resize();
+}
+
+function hideExplore() {
+  $("explore").classList.add("hidden");
+  ui.closeModals();
+}
+
+function sameTile(a, b) {
+  return a.x === b.x && a.y === b.y;
+}
+
+function resetMonsterAway(m) {
+  m.x = m.from.x;
+  m.y = m.from.y;
+  m.dir = 1;
+  if (sameTile(state.playerPos, m)) {
+    m.x = m.to.x;
+    m.y = m.to.y;
+    m.dir = -1;
+  }
+}
+
+function easeOutCubic(t) {
+  return 1 - (1 - t) ** 3;
+}
+
+function goNextFloor() {
+  if (state.floor >= MAX_FLOOR) {
+    showToast("已通关全部 10 层！出口暂时关闭。", 3200);
+    return;
+  }
+  const next = state.floor + 1;
+  applyFloor(state, next);
+  showToast(`进入 ${state.placeName}（${state.placeFloor}）`, 2400);
+  ui.refreshExploreHud();
+  resize();
+}
+
+/** 传送刷新球：跳到已访问层并重建怪物 */
+function warpToFloor(floorNum) {
+  const f = Math.max(1, Math.min(MAX_FLOOR, Number(floorNum) || 1));
+  if (!state.visitedFloors?.includes(f)) {
+    showToast("尚未到达过该层", 2200);
+    return false;
+  }
+  applyFloor(state, f);
+  showToast(`传送至 ${state.placeName}（${f}层），怪物已刷新`, 2800);
+  ui.refreshExploreHud();
+  resize();
+  return true;
+}
+
+const battle = createBattleApi({
+  getState: () => state,
+  setMode,
+  getHero,
+  getDeployed,
+  showExplore,
+  hideExplore,
+  onBattleEnd(result, monsters, loot, reward) {
+    const pack = Array.isArray(monsters) ? monsters : monsters ? [monsters] : [];
+    if (result === "blocked") {
+      showToast("没有可出战的英雄，请在阵容中单独复活", 2800);
+      return;
+    }
+    if (result === "win") {
+      const parts = [];
+      if (reward?.share > 0) parts.push(`经验 +${reward.share}`);
+      if (reward?.gold > 0) parts.push(`金币 +${reward.gold}`);
+      if (reward?.gems > 0) parts.push(`钻石 +${reward.gems}`);
+      if (reward?.levelUps?.length) {
+        parts.push(
+          reward.levelUps.map((u) => `${u.name}升至${u.to}级`).join("、")
+        );
+      }
+      if (loot?.length) {
+        parts.push(`装备：${loot.map((it) => it.name).join("、")}`);
+      }
+      const deadNames = state.party.filter((h) => h.dead).map((h) => h.name);
+      if (deadNames.length) parts.push(`${deadNames.join("、")}阵亡`);
+      if (parts.length) showToast(parts.join(" · "), 3600);
+      ui.refreshExploreHud();
+      return;
+    }
+    if (result === "lose") {
+      showToast("全员阵亡！可在阵容或角色详情中单独复活英雄", 3200);
+      ui.refreshExploreHud();
+    }
+    if (!pack.length) return;
+    if (result === "flee" || result === "lose") {
+      for (const monster of pack) {
+        if (result === "lose") {
+          monster.x = monster.to.x;
+          monster.y = monster.to.y;
+          monster.dir = -1;
+        } else {
+          resetMonsterAway(monster);
+        }
+      }
+    }
+  },
+});
+
+const ui = createUI({
+  getState: () => state,
+  setMode,
+  canOpenParty: () => state.mode === "explore" || state.mode === "menu" || state.mode === "detail",
+  onWarpFloor: warpToFloor,
+});
+
+function resize() {
+  const wrap = $("mapWrap");
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  state.viewW = w;
+  state.viewH = h;
+  state.tile = Math.max(24, w / VIEW_COLS);
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const target = computeCamera(state.map, state.displayPos, state.tile, w, h);
+  if (!state.camReady) {
+    state.camX = target.camX;
+    state.camY = target.camY;
+    state.camReady = true;
+  }
+  state.cam = { camX: state.camX, camY: state.camY, viewW: w, viewH: h };
+}
+
+function updateCamera(dt) {
+  const target = computeCamera(
+    state.map,
+    state.displayPos,
+    state.tile,
+    state.viewW,
+    state.viewH
+  );
+  const k = 1 - Math.exp(-CAM_SMOOTH * dt);
+  state.camX += (target.camX - state.camX) * k;
+  state.camY += (target.camY - state.camY) * k;
+  state.cam = {
+    camX: state.camX,
+    camY: state.camY,
+    viewW: state.viewW,
+    viewH: state.viewH,
+  };
+}
+
+function draw() {
+  const leader = getHero();
+  const form = diamondDims(leader, 1, state.party);
+  drawMap(
+    ctx,
+    state.map,
+    {
+      tile: state.tile,
+      time: state.time,
+      playerPos: state.displayPos,
+      logicPos: state.playerPos,
+      playerColor: leader.color,
+      playerAspect: form.aspect,
+      playerScale: form.h / 40,
+      ...state.cam,
+    },
+    { monsters: state.monsters, exitOpen: !bossAlive() }
+  );
+}
+
+function monsterAtPlayer() {
+  return state.monsters.find((m) => sameTile(state.playerPos, m)) || null;
+}
+
+function tryEnterBattle() {
+  const hit = monsterAtPlayer();
+  if (hit) {
+    battle.enter(hit);
+    return true;
+  }
+  return false;
+}
+
+function bossAlive() {
+  return state.monsters.some((m) => m.isBoss);
+}
+
+/** Boss 未死时出口不可走；死后才能踩上 */
+function canPlayerWalk(x, y) {
+  if (canWalk(state.map, x, y)) return true;
+  if (isExitCell(state.map, x, y) && !bossAlive()) return true;
+  return false;
+}
+
+function tryEnterExit() {
+  if (!isExitCell(state.map, state.playerPos.x, state.playerPos.y)) return false;
+  if (bossAlive()) return false;
+  goNextFloor();
+  return true;
+}
+
+function finishStep() {
+  if (tryEnterBattle()) {
+    state.moving = false;
+    return;
+  }
+
+  for (const m of state.monsters) {
+    moveSlimeOnce(m, state.map);
+  }
+
+  if (tryEnterBattle()) {
+    state.moving = false;
+    return;
+  }
+
+  if (tryEnterExit()) {
+    state.moving = false;
+    return;
+  }
+
+  state.moving = false;
+}
+
+function updateStep(dt) {
+  const step = state.step;
+  if (!step) return;
+  step.t += dt;
+  const u = Math.min(1, step.t / step.dur);
+  const e = easeOutCubic(u);
+  state.displayPos.x = step.fromX + (step.toX - step.fromX) * e;
+  state.displayPos.y = step.fromY + (step.toY - step.fromY) * e;
+  if (u < 1) return;
+
+  state.displayPos.x = step.toX;
+  state.displayPos.y = step.toY;
+  state.playerPos.x = step.toX;
+  state.playerPos.y = step.toY;
+  state.step = null;
+  finishStep();
+}
+
+function movePlayer(dx, dy) {
+  if (state.mode !== "explore" || state.moving || state.step) return;
+  if (!state.party.some(isLiving)) {
+    showToast("没有存活英雄，请打开角色详情花费金币复活", 2800);
+    return;
+  }
+  const nx = state.playerPos.x + dx;
+  const ny = state.playerPos.y + dy;
+  if (!canPlayerWalk(nx, ny)) return;
+
+  state.moving = true;
+  state.step = {
+    fromX: state.displayPos.x,
+    fromY: state.displayPos.y,
+    toX: nx,
+    toY: ny,
+    t: 0,
+    dur: STEP_DUR,
+  };
+  state.playerPos.x = nx;
+  state.playerPos.y = ny;
+}
+
+function bindExplore() {
+  canvas.addEventListener("pointerdown", (e) => {
+    if (state.mode !== "explore") return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = state.viewW / rect.width;
+    const scaleY = state.viewH / rect.height;
+    const localX = (e.clientX - rect.left) * scaleX;
+    const localY = (e.clientY - rect.top) * scaleY;
+    const { x, y } = screenToTile(state.cam, state.tile, localX, localY);
+    const dx = x - state.playerPos.x;
+    const dy = y - state.playerPos.y;
+    if (Math.abs(dx) + Math.abs(dy) === 1) movePlayer(dx, dy);
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const warp = $("warpModal");
+      if (warp && !warp.classList.contains("hidden")) {
+        warp.querySelector("#closeWarp")?.click();
+        return;
+      }
+      const bagSell = $("bagSellModal");
+      if (bagSell && !bagSell.classList.contains("hidden")) {
+        bagSell.querySelector("#closeBagSell")?.click();
+        return;
+      }
+      const equipPick = $("equipPickModal");
+      if (equipPick && !equipPick.classList.contains("hidden")) {
+        equipPick.querySelector("#closeEquipPick")?.click();
+        return;
+      }
+      const equipPrev = $("equipPreviewModal");
+      if (equipPrev && !equipPrev.classList.contains("hidden")) {
+        equipPrev.querySelector("#closeEquipPreview")?.click();
+        return;
+      }
+      const pick = $("skillPickModal");
+      if (pick && !pick.classList.contains("hidden")) {
+        pick.querySelector("#closeSkillPick")?.click();
+        return;
+      }
+      if (state.mode === "detail" || state.mode === "menu") ui.closeModals();
+      return;
+    }
+    if (state.mode !== "explore") return;
+    const key = e.key.toLowerCase();
+    if (key === "arrowup" || key === "w") movePlayer(0, -1);
+    else if (key === "arrowdown" || key === "s") movePlayer(0, 1);
+    else if (key === "arrowleft" || key === "a") movePlayer(-1, 0);
+    else if (key === "arrowright" || key === "d") movePlayer(1, 0);
+  });
+
+  window.addEventListener("resize", resize);
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  state.time += dt;
+  if (state.mode === "explore") {
+    updateStep(dt);
+    updateCamera(dt);
+    draw();
+  } else if (state.mode === "battle") {
+    battle.tick(dt);
+  }
+  requestAnimationFrame(frame);
+}
+
+ui.bind();
+bindExplore();
+battle.bind();
+resize();
+ui.refreshExploreHud();
+showToast("出口在蓝色楼梯处，紫色 Boss 守关。击败后可前进。", 3600);
+requestAnimationFrame(frame);

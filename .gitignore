@@ -1,0 +1,5 @@
+.DS_Store
+.tools/
+*.tgz
+.cursor/
+agent-transcripts/

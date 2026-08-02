@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#fff4e0" />
+  <title>魔窟 · 探索</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 探索界面：全屏地图 + 叠层 HUD -->
+    <section id="explore" class="scene explore-scene">
+      <div id="mapWrap" class="explore-map">
+        <canvas id="map"></canvas>
+      </div>
+
+      <header class="explore-top" aria-label="状态栏">
+        <div class="top-res">
+          <span class="top-chip gold"><i></i><b id="resGold">0</b></span>
+          <span class="top-chip gem"><i></i><b id="resGem">0</b></span>
+        </div>
+        <div class="top-place">
+          <strong id="placeName">阳光海岛</strong>
+          <span id="placeFloor">1层</span>
+        </div>
+        <div class="top-mobs" title="剩余怪物 / 本层怪物">
+          <i class="mob-ico"></i>
+          <b id="mobCount">0/0</b>
+        </div>
+      </header>
+
+      <aside id="partyStrip" class="party-strip" aria-label="队伍状态"></aside>
+
+      <nav class="explore-menu" aria-label="功能入口">
+        <button type="button" id="btnFormation" class="menu-fab" title="战斗阵容">
+          <i class="ico-form"></i>
+          <span>阵容</span>
+        </button>
+        <button type="button" id="btnBag" class="menu-fab" title="背包">
+          <i class="ico-bag"></i>
+          <span>背包</span>
+        </button>
+      </nav>
+
+      <div id="lootToast" class="loot-toast hidden" role="status" aria-live="polite"></div>
+    </section>
+
+    <!-- 战斗界面：场地站位 + 底部技能 -->
+    <section id="battle" class="scene battle-scene hidden">
+      <div class="battle-arena" id="battleField">
+        <button type="button" id="btnAuto" class="arena-fab left" aria-pressed="false">自动</button>
+        <button type="button" id="btnFlee" class="arena-fab right">逃跑</button>
+        <div class="arena-enemies arena-enemy-back" id="enemyBack"></div>
+        <div class="arena-enemies arena-enemy-mid" id="enemyMid"></div>
+        <div class="arena-enemies arena-enemy-front" id="enemyFront"></div>
+        <div class="arena-ally-front" id="allyFront"></div>
+        <div class="arena-ally-back" id="allyBack"></div>
+        <div id="fxLayer" class="fx-layer"></div>
+      </div>
+      <footer class="battle-hud" id="battleActions" aria-label="技能"></footer>
+    </section>
+
+    <!-- 角色详情（对照参考：上立绘|装备，中页签，下属性|内容） -->
+    <div id="detailModal" class="modal hidden">
+      <div class="hero-sheet">
+        <button type="button" class="hero-nav prev" id="detailPrev" title="上一个角色" aria-label="上一个角色">‹</button>
+        <button type="button" class="hero-nav next" id="detailNext" title="下一个角色" aria-label="下一个角色">›</button>
+        <div class="modal-card hero-card">
+        <div class="modal-head">
+          <h2>英雄详情</h2>
+          <button type="button" class="icon-close" id="closeDetail">×</button>
+        </div>
+
+        <div class="hero-top">
+          <section class="hero-identity">
+            <div class="hero-visual">
+              <div class="hero-side">
+                <div id="detailNameV" class="hero-name-v">小全能</div>
+                <span id="detailDeploy" class="hero-tag">已上阵</span>
+              </div>
+              <div class="hero-portrait">
+                <div id="detailShape" class="preview-shape diamond" style="--c:#3cb86a"></div>
+              </div>
+            </div>
+            <div id="detailLevel" class="hero-level">等级 1</div>
+            <button type="button" class="revive-btn hidden" id="btnRevive">复活</button>
+            <div class="hero-bars">
+              <div class="bar-track exp" title="经验">
+                <i id="detailExpFill"></i>
+                <b id="detailExpText">0/0</b>
+              </div>
+              <div class="bar-track hp" title="生命">
+                <i id="detailHpFill"></i>
+                <b id="detailHpText">0/0</b>
+              </div>
+              <div class="bar-track mp" title="魔力">
+                <i id="detailMpFill"></i>
+                <b id="detailMpText">0/0</b>
+              </div>
+            </div>
+          </section>
+
+          <section class="hero-equip">
+            <div class="equip-board" id="equipBoard">
+              <div class="slot" data-slot="helmet"><img class="slot-ico" alt="" /><span class="slot-label">头盔</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="necklace"><img class="slot-ico" alt="" /><span class="slot-label">项链</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="armor"><img class="slot-ico" alt="" /><span class="slot-label">衣服</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="shoes"><img class="slot-ico" alt="" /><span class="slot-label">鞋子</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="ringL"><img class="slot-ico" alt="" /><span class="slot-label">戒指</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="ringR"><img class="slot-ico" alt="" /><span class="slot-label">戒指</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="weapon"><img class="slot-ico" alt="" /><span class="slot-label">武器</span><em class="slot-lv" hidden></em></div>
+              <div class="slot" data-slot="shield"><img class="slot-ico" alt="" /><span class="slot-label">盾牌</span><em class="slot-lv" hidden></em></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="hero-tabs" role="tablist">
+          <button type="button" class="hero-tab" data-tab="info">属性</button>
+          <button type="button" class="hero-tab" data-tab="auto">自动战斗设置</button>
+          <button type="button" class="hero-tab on" data-tab="skills">技能</button>
+        </div>
+
+        <div class="hero-bottom">
+          <section class="hero-stats">
+            <div id="detailPower" class="hero-power">战力 0</div>
+            <ul id="statList" class="stat-list"></ul>
+          </section>
+          <section class="hero-panel">
+            <div class="hero-tab-body">
+              <div class="tab-pane" data-pane="info">
+                <p id="detailDesc" class="preview-desc"></p>
+              </div>
+              <div class="tab-pane" data-pane="auto">
+                <p class="auto-hint">点击某一招，打开技能详情并选择</p>
+                <div id="autoSlots" class="auto-slots"></div>
+              </div>
+              <div class="tab-pane on" data-pane="skills">
+                <div class="skill-points-bar">
+                  <span>技能点</span>
+                  <b id="detailSkillPoints">0</b>
+                  <i>升级主动技能消耗 1 点</i>
+                </div>
+                <ul id="skillList" class="skill-list"></ul>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- 自动战斗：选择技能 -->
+    <div id="skillPickModal" class="modal nested hidden">
+      <div class="modal-card skill-pick-card">
+        <div class="modal-head">
+          <h2 id="skillPickTitle">选择技能</h2>
+          <button type="button" class="icon-close" id="closeSkillPick">×</button>
+        </div>
+        <p id="skillPickSub" class="skill-pick-sub"></p>
+        <div id="skillPickList" class="skill-pick-list"></div>
+      </div>
+    </div>
+
+    <!-- 装备属性预览：卸下在信息区右侧，更换/出售在底部 -->
+    <div id="equipPreviewModal" class="modal nested hidden">
+      <div class="modal-card equip-preview-card">
+        <div class="modal-head">
+          <h2 id="equipPreviewTitle">装备</h2>
+          <button type="button" class="icon-close" id="closeEquipPreview">×</button>
+        </div>
+        <div id="equipPreviewBody" class="equip-preview-body"></div>
+        <div class="equip-preview-actions">
+          <button type="button" class="equip-btn upgrade" id="btnUpgradeEquip" hidden>升级</button>
+          <button type="button" class="equip-btn sell-one" id="btnSellOne" hidden>出售</button>
+          <button type="button" class="equip-btn replace" id="btnReplace">更换</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 更换装备：可选列表 -->
+    <div id="equipPickModal" class="modal nested hidden">
+      <div class="modal-card equip-pick-card">
+        <div class="modal-head">
+          <h2 id="equipPickTitle">选择装备</h2>
+          <button type="button" class="icon-close" id="closeEquipPick">×</button>
+        </div>
+        <p id="equipPickSub" class="equip-pick-sub"></p>
+        <div id="equipPickList" class="equip-pick-list"></div>
+      </div>
+    </div>
+
+    <!-- 背包 -->
+    <div id="bagModal" class="modal hidden">
+      <div class="modal-card bag-card">
+        <div class="modal-head">
+          <h2>背包</h2>
+          <button type="button" class="icon-close" id="closeBag">×</button>
+        </div>
+        <div id="bagGrid" class="bag-grid" aria-label="物品栏"></div>
+        <div class="bag-actions">
+          <button type="button" class="bag-btn sort" disabled>整理</button>
+          <button type="button" class="bag-btn sell" id="btnBagSell">批量出售</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 传送刷新球：选择已访问楼层 -->
+    <div id="warpModal" class="modal nested hidden">
+      <div class="modal-card warp-card">
+        <div class="modal-head">
+          <h2>传送刷新球</h2>
+          <button type="button" class="icon-close" id="closeWarp">×</button>
+        </div>
+        <p class="warp-hint">选择已到过的楼层。传送后刷新该层全部怪物；高层记录保留，可再传回去。</p>
+        <div id="warpFloorList" class="warp-floor-list" role="list"></div>
+      </div>
+    </div>
+
+    <!-- 按品质批量出售背包装备 -->
+    <div id="bagSellModal" class="modal nested hidden">
+      <div class="modal-card bag-sell-card">
+        <div class="modal-head">
+          <h2>批量出售</h2>
+          <button type="button" class="icon-close" id="closeBagSell">×</button>
+        </div>
+        <p class="bag-sell-hint">选择品质，出售背包里该品质的全部装备（不影响角色已穿戴）。</p>
+        <div id="bagSellRarities" class="bag-sell-rarities" role="group" aria-label="品质"></div>
+        <div id="bagSellSummary" class="bag-sell-summary">请选择一种品质</div>
+        <button type="button" class="bag-btn sell confirm" id="btnConfirmSell" disabled>确认出售</button>
+      </div>
+    </div>
+
+    <!-- 阵容设置 -->
+    <div id="formationModal" class="modal hidden">
+      <div class="modal-card form-card">
+        <div class="modal-head">
+          <h2>战斗阵容</h2>
+          <button type="button" class="icon-close" id="closeFormation">×</button>
+        </div>
+        <div class="form-summary">
+          <span>当前上阵</span>
+          <b>总战力 <i id="formPower">0</i></b>
+          <b>总幸运 <i id="formLuck">0</i></b>
+        </div>
+        <p class="form-hint">拖拽调整战斗站位 · 上排前排（靠近敌人）· 下排后排 · 点 × 下阵</p>
+        <div class="form-board-wrap">
+          <div class="form-row-tag front">前排</div>
+          <div class="form-row-tag back">后排</div>
+          <div id="formBoard" class="form-board" aria-label="战斗站位"></div>
+        </div>
+        <div id="formPool" class="form-pool" aria-label="拥有角色"></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
