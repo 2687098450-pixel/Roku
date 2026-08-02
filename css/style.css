@@ -1796,11 +1796,31 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   position: absolute;
   inset: 0;
   overflow: auto;
-  padding-bottom: 12px;
+  padding: 0 4px 10px 0;
+  border-radius: 8px;
   -webkit-overflow-scrolling: touch;
 }
 
 .tab-pane.on { display: block; }
+
+/* 技能页：顶栏固定，列表内滚动，避免滚动条顶穿外层圆角 */
+.tab-pane[data-pane="skills"].on {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 4px;
+}
+.tab-pane[data-pane="skills"] .skill-points-bar {
+  flex: 0 0 auto;
+}
+.tab-pane[data-pane="skills"] .skill-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
+}
 
 .auto-hint {
   margin: 0 0 8px;
@@ -2269,12 +2289,6 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-points-bar b {
   color: #e08920;
   font-size: 18px;
-}
-.skill-points-bar i {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  opacity: 0.55;
 }
 .skill-list .snums {
   margin-top: 2px;
