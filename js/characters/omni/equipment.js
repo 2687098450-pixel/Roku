@@ -76,8 +76,9 @@ const SKILL_AFFIX_POOL = [
   { id: "heal2", skillMods: { healMult: 0.25 }, text: "治疗效果 +25%" },
 ];
 
-export const ITEM_ICON_BASE = "assets/items/";
-export const ITEM_ICON_VER = "6";
+/** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
+export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
+export const ITEM_ICON_VER = "7";
 
 export function slotTitle(slotKey) {
   return `装备-${SLOT_LABEL[slotKey] || "部位"}`;
@@ -553,11 +554,17 @@ export function sumSkillMods(equip = {}) {
 
 export function itemIconUrl(item, opts = {}) {
   if (!item?.icon) return "";
-  let file = item.icon;
-  let url = file;
-  if (!/^https?:\/\//.test(file) && !file.startsWith("/") && !file.startsWith("assets/")) {
-    url = opts.compact ? `${ITEM_ICON_BASE}slot/${file}` : `${ITEM_ICON_BASE}${file}`;
+  const raw = String(item.icon);
+  if (/^https?:\/\//i.test(raw)) {
+    const join = raw.includes("?") ? "&" : "?";
+    return `${raw}${join}v=${ITEM_ICON_VER}`;
   }
+  // 兼容 "hat.png" / "assets/items/hat.png" / "/assets/items/hat.png"
+  let file = raw
+    .replace(/^\/+/, "")
+    .replace(/^assets\/items\//, "");
+  const rel = opts.compact ? `slot/${file}` : file;
+  const url = new URL(rel, ITEM_ICON_BASE).href;
   const join = url.includes("?") ? "&" : "?";
   return `${url}${join}v=${ITEM_ICON_VER}`;
 }

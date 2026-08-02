@@ -856,10 +856,25 @@ export function createUI(ctx) {
       if (ico) {
         const url = item ? itemIconUrl(item) : "";
         if (url) {
+          ico.onload = () => {
+            el.classList.add("has-icon");
+            if (label) label.hidden = true;
+          };
+          ico.onerror = () => {
+            el.classList.remove("has-icon");
+            ico.removeAttribute("src");
+            ico.hidden = true;
+            if (label) {
+              label.hidden = false;
+              label.textContent = item?.name || SLOT_LABEL[key];
+            }
+          };
           ico.src = url;
           ico.alt = item.name;
           ico.hidden = false;
         } else {
+          ico.onload = null;
+          ico.onerror = null;
           ico.removeAttribute("src");
           ico.alt = "";
           ico.hidden = true;

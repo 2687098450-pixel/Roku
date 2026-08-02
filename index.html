@@ -2,6 +2,17 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    /* GitHub Pages 子路径：保证相对资源从 /Roku/ 解析，而不是站点根 */
+    (function () {
+      var p = location.pathname || "/";
+      if (/\.html?$/i.test(p)) p = p.replace(/\/[^/]+$/, "/");
+      else if (!p.endsWith("/")) p += "/";
+      var b = document.createElement("base");
+      b.href = p;
+      document.head.insertBefore(b, document.head.firstChild);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#fff4e0" />
