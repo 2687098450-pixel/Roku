@@ -39,8 +39,8 @@ import {
   reviveCost,
   reviveHero,
   isHeroDead,
-} from "../characters/omni/index.js";
-import { sumEquipBonus } from "../characters/omni/equipment.js";
+} from "../characters/omni/index.js?v=8";
+import { sumEquipBonus } from "../characters/omni/equipment.js?v=8";
 import { setSavedFormation } from "../characters/stats.js";
 
 const BAG_SLOTS = 48;
@@ -417,7 +417,7 @@ export function createUI(ctx) {
     const affixMax = affixCountForRarity(item.rarity);
     const icon = itemIconUrl(item);
     const iconHtml = icon
-      ? `<img src="${icon}" alt="${item.name}" />`
+      ? `<img src="${icon}" alt="${item.name}" decoding="async" loading="eager" />`
       : `<span class="ico-fallback">${info.label}</span>`;
     const kindTag =
       item.kind && item.kind !== "equip"
@@ -593,7 +593,7 @@ export function createUI(ctx) {
           const info = rarityInfo(it.rarity);
           const icon = itemIconUrl(it);
           const iconHtml = icon
-            ? `<img src="${icon}" alt="${it.name}" />`
+            ? `<img src="${icon}" alt="${it.name}" decoding="async" loading="lazy" />`
             : `<span class="ico-fallback">${info.label}</span>`;
           return `<button type="button" class="equip-pick-item" data-inv="${index}">
             <div class="equip-pick-top">
@@ -856,19 +856,30 @@ export function createUI(ctx) {
       if (ico) {
         const url = item ? itemIconUrl(item) : "";
         if (url) {
+          ico.decoding = "async";
           ico.onload = () => {
             el.classList.add("has-icon");
+            ico.hidden = false;
             if (label) label.hidden = true;
           };
           ico.onerror = () => {
+            // 小图失败时再试原图一次，避免直接空白
+            const full = itemIconUrl(item, { full: true });
+            if (full && ico.dataset.tried !== "full") {
+              ico.dataset.tried = "full";
+              ico.src = full;
+              return;
+            }
             el.classList.remove("has-icon");
             ico.removeAttribute("src");
             ico.hidden = true;
+            delete ico.dataset.tried;
             if (label) {
               label.hidden = false;
               label.textContent = item?.name || SLOT_LABEL[key];
             }
           };
+          delete ico.dataset.tried;
           ico.src = url;
           ico.alt = item.name;
           ico.hidden = false;
@@ -1142,7 +1153,7 @@ export function createUI(ctx) {
           ? `<span class="bag-name">${(it.name || "").slice(0, 4)}</span>`
           : "";
       const icoHtml = icon
-        ? `<img class="bag-ico-img" src="${icon}" alt="${it.name}" />`
+        ? `<img class="bag-ico-img" src="${icon}" alt="${it.name}" decoding="async" loading="lazy" />`
         : `<i class="bag-ico" aria-hidden="true"></i>`;
       const rareMark =
         equip && rarity && rarity !== "white"

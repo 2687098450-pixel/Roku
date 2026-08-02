@@ -11,6 +11,21 @@
       var b = document.createElement("base");
       b.href = p;
       document.head.insertBefore(b, document.head.firstChild);
+      /* 图标地址写在 HTML 里，避免手机缓存旧 JS 仍去拉 1MB 大图 */
+      var VER = "8";
+      window.__ITEM_ICON_VER__ = VER;
+      window.__itemIconUrl = function (item, opts) {
+        if (!item || !item.icon) return "";
+        var raw = String(item.icon);
+        if (/^https?:\/\//i.test(raw)) {
+          return raw + (raw.indexOf("?") >= 0 ? "&" : "?") + "v=" + VER;
+        }
+        var file = raw.replace(/^\/+/, "").replace(/^assets\/items\//, "").replace(/^slot\//, "");
+        var full = opts && (opts.full === true || opts.compact === false);
+        var rel = full ? file : "slot/" + file;
+        var url = new URL("assets/items/" + rel, document.baseURI || p).href;
+        return url + (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + VER;
+      };
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -20,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=8" />
 </head>
 <body>
   <div id="app">
@@ -278,6 +293,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=8"></script>
 </body>
 </html>

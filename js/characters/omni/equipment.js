@@ -78,7 +78,8 @@ const SKILL_AFFIX_POOL = [
 
 /** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
 export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
-export const ITEM_ICON_VER = "7";
+/** 列表/槽位用 slot/ 小图；大图约 1MB，手机易加载失败或极慢 */
+export const ITEM_ICON_VER = "8";
 
 export function slotTitle(slotKey) {
   return `装备-${SLOT_LABEL[slotKey] || "部位"}`;
@@ -553,6 +554,10 @@ export function sumSkillMods(equip = {}) {
 }
 
 export function itemIconUrl(item, opts = {}) {
+  // 优先用 index.html 注入的解析（抗手机模块缓存）
+  if (typeof window !== "undefined" && typeof window.__itemIconUrl === "function") {
+    return window.__itemIconUrl(item, opts);
+  }
   if (!item?.icon) return "";
   const raw = String(item.icon);
   if (/^https?:\/\//i.test(raw)) {
@@ -562,9 +567,18 @@ export function itemIconUrl(item, opts = {}) {
   // 兼容 "hat.png" / "assets/items/hat.png" / "/assets/items/hat.png"
   let file = raw
     .replace(/^\/+/, "")
-    .replace(/^assets\/items\//, "");
-  const rel = opts.compact ? `slot/${file}` : file;
-  const url = new URL(rel, ITEM_ICON_BASE).href;
+    .replace(/^assets\/items\//, "")
+    .replace(/^slot\//, "");
+  // 默认用 96px 小图（slot/）；opts.full 才拉原图
+  const useFull = opts.full === true || opts.compact === false;
+  const rel = useFull ? file : `slot/${file}`;
+  let url;
+  try {
+    url = new URL(rel, ITEM_ICON_BASE).href;
+  } catch {
+    const base = (typeof document !== "undefined" && document.baseURI) || "/";
+    url = new URL(`assets/items/${rel}`, base).href;
+  }
   const join = url.includes("?") ? "&" : "?";
   return `${url}${join}v=${ITEM_ICON_VER}`;
 }

@@ -36,7 +36,7 @@ export {
   MAX_EQUIP_LEVEL,
   UPGRADEABLE_RARITIES,
   rebuildEquipStats,
-} from "./equipment.js";
+} from "./equipment.js?v=8";
 export {
   SKILL_POWER,
   skillPower,
