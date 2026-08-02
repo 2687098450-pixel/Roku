@@ -39,8 +39,8 @@ import {
   reviveCost,
   reviveHero,
   isHeroDead,
-} from "../characters/omni/index.js?v=8";
-import { sumEquipBonus } from "../characters/omni/equipment.js?v=8";
+} from "../characters/omni/index.js";
+import { sumEquipBonus } from "../characters/omni/equipment.js";
 import { setSavedFormation } from "../characters/stats.js";
 
 const BAG_SLOTS = 48;

@@ -16,7 +16,7 @@ import {
   activeSkills,
   diamondStyleAttr,
   sumSkillMods,
-} from "../characters/omni/index.js?v=8";
+} from "../characters/omni/index.js";
 import {
   gainExp,
   splitExp,

@@ -19,11 +19,11 @@ import {
   diamondDims,
   makeItem,
   toBagEquip,
-} from "./characters/omni/index.js?v=8";
+} from "./characters/omni/index.js";
 import { getSavedFormation } from "./characters/stats.js";
 import { moveSlimeOnce } from "./monsters/slime.js";
 import { createBattleApi } from "./battle/system.js";
-import { createUI } from "./ui/shell.js?v=8";
+import { createUI } from "./ui/shell.js";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
