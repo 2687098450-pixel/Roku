@@ -13,4 +13,6 @@ export {
   createPinkSkills,
   createGreenSkills,
   createHeroSkills,
+  attrPassiveSkillId,
+  scaledPassiveBoost,
 } from "../skills.js";
