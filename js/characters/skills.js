@@ -3,6 +3,7 @@
 import { skillPowerText } from "../core/utils.js";
 import { getCharacterStats } from "./stats.js";
 import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js";
+import { heroHasUnique } from "./omni/equipment.js";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -140,6 +141,12 @@ function skillNumsAndDesc(skillId, level = 1) {
       desc: `远程齐射。命中前排所有敌人。伤害：${skillPowerText(s.mult, s.flat)}（再减防御）。`,
     };
   }
+  if (skillId === "pink_burst") {
+    return {
+      nums: skillPowerText(s.mult, s.flat),
+      desc: `远程高伤。优先攻击当前生命最少的敌人。伤害：${skillPowerText(s.mult, s.flat)}（再减防御）。`,
+    };
+  }
   const styleName = s.style === "ranged" ? "远程" : "近战";
   return {
     nums: skillPowerText(s.mult, s.flat),
@@ -197,12 +204,22 @@ export function refreshSkillTexts(hero) {
       const base = hero.basePassiveBoost || hero.passiveBoost || {};
       const boosted = scaledPassiveBoost(base, lv);
       sk.nums = formatBoostNums(boosted);
-      sk.desc = `被动属性强化，随技能等级提升。当前：${sk.nums}。`;
+      if (sk.id === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
+        sk.desc = `被动属性强化。当前：${sk.nums}。灵衡强化：十字格友军共享均衡属性；自身化为灵体（不造成/不受伤害、不可被锁定），震地击眩晕时间减半；友军全部阵亡则战斗失败。`;
+      } else if (sk.id === "green_life" && heroHasUnique(hero, "green_life_flow")) {
+        sk.desc = `被动属性强化。当前：${sk.nums}。生机杖强化：造成治疗时提升友军伤害。`;
+      } else {
+        sk.desc = `被动属性强化，随技能等级提升。当前：${sk.nums}。`;
+      }
       continue;
     }
     const { nums, desc } = skillNumsAndDesc(sk.id, lv);
     sk.nums = nums;
-    sk.desc = desc;
+    if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
+      sk.desc = `${desc} 爆裂枪强化：击杀后再次释放。`;
+    } else {
+      sk.desc = desc;
+    }
   }
 }
 

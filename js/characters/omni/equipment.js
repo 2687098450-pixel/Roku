@@ -123,6 +123,50 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
   return true;
 }
 
+/** 唯一技能强化装：仅对应角色生效；不受「额外技能装」数量限制 */
+export const UNIQUE_SKILL_IDS = {
+  pink_burst_echo: { owner: "pink", skillId: "pink_burst" },
+  omni_balance_spirit: { owner: "omni", skillId: "boost" },
+  green_life_flow: { owner: "green", skillId: "green_life" },
+};
+
+export function isSkillStrengthenGear(item) {
+  return !!(item && (item.uniqueId || item.skillStrengthen));
+}
+
+/** 统计身上普通技能装数量（唯一强化装不计入额外限制） */
+export function countExtraSkillGear(equip = {}) {
+  let n = 0;
+  for (const key of SLOT_KEYS) {
+    const it = equip[key];
+    if (!it) continue;
+    if (isSkillStrengthenGear(it)) continue;
+    if (it.skillMods || it.bossOnly) n += 1;
+  }
+  return n;
+}
+
+export function heroHasUnique(hero, uniqueId) {
+  if (!hero?.equip || !uniqueId) return false;
+  const meta = UNIQUE_SKILL_IDS[uniqueId];
+  if (meta && hero.statsId !== meta.owner) return false;
+  for (const key of SLOT_KEYS) {
+    const it = hero.equip[key];
+    if (it?.uniqueId === uniqueId) return true;
+  }
+  return false;
+}
+
+export function makeUniqueAffix(uniqueId, text) {
+  return {
+    type: "unique",
+    id: uniqueId,
+    uniqueId,
+    text: text || "唯一词条",
+    label: "唯一",
+  };
+}
+
 /** 品质高→低，同品质等级高→低（用于背包整理 / 更换列表） */
 export function compareEquipByRarityLevel(a, b) {
   const ra = rarityInfo(a?.rarity).rank;
@@ -574,6 +618,14 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
     skillMods,
     bossOnly: !!extra.bossOnly,
   };
+  if (extra.uniqueId) {
+    item.uniqueId = extra.uniqueId;
+    item.skillStrengthen = true;
+    item.skillOwner = extra.skillOwner || UNIQUE_SKILL_IDS[extra.uniqueId]?.owner || "";
+  } else if (extra.skillStrengthen) {
+    item.skillStrengthen = true;
+    if (extra.skillOwner) item.skillOwner = extra.skillOwner;
+  }
   if (extra.price != null) item.price = extra.price;
   return item;
 }

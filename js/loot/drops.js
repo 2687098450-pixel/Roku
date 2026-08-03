@@ -7,6 +7,7 @@ import {
   normalizeRarity,
   floorItemLevel,
   affixCountForRarity,
+  makeUniqueAffix,
 } from "../characters/omni/equipment.js";
 import { getFloorDef } from "../map/floors.js";
 
@@ -26,6 +27,43 @@ const NORMAL_POOL = [
  * 各层 Boss 专属掉落（技能装）
  * 每层独立池：打哪个关口，掉哪套主题装备
  */
+/** 3/5/6 层必掉的唯一红装（强化指定技能；仅对应角色生效） */
+export const UNIQUE_BOSS_BY_FLOOR = {
+  3: {
+    name: "冠廊爆裂枪",
+    slot: "weapon",
+    base: { atk: 8, spd: 2 },
+    icon: "pistol.png",
+    kind: "手枪",
+    uniqueId: "pink_burst_echo",
+    skillOwner: "pink",
+    uniqueText: "强化爆裂矢：击杀后再次释放",
+    desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
+  },
+  5: {
+    name: "雾林灵衡坠",
+    slot: "necklace",
+    base: { hp: 28, def: 2 },
+    icon: "pendant.png",
+    kind: "Boss",
+    uniqueId: "omni_balance_spirit",
+    skillOwner: "omni",
+    uniqueText: "强化均衡：十字共享·灵体化",
+    desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
+  },
+  6: {
+    name: "环礁生机杖",
+    slot: "weapon",
+    base: { atk: 4, hp: 26 },
+    icon: "staff.png",
+    kind: "法杖",
+    uniqueId: "green_life_flow",
+    skillOwner: "green",
+    uniqueText: "强化生机流转：治疗提升友军伤害",
+    desc: "环礁秘径守护者掉落。唯一词条强化生机流转；仅小绿装备时生效。",
+  },
+};
+
 const BOSS_LOOT_BY_FLOOR = {
   1: [
     {
@@ -377,6 +415,27 @@ function rollNormalItem(floor) {
   );
 }
 
+function rollUniqueBossItem(floor, tpl) {
+  const level = floorItemLevel(floor, { boss: true });
+  const place = floorName(floor);
+  return toBagEquip(
+    makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
+      id: `unique_${tpl.uniqueId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
+      rarity: "red",
+      icon: tpl.icon,
+      kind: tpl.kind || "Boss",
+      level,
+      desc: `${tpl.desc}（${place} · 等级 ${level}）`,
+      uniqueId: tpl.uniqueId,
+      skillOwner: tpl.skillOwner,
+      skillStrengthen: true,
+      affixes: [makeUniqueAffix(tpl.uniqueId, tpl.uniqueText)],
+      bossOnly: true,
+      bossFloor: floor,
+    })
+  );
+}
+
 function rollBossSkillItem(floor) {
   const tpl = pick(bossSkillPool(floor));
   let rarity = ensureMinRarityForSkill(tpl.rarity || "purple");
@@ -426,11 +485,14 @@ export function rollTrashLoot(monster) {
   return [rollNormalItem(floor)];
 }
 
-/** Boss：必掉 2–3 件；至少 1 件本层专属技能装 */
+/** Boss：必掉 2–3 件；3/5/6 层必含唯一红装；其余至少 1 件本层专属技能装 */
 export function rollBossLoot(monster) {
   const floor = monster?.floor || 1;
   const count = Math.random() < 0.5 ? 2 : 3;
-  const drops = [rollBossSkillItem(floor)];
+  const drops = [];
+  const uniqueTpl = UNIQUE_BOSS_BY_FLOOR[floor];
+  if (uniqueTpl) drops.push(rollUniqueBossItem(floor, uniqueTpl));
+  else drops.push(rollBossSkillItem(floor));
   while (drops.length < count) {
     if (Math.random() < 0.55) drops.push(rollBossSkillItem(floor));
     else drops.push(rollBossNormalItem(floor));

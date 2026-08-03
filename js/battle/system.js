@@ -16,6 +16,7 @@ import {
   activeSkills,
   diamondStyleAttr,
   sumSkillMods,
+  heroHasUnique,
 } from "../characters/omni/index.js";
 import {
   gainExp,
@@ -73,12 +74,22 @@ export function createBattleApi(ctx) {
     return b.allies.filter((a) => a.hp > 0);
   }
 
+  /** 可被敌人锁定的友军（灵体除外） */
+  function targetableAllies(b) {
+    return livingAllies(b).filter((a) => !a.spiritForm);
+  }
+
+  /** 非灵体友军；灵体战中若这些人全灭则失败 */
+  function mortalAllies(b) {
+    return livingAllies(b).filter((a) => !a.spiritForm);
+  }
+
   function frontEnemies(b) {
     return livingEnemies(b).filter((e) => e.row === "front");
   }
 
   function frontAllies(b) {
-    return livingAllies(b).filter((a) => a.row === "front");
+    return targetableAllies(b).filter((a) => a.row === "front");
   }
 
   /** 敌方优先前排 → 中排 → 后排 */
@@ -96,12 +107,27 @@ export function createBattleApi(ctx) {
     return list[irand(0, list.length - 1)];
   }
 
-  /** 敌人优先打前排，前排清空再打后排 */
+  /** 敌人优先打前排，前排清空再打后排；无视灵体 */
   function pickAllyTarget(b) {
     const front = frontAllies(b);
-    const pool = front.length ? front : livingAllies(b);
+    const pool = front.length ? front : targetableAllies(b);
     if (!pool.length) return null;
     return pool[irand(0, pool.length - 1)];
+  }
+
+  function pickLowestEnemy(b) {
+    const list = livingEnemies(b);
+    if (!list.length) return null;
+    return list
+      .slice()
+      .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
+  }
+
+  function isCrossNeighbor(a, b) {
+    if (!a || !b) return false;
+    if (a.row === b.row) return Math.abs(a.col - b.col) === 1;
+    if (a.col === b.col) return a.row !== b.row;
+    return false;
   }
 
   function renderLane(el, units, enemy, peers = null) {
@@ -190,8 +216,9 @@ export function createBattleApi(ctx) {
         ? diamondStyleAttr(u, 1.15, peers)
         : `--c:${u.color}`;
     const bossCls = u.isBoss ? " boss-unit" : "";
+    const spiritCls = u.spiritForm ? " spirit-form" : "";
     const stunMark = `<div class="stun-mark"${stunned ? "" : " hidden"} title="眩晕" aria-label="眩晕"><span>★</span><span>★</span><span>★</span></div>`;
-    return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}" data-id="${u.id}" data-col="${u.col ?? 1}">
+    return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}${spiritCls}" data-id="${u.id}" data-col="${u.col ?? 1}">
       <div class="unit-float">
         <div class="unit-hp"><i style="width:${pct}%"></i></div>
         <div class="unit-atb"><i data-gauge="${u.id}" style="width:${g}%"></i></div>
@@ -253,6 +280,8 @@ export function createBattleApi(ctx) {
   }
 
   function dealDamage(target, power, opts = {}) {
+    if (!target || target.hp <= 0) return 0;
+    if (target.spiritForm) return 0;
     let raw = Math.max(1, power - (target.def || 0) + irand(-1, 2));
     let crit = false;
     if (opts.canCrit) {
@@ -274,6 +303,7 @@ export function createBattleApi(ctx) {
   }
 
   function heroStrike(attacker, target, skillId, mods) {
+    if (attacker?.spiritForm) return 0;
     const hero = actingHero(attacker);
     const lv = getSkillLevel(hero, skillId);
     const power = skillPower(effectiveAtk(attacker), skillId, mods, lv);
@@ -300,6 +330,36 @@ export function createBattleApi(ctx) {
     const list = livingAllies(b);
     if (!list.length) return null;
     return list.slice().sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp)[0];
+  }
+
+  function applyLifeFlowBuff(b, healer) {
+    const hero = actingHero(healer);
+    if (!heroHasUnique(hero, "green_life_flow")) return;
+    for (const a of livingAllies(b)) {
+      a.atkBuff = Math.max(a.atkBuff || 0, 0.22);
+      a.buffTurns = Math.max(a.buffTurns || 0, 2);
+    }
+  }
+
+  /** 均衡灵衡：十字友军共享被动；自身灵体化 */
+  function applyBalanceSpiritEffects(b) {
+    for (const ally of b.allies) {
+      const hero = heroById(ally.id);
+      if (!heroHasUnique(hero, "omni_balance_spirit")) continue;
+      ally.spiritForm = true;
+      const boost = hero.passiveBoost || {};
+      for (const other of b.allies) {
+        if (other.id === ally.id) continue;
+        if (!isCrossNeighbor(ally, other)) continue;
+        other.atk += boost.atk || 0;
+        other.def += boost.def || 0;
+        other.spd += boost.spd || 0;
+        if (boost.hp) {
+          other.maxHp += boost.hp;
+          other.hp = Math.min(other.maxHp, other.hp + boost.hp);
+        }
+      }
+    }
   }
 
   function syncHeroHp(b) {
@@ -471,7 +531,7 @@ export function createBattleApi(ctx) {
     }, 120);
   }
 
-  async function resolveHeroSkill(b, ally, skillId) {
+  async function resolveHeroSkill(b, ally, skillId, opts = {}) {
     const hero = actingHero(ally);
     let used = skillId;
     if (!canUseSkill(b, used)) used = firstUsableSkill(b, hero);
@@ -490,6 +550,7 @@ export function createBattleApi(ctx) {
     };
 
     let appliedBuff = false;
+    let killed = false;
     if (isBuffSkill(used)) {
       await playSkillAnim("buff", ally.id, ally.id, fxMeta);
       ally.atkBuff = def.atkMult || 0;
@@ -509,40 +570,68 @@ export function createBattleApi(ctx) {
         await playSkillAnim(style, ally.id, t.id, fxMeta);
         applyHeal(t, amount);
       }
+      applyLifeFlowBuff(b, ally);
       syncHeroHp(b);
     } else if (def.hitAllFront) {
       const list = frontEnemies(b);
       if (!list.length) return false;
       await playSkillAnim(style, ally.id, list[0].id, fxMeta);
       for (let h = 0; h < hits; h++) {
-        for (const t of list) heroStrike(ally, t, used, mods);
+        for (const t of list) {
+          if (t.hp <= 0) continue;
+          heroStrike(ally, t, used, mods);
+          if (t.hp <= 0) killed = true;
+        }
       }
     } else if (def.stunGauge || def.stunTurns) {
       const center = pickRandomFront(b) || livingEnemies(b)[0];
+      if (!center) return false;
       await playSkillAnim(style, ally.id, center.id, fxMeta);
-      const stunNeed =
+      let stunNeed =
         def.stunGauge != null
           ? Math.max(1, Math.floor(def.stunGauge))
           : Math.max(1, Math.floor((def.stunTurns || 1) * GAUGE_MAX));
+      if (ally.spiritForm) stunNeed = Math.max(1, Math.floor(stunNeed * 0.5));
       for (let h = 0; h < hits; h++) {
         for (const t of crossTargets(b, center)) {
-          heroStrike(ally, t, used, mods);
+          if (!ally.spiritForm) {
+            if (t.hp <= 0) continue;
+            heroStrike(ally, t, used, mods);
+            if (t.hp <= 0) killed = true;
+          }
           if (h === 0) applyStun(t, stunNeed);
         }
       }
     } else {
-      const t = pickRandomFront(b) || livingEnemies(b)[0];
+      const t =
+        used === "pink_burst"
+          ? pickLowestEnemy(b) || livingEnemies(b)[0]
+          : pickRandomFront(b) || livingEnemies(b)[0];
       if (!t) return false;
       await playSkillAnim(style, ally.id, t.id, fxMeta);
       for (let h = 0; h < hits; h++) {
         if (t.hp <= 0) break;
         heroStrike(ally, t, used, mods);
+        if (t.hp <= 0) killed = true;
       }
     }
 
     // 施加 buff 的当回合不扣持续时间
     if (!appliedBuff) tickUnitBuffs(ally);
     renderBattle(b);
+
+    // 爆裂枪：击杀后再次释放爆裂矢
+    if (
+      used === "pink_burst" &&
+      killed &&
+      heroHasUnique(hero, "pink_burst_echo") &&
+      livingEnemies(b).length &&
+      (opts.echoDepth || 0) < 8
+    ) {
+      await resolveHeroSkill(b, ally, "pink_burst", {
+        echoDepth: (opts.echoDepth || 0) + 1,
+      });
+    }
     return true;
   }
 
@@ -571,10 +660,10 @@ export function createBattleApi(ctx) {
     let targets = [];
 
     if (skill.hitAll) {
-      targets = livingAllies(b);
+      targets = targetableAllies(b);
     } else if (skill.hitFront) {
       const front = frontAllies(b);
-      targets = front.length ? front : livingAllies(b);
+      targets = front.length ? front : targetableAllies(b);
     } else {
       const t = pickAllyTarget(b);
       if (t) targets = [t];
@@ -616,7 +705,12 @@ export function createBattleApi(ctx) {
   async function finishUnitAction(b) {
     if (!b || b.ending) return;
     if (!livingEnemies(b).length) return endBattle("win");
-    if (!livingAllies(b).length) return endBattle("lose");
+    // 灵体存在时：非灵体友军全灭即失败；否则全灭失败
+    if (b.allies.some((a) => a.spiritForm)) {
+      if (!mortalAllies(b).length) return endBattle("lose");
+    } else if (!livingAllies(b).length) {
+      return endBattle("lose");
+    }
     b.waitingPlayer = false;
     b.readyHero = null;
     b.autoResolving = false;
@@ -813,6 +907,7 @@ export function createBattleApi(ctx) {
       gauge: irand(10, 45),
       isHero: true,
       rotIndex: 0,
+      spiritForm: false,
     }));
 
     state.battle = {
@@ -826,12 +921,28 @@ export function createBattleApi(ctx) {
       ticker: createTicker(),
     };
 
+    applyBalanceSpiritEffects(state.battle);
+    // 仅灵体上场：无法维持战斗
+    if (
+      state.battle.allies.some((a) => a.spiritForm) &&
+      !mortalAllies(state.battle).length
+    ) {
+      // 仍进入战场 UI，下一拍结算失败；先渲染
+    }
+
     syncAutoButton(state.battle);
     updateBattleSkillButtons(allies[0]);
     renderBattle(state.battle);
     setBattleButtons(false);
     $("btnFlee").disabled = false;
     $("btnAuto").disabled = false;
+
+    if (
+      state.battle.allies.some((a) => a.spiritForm) &&
+      !mortalAllies(state.battle).length
+    ) {
+      void endBattle("lose");
+    }
   }
 
   function bind() {

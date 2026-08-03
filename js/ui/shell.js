@@ -41,6 +41,7 @@ import {
   reviveCost,
   reviveHero,
   isHeroDead,
+  refreshSkillTexts,
 } from "../characters/omni/index.js";
 import { sumEquipBonus } from "../characters/omni/equipment.js";
 import { setSavedFormation } from "../characters/stats.js";
@@ -64,7 +65,6 @@ export function createUI(ctx) {
   let sellRarity = null;
   /** 手机拨号缓冲 */
   let phoneDigits = "";
-  let skillHoldBound = false;
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
@@ -468,7 +468,10 @@ export function createUI(ctx) {
       return `${head}<ul class="${cls}"><li><span>词条</span><b>无</b></li></ul>`;
     }
     const rows = list
-      .map((a, i) => `<li><span>词条${i + 1}</span><b>${a.text || a.label || "—"}</b></li>`)
+      .map((a, i) => {
+        const tag = a.type === "unique" ? "唯一" : `词条${i + 1}`;
+        return `<li><span>${tag}</span><b>${a.text || a.label || "—"}</b></li>`;
+      })
       .join("");
     return `${head}<ul class="${cls}">${rows}</ul>`;
   }
@@ -477,7 +480,7 @@ export function createUI(ctx) {
     const info = rarityInfo(item.rarity);
     const lv = itemLevel(item);
     const affixN = (item.affixes || []).length;
-    const affixMax = affixCountForRarity(item.rarity);
+    const affixMax = item.uniqueId ? Math.max(1, affixN) : affixCountForRarity(item.rarity);
     const icon = itemIconUrl(item);
     const iconHtml = icon
       ? `<img src="${icon}" alt="${item.name}" decoding="async" loading="eager" />`
@@ -492,7 +495,9 @@ export function createUI(ctx) {
       : "";
     const metaLine = price
       ? `<div class="equip-preview-rarity">等级 ${lv} · 词条 ${affixN}/${affixMax} · 售价 <b style="color:#d4890a">${itemPrice(item)}</b></div>`
-      : `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 词条 ${affixN}/${affixMax}</div>`;
+      : item.uniqueId
+        ? `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 唯一词条</div>`
+        : `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 词条 ${affixN}/${affixMax}</div>`;
     return `
       <div class="equip-preview-top">
         <div class="equip-preview-ico">${iconHtml}</div>
@@ -628,6 +633,7 @@ export function createUI(ctx) {
     state.inventory.push(toBagEquip(item));
     hero.equip[slotKey] = null;
     refreshHeroStats(hero);
+    refreshSkillTexts(hero);
     openDetail(hero.id, { keepEquip: true });
     openEquipPreview(hero, slotKey);
     bumpSave();
@@ -728,6 +734,7 @@ export function createUI(ctx) {
     hero.equip[slotKey] = next;
 
     refreshHeroStats(hero);
+    refreshSkillTexts(hero);
     closeEquipPreview(); // 更换完成：预览与选择一并关掉
     openDetail(hero.id);
     bumpSave();
@@ -765,6 +772,7 @@ export function createUI(ctx) {
     el.classList.add("hidden");
     el.setAttribute("aria-hidden", "true");
     el.innerHTML = "";
+    delete el.dataset.skill;
   }
 
   function showSkillHoldPreview(hero, skillId) {
@@ -781,34 +789,30 @@ export function createUI(ctx) {
       <div class="shp-meta">${typeLine} · 等级 ${lv}/${MAX_SKILL_LEVEL}</div>
       ${skill.nums ? `<div class="shp-nums">${skill.nums}</div>` : ""}
       <p class="shp-desc">${skill.desc || "暂无说明。"}</p>`;
+    el.dataset.skill = skillId;
     el.classList.remove("hidden");
     el.setAttribute("aria-hidden", "false");
   }
 
-  function bindSkillHoldPreview(hero) {
+  function bindSkillListInteractions(hero) {
     hideSkillHoldPreview();
     $("skillList")?.querySelectorAll(".skill-open").forEach((btn) => {
-      const onDown = (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        e.preventDefault();
-        try {
-          btn.setPointerCapture?.(e.pointerId);
-        } catch {
-          /* ignore */
-        }
-        showSkillHoldPreview(hero, btn.dataset.skill);
-      };
-      const onUp = () => hideSkillHoldPreview();
-      btn.addEventListener("pointerdown", onDown);
-      btn.addEventListener("pointerup", onUp);
-      btn.addEventListener("pointercancel", onUp);
-      btn.addEventListener("pointerleave", onUp);
-      btn.addEventListener("lostpointercapture", onUp);
+      btn.addEventListener("click", () => {
+        openSkillDetail(hero.id, btn.dataset.skill);
+      });
     });
-    if (!skillHoldBound) {
-      skillHoldBound = true;
-      window.addEventListener("blur", hideSkillHoldPreview);
-    }
+    $("skillList")?.querySelectorAll(".skill-nums").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const sid = btn.dataset.skill;
+        const el = $("skillHoldPreview");
+        if (el && !el.classList.contains("hidden") && el.dataset.skill === sid) {
+          hideSkillHoldPreview();
+        } else {
+          showSkillHoldPreview(hero, sid);
+        }
+      });
+    });
   }
 
   function renderAutoSlots(hero) {
@@ -1068,6 +1072,7 @@ export function createUI(ctx) {
     if (spEl) spEl.textContent = String(hero.skillPoints ?? 0);
 
     const points = hero.skillPoints ?? 0;
+    refreshSkillTexts(hero);
     $("skillList").innerHTML = hero.skills
       .map((s) => {
         const lv = getSkillLevel(hero, s.id);
@@ -1077,14 +1082,21 @@ export function createUI(ctx) {
             ? "被动"
             : `${skillKindLabel(s)}${s.style ? ` · ${styleTag(s.style)}` : ""}`;
         return `<li class="skill-item" data-skill="${s.id}">
-          <button type="button" class="skill-row skill-open" data-skill="${s.id}">
-            <div class="skill-ico ${skillIcoClass(s)}">${skillFace(s)}</div>
-            <div class="skill-meta">
-              <span class="sname">${s.name}</span>
-              <span class="stype">${typeLine}</span>
-              <span class="slv">等级 ${lv}</span>
-            </div>
-          </button>
+          <div class="skill-row">
+            <button type="button" class="skill-open" data-skill="${s.id}">
+              <div class="skill-ico ${skillIcoClass(s)}">${skillFace(s)}</div>
+              <div class="skill-meta">
+                <span class="sname">${s.name}</span>
+                <span class="stype">${typeLine}</span>
+                <span class="slv">等级 ${lv}</span>
+              </div>
+            </button>
+            ${
+              s.nums
+                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.nums}</button>`
+                : ""
+            }
+          </div>
           <button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
             lv >= MAX_SKILL_LEVEL ? "满" : "+"
           }</button>
@@ -1095,6 +1107,7 @@ export function createUI(ctx) {
     $("skillList")?.querySelectorAll(".skill-up-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
+        hideSkillHoldPreview();
         if (upgradeSkill(hero, btn.dataset.skill)) {
           refreshHeroStats(hero);
           openDetail(hero.id);
@@ -1103,12 +1116,13 @@ export function createUI(ctx) {
         }
       });
     });
-    bindSkillHoldPreview(hero);
+    bindSkillListInteractions(hero);
 
     renderAutoSlots(hero);
   }
 
   function openSkillDetail(heroId, skillId) {
+    hideSkillHoldPreview();
     const hero = getState().party.find((h) => h.id === heroId);
     const skill = hero?.skills?.find((s) => s.id === skillId);
     const title = $("skillDetailTitle");
