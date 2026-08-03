@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=18" />
+  <link rel="stylesheet" href="css/style.css?v=21" />
 </head>
 <body>
   <div id="app">
@@ -145,32 +145,29 @@
           </section>
         </div>
 
-        <div class="hero-tabs" role="tablist">
-          <button type="button" class="hero-tab" data-tab="info">属性</button>
-          <button type="button" class="hero-tab" data-tab="auto">自动战斗设置</button>
-          <button type="button" class="hero-tab on" data-tab="skills">技能</button>
-        </div>
-
         <div class="hero-bottom">
-          <section class="hero-stats">
+          <section class="hero-stats" aria-label="属性">
+            <div class="hero-col-title">属性</div>
             <div id="detailPower" class="hero-power">战力 0</div>
             <ul id="statList" class="stat-list"></ul>
+            <p id="detailDesc" class="preview-desc hero-stats-desc"></p>
           </section>
-          <section class="hero-panel">
+          <section class="hero-panel" aria-label="技能">
+            <div class="hero-tabs" role="tablist">
+              <button type="button" class="hero-tab on" data-tab="skills">技能</button>
+              <button type="button" class="hero-tab" data-tab="auto">自动战斗</button>
+            </div>
             <div class="hero-tab-body">
-              <div class="tab-pane" data-pane="info">
-                <p id="detailDesc" class="preview-desc"></p>
-              </div>
-              <div class="tab-pane" data-pane="auto">
-                <p class="auto-hint">点击某一招，打开技能详情并选择</p>
-                <div id="autoSlots" class="auto-slots"></div>
-              </div>
               <div class="tab-pane on" data-pane="skills">
                 <div class="skill-points-bar">
                   <span>技能点</span>
                   <b id="detailSkillPoints">0</b>
                 </div>
                 <ul id="skillList" class="skill-list"></ul>
+              </div>
+              <div class="tab-pane" data-pane="auto">
+                <p class="auto-hint">点击某一招，选择自动战斗技能</p>
+                <div id="autoSlots" class="auto-slots"></div>
               </div>
             </div>
           </section>
@@ -293,6 +290,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=18"></script>
+  <script type="module" src="js/main.js?v=21"></script>
 </body>
 </html>

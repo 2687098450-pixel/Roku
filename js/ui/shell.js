@@ -671,12 +671,13 @@ export function createUI(ctx) {
   }
 
   function setDetailTab(tab) {
-    detailTab = tab;
+    const next = tab === "auto" ? "auto" : "skills";
+    detailTab = next;
     document.querySelectorAll(".hero-tab").forEach((btn) => {
-      btn.classList.toggle("on", btn.dataset.tab === tab);
+      btn.classList.toggle("on", btn.dataset.tab === next);
     });
     document.querySelectorAll(".tab-pane").forEach((pane) => {
-      pane.classList.toggle("on", pane.dataset.pane === tab);
+      pane.classList.toggle("on", pane.dataset.pane === next);
     });
   }
 

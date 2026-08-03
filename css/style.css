@@ -1710,36 +1710,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: #4a2a10;
 }
 
-/* 中：通栏页签（与下方内容框分离） */
-.hero-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  margin-bottom: 6px;
-  padding: 0 2px;
-  position: relative;
-  z-index: 2;
-}
-
-.hero-tab {
-  border: none;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 13px;
-  color: var(--muted);
-  background: rgba(255, 224, 168, 0.55);
-  cursor: pointer;
-}
-
-.hero-tab.on {
-  color: var(--ink);
-  background: #ffe7b8;
-  box-shadow: inset 0 -2px 0 #ffb14a;
-}
-
-/* 下：战力属性 | 页签内容（完整圆角矩形） */
+/* 下：左属性数值 | 右技能（含自动战斗） */
 .hero-bottom {
   flex: 1 1 auto;
   min-height: 0;
@@ -1753,6 +1724,14 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   overflow: hidden;
   position: relative;
   z-index: 1;
+}
+
+.hero-col-title {
+  flex: 0 0 auto;
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 4px;
 }
 
 .hero-stats {
@@ -1777,11 +1756,47 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   overflow: auto;
 }
 
+.hero-stats-desc {
+  flex: 0 0 auto;
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .hero-panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* 右栏页签：技能 / 自动战斗 */
+.hero-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-tab {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 13px;
+  color: var(--muted);
+  background: rgba(255, 224, 168, 0.55);
+  cursor: pointer;
+}
+
+.hero-tab.on {
+  color: var(--ink);
+  background: #ffe7b8;
+  box-shadow: inset 0 -2px 0 #ffb14a;
 }
 
 .hero-tab-body {
@@ -2207,24 +2222,24 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-list .skill-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 12px;
-  padding: 8px 8px 8px 6px;
+  border-radius: 14px;
+  padding: 10px 10px 10px 10px;
   border: 1px solid rgba(255, 184, 77, 0.22);
 }
 
 .skill-row.skill-open {
   flex: 1 1 auto;
   min-width: 0;
-  width: 100%;
+  width: auto;
   display: flex;
   flex-direction: row;
   gap: 10px;
   align-items: center;
   border: none;
   background: transparent;
-  padding: 2px 4px;
+  padding: 0;
   margin: 0;
   text-align: left;
   font: inherit;
@@ -2239,12 +2254,12 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .skill-ico {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
   display: grid;
   place-items: center;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
   color: #fff;
   background: linear-gradient(180deg, #ffc56d, #ff9f43);
@@ -2256,14 +2271,16 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
 .skill-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
 
+/* 截图比例：名称 / 类型 / 等级 竖排，不与右侧 + 抢位 */
 .skill-meta {
   min-width: 0;
   flex: 1 1 auto;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 10px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
   writing-mode: horizontal-tb;
   text-orientation: mixed;
 }
@@ -2274,32 +2291,37 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   writing-mode: horizontal-tb;
   text-orientation: mixed;
   white-space: nowrap;
-  display: inline;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .skill-list .sname {
   font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 16px;
+  font-size: 15px;
   color: #3b2460;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 .skill-list .stype {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--muted);
+  line-height: 1.2;
 }
 .skill-list .slv {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #c06818;
+  line-height: 1.2;
 }
 
 .skill-up-btn {
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 10px;
+  border-radius: 11px;
   padding: 0;
   font: inherit;
   font-size: 22px;
@@ -2319,9 +2341,9 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   box-shadow: none;
 }
 .skill-up-spacer {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
 }
 
 .skill-points-bar {

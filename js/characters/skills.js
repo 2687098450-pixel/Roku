@@ -235,7 +235,7 @@ export function createOmniSkills() {
     }),
     makeSkill({
       id: "radiant",
-      name: "耀光斩",
+      name: "飞镖投掷",
       kind: "active",
       style: "ranged",
     }),
