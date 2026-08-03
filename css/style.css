@@ -2074,7 +2074,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   margin: 0 auto;
 }
 
-/* 详情页：菱形随属性变胖/变长 */
+/* 详情页：菱形随属性变胖/变长；默认保持 bobDiamond 晃动 */
 #detailModal .hero-portrait .preview-shape.diamond {
   width: var(--dw, 56px);
   height: var(--dh, 84px);
@@ -2082,20 +2082,21 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   filter:
     drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
     drop-shadow(0 8px 16px rgba(40, 100, 80, 0.22));
+  animation: bobDiamond 1.8s ease-in-out infinite;
 }
 
-/* 女性且足够纤细：预览区每 5 秒像人一样绕竖直轴转一圈 */
+/* 小粉纤细：外层转圈，内层菱形仍保留晃动（停转时和小绿一样 idle） */
 #detailModal .hero-portrait.slender-spin {
   perspective: 280px;
   transform-style: preserve-3d;
+  animation: slenderTurn 5s ease-in-out infinite;
 }
 
 #detailModal .hero-portrait.slender-spin .preview-shape {
   transform-origin: center center;
-  /* 开场即转一圈，之后约每 5s 再转 */
-  animation: slenderTurn 5s ease-in-out infinite;
   transform-style: preserve-3d;
   backface-visibility: visible;
+  /* 不要覆盖 bobDiamond */
 }
 
 @keyframes slenderTurn {

@@ -976,7 +976,11 @@ export function createUI(ctx) {
     const peers = getState().party;
     shape.className = `preview-shape ${hero.shape}`;
     shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers));
-    portrait?.classList.toggle("slender-spin", isSlenderFemale(hero, peers));
+    // 转圈仅小粉；不转时内层仍用 bobDiamond，和小绿一样晃
+    portrait?.classList.toggle(
+      "slender-spin",
+      hero.statsId === "pink" && isSlenderFemale(hero, peers)
+    );
 
     for (const key of SLOT_KEYS) {
       const el = document.querySelector(`#equipBoard .slot[data-slot="${key}"]`);

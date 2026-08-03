@@ -213,7 +213,7 @@ export function diamondSlenderRatio(unit, peers = null) {
   return h / Math.max(1e-6, w);
 }
 
-/** 女性 + 足够纤细 → 详情预览可旋转 */
+/** 女性 + 足够纤细（小粉转圈用） */
 export function isSlenderFemale(hero, peers = null) {
   if (!hero || hero.gender !== "female") return false;
   return diamondSlenderRatio(hero, peers) >= SLENDER_RATIO;
