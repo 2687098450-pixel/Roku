@@ -464,6 +464,19 @@ function rollUniqueBossItem(floor, tpl) {
   );
 }
 
+/** 所有唯一词条装备各一件（按层模板生成） */
+export function createAllUniqueItems() {
+  const out = [];
+  for (const [floorKey, raw] of Object.entries(UNIQUE_BOSS_BY_FLOOR)) {
+    const floor = Number(floorKey) || 1;
+    for (const tpl of [].concat(raw || []).filter(Boolean)) {
+      if (!tpl.uniqueId) continue;
+      out.push(rollUniqueBossItem(floor, tpl));
+    }
+  }
+  return out;
+}
+
 function rollBossSkillItem(floor) {
   const tpl = pick(bossSkillPool(floor));
   let rarity = ensureMinRarityForSkill(tpl.rarity || "purple");

@@ -46,9 +46,12 @@ import {
 import { sumEquipBonus } from "../characters/omni/equipment.js";
 import { setSavedFormation } from "../characters/stats.js";
 import { resetGameLocalData } from "../core/save.js";
+import { createAllUniqueItems } from "../loot/drops.js";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
+const PHONE_UNIQUE_CODE = "*120#";
+const PHONE_SELL_RATE = 0.3;
 
 export function createUI(ctx) {
   const { getState, setMode, canOpenParty, onWarpFloor, onProgressChange } = ctx;
@@ -281,14 +284,75 @@ export function createUI(ctx) {
     if (phoneDigits.length >= 16) return;
     phoneDigits += key;
     syncPhoneDisplay();
-    if (key === "#" && phoneDigits === PHONE_RESET_CODE) {
+    if (key !== "#") return;
+    if (phoneDigits === PHONE_RESET_CODE) {
       openResetConfirm();
+      return;
+    }
+    if (phoneDigits === PHONE_UNIQUE_CODE) {
+      runPhoneUniqueBundle();
     }
   }
 
   function clearPhoneDigits() {
     phoneDigits = "";
     syncPhoneDisplay();
+  }
+
+  /** *120#：全身+背包装备按 30% 售出，再发放全部唯一装各一件 */
+  function runPhoneUniqueBundle() {
+    const state = getState();
+    if (!state.inventory) state.inventory = [];
+
+    let sold = 0;
+    let goldFull = 0;
+
+    const keepInv = [];
+    for (const it of state.inventory) {
+      if (isEquipItem(it)) {
+        sold += 1;
+        goldFull += itemPrice(it);
+      } else {
+        keepInv.push(it);
+      }
+    }
+    state.inventory = keepInv;
+
+    for (const hero of state.party || []) {
+      if (!hero?.equip) continue;
+      for (const key of SLOT_KEYS) {
+        const worn = hero.equip[key];
+        if (!worn || !isEquipItem(worn)) continue;
+        sold += 1;
+        goldFull += itemPrice(worn);
+        hero.equip[key] = null;
+      }
+      refreshHeroStats(hero);
+      refreshSkillTexts(hero);
+    }
+
+    const goldGain = Math.max(0, Math.floor(goldFull * PHONE_SELL_RATE));
+    state.gold = Math.max(0, Math.floor(state.gold || 0) + goldGain);
+
+    const uniques = createAllUniqueItems();
+    state.inventory.push(...uniques);
+
+    phoneDigits = "";
+    syncPhoneDisplay();
+    closePhone();
+    closeEquipPreview();
+    refreshExploreHud();
+    if (!$("bagModal")?.classList.contains("hidden")) renderBag();
+    if (detailHeroId) openDetail(detailHeroId);
+    bumpSave();
+
+    const toast = $("lootToast") || $("toast");
+    if (toast) {
+      toast.textContent = `已按 30% 售出 ${sold} 件装备（+${goldGain} 金），获得唯一装 ${uniques.length} 件`;
+      toast.classList.remove("hidden");
+      clearTimeout(toast._phoneCheatTimer);
+      toast._phoneCheatTimer = setTimeout(() => toast.classList.add("hidden"), 2800);
+    }
   }
 
   function confirmResetGame() {
