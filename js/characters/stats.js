@@ -88,6 +88,27 @@ export const CHARACTER_STATS = {
     },
     autoRotation: ["green_mend", "green_bolt", "green_mend", "green_bloom", "green_mend"],
   },
+  yellow: {
+    id: "yellow",
+    name: "小黄",
+    className: "坦克",
+    gender: "male",
+    color: "#e8c044",
+    shape: "diamond",
+    base: {
+      hp: 88,
+      atk: 6,
+      def: 9,
+      spd: DEFAULT_HERO_SPEED - 2,
+    },
+    passiveBoost: {
+      hp: 14,
+      atk: 0,
+      def: 5,
+      spd: 0,
+    },
+    autoRotation: ["yellow_hit", "yellow_fortify", "yellow_slam", "yellow_hit", "yellow_slam"],
+  },
 };
 
 /** 战斗是否默认开启自动（跨刷新保存） */
@@ -138,6 +159,7 @@ export function loadSavedSettings() {
       omni: new Set(["attack", "radiant", "quake"]),
       pink: new Set(["pink_shot", "pink_burst", "pink_barrage", "pink_fervor"]),
       green: new Set(["green_bolt", "green_mend", "green_bloom"]),
+      yellow: new Set(["yellow_hit", "yellow_slam", "yellow_fortify"]),
     };
     for (const id of Object.keys(data.rotations)) {
       const rot = data.rotations[id];

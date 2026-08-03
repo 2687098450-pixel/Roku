@@ -27,41 +27,69 @@ const NORMAL_POOL = [
  * 各层 Boss 专属掉落（技能装）
  * 每层独立池：打哪个关口，掉哪套主题装备
  */
-/** 3/5/6 层必掉的唯一红装（强化指定技能；仅对应角色生效） */
+/** 3/5/6 层必掉的唯一红装（可多层数组；仅对应角色装备时生效） */
 export const UNIQUE_BOSS_BY_FLOOR = {
-  3: {
-    name: "冠廊爆裂枪",
-    slot: "weapon",
-    base: { atk: 8, spd: 2 },
-    icon: "pistol.png",
-    kind: "手枪",
-    uniqueId: "pink_burst_echo",
-    skillOwner: "pink",
-    uniqueText: "强化爆裂矢：击杀后再次释放",
-    desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
-  },
-  5: {
-    name: "雾林灵衡坠",
-    slot: "necklace",
-    base: { hp: 28, def: 2 },
-    icon: "pendant.png",
-    kind: "Boss",
-    uniqueId: "omni_balance_spirit",
-    skillOwner: "omni",
-    uniqueText: "强化均衡：十字共享·灵体化",
-    desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
-  },
-  6: {
-    name: "环礁生机杖",
-    slot: "weapon",
-    base: { atk: 4, hp: 26 },
-    icon: "staff.png",
-    kind: "法杖",
-    uniqueId: "green_life_flow",
-    skillOwner: "green",
-    uniqueText: "强化生机流转：治疗提升友军伤害",
-    desc: "环礁秘径守护者掉落。唯一词条强化生机流转；仅小绿装备时生效。",
-  },
+  3: [
+    {
+      name: "冠廊爆裂枪",
+      slot: "weapon",
+      base: { atk: 8, spd: 2 },
+      icon: "pistol.png",
+      kind: "手枪",
+      uniqueId: "pink_burst_echo",
+      skillOwner: "pink",
+      uniqueText: "强化爆裂矢：击杀后再次释放",
+      desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
+    },
+    {
+      name: "冠廊反伤盾",
+      slot: "shield",
+      base: { def: 6, hp: 22 },
+      icon: "wood_shield.png",
+      kind: "Boss",
+      uniqueId: "yellow_reflect_shield",
+      skillOwner: "yellow",
+      uniqueText: "强化反伤：攻击也计入反伤",
+      desc: "潮汐冠廊守护者掉落。唯一词条强化反伤；仅小黄装备时生效。",
+    },
+  ],
+  5: [
+    {
+      name: "雾林灵衡坠",
+      slot: "necklace",
+      base: { hp: 28, def: 2 },
+      icon: "pendant.png",
+      kind: "Boss",
+      uniqueId: "omni_balance_spirit",
+      skillOwner: "omni",
+      uniqueText: "强化均衡：十字共享·灵体化",
+      desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
+    },
+    {
+      name: "雾林治愈戒",
+      slot: "ringL",
+      base: { hp: 16, atk: 1 },
+      icon: "ring.png",
+      kind: "Boss",
+      uniqueId: "green_mend_pulse",
+      skillOwner: "green",
+      uniqueText: "强化治愈之触：治疗后脉动回血",
+      desc: "十字雾林守护者掉落。唯一词条强化治愈之触；仅小绿装备时生效。",
+    },
+  ],
+  6: [
+    {
+      name: "环礁生机杖",
+      slot: "weapon",
+      base: { atk: 4, hp: 26 },
+      icon: "staff.png",
+      kind: "法杖",
+      uniqueId: "green_life_flow",
+      skillOwner: "green",
+      uniqueText: "强化生机流转：治疗提升友军伤害",
+      desc: "环礁秘径守护者掉落。唯一词条强化生机流转；仅小绿装备时生效。",
+    },
+  ],
 };
 
 const BOSS_LOOT_BY_FLOOR = {
@@ -485,14 +513,18 @@ export function rollTrashLoot(monster) {
   return [rollNormalItem(floor)];
 }
 
-/** Boss：必掉 2–3 件；3/5/6 层必含唯一红装；其余至少 1 件本层专属技能装 */
+/** Boss：必掉 2–3 件；有唯一装则全掉；其余补本层技能装/普通装 */
 export function rollBossLoot(monster) {
   const floor = monster?.floor || 1;
-  const count = Math.random() < 0.5 ? 2 : 3;
   const drops = [];
-  const uniqueTpl = UNIQUE_BOSS_BY_FLOOR[floor];
-  if (uniqueTpl) drops.push(rollUniqueBossItem(floor, uniqueTpl));
-  else drops.push(rollBossSkillItem(floor));
+  const uniqueTpls = []
+    .concat(UNIQUE_BOSS_BY_FLOOR[floor] || [])
+    .filter(Boolean);
+  for (const tpl of uniqueTpls) {
+    drops.push(rollUniqueBossItem(floor, tpl));
+  }
+  if (!drops.length) drops.push(rollBossSkillItem(floor));
+  const count = Math.max(drops.length, Math.random() < 0.5 ? 2 : 3);
   while (drops.length < count) {
     if (Math.random() < 0.55) drops.push(rollBossSkillItem(floor));
     else drops.push(rollBossNormalItem(floor));

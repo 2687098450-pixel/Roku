@@ -541,6 +541,11 @@ html, body {
   box-shadow: 0 0 16px rgba(80, 210, 120, 0.7);
 }
 
+.fx-slash.theme-yellow {
+  background: linear-gradient(90deg, transparent, rgba(255, 250, 210, 0.95), #e8c044, transparent);
+  box-shadow: 0 0 16px rgba(232, 192, 68, 0.75);
+}
+
 .fx-impact {
   width: 10px;
   height: 10px;
@@ -552,6 +557,12 @@ html, body {
   animation: fxFlashOmni 0.36s ease-out forwards;
   background: radial-gradient(circle, #fff9d0, #7dff9a 55%, transparent 70%);
   box-shadow: 0 0 18px rgba(90, 220, 130, 0.9);
+}
+
+.fx-impact.impact-flash.theme-yellow {
+  animation: fxFlashOmni 0.36s ease-out forwards;
+  background: radial-gradient(circle, #fff9d0, #f0d060 55%, transparent 70%);
+  box-shadow: 0 0 18px rgba(232, 192, 68, 0.9);
 }
 
 .fx-impact.impact-burst.theme-pink {
@@ -593,6 +604,11 @@ html, body {
   border: 3px solid rgba(255, 126, 179, 0.9);
   box-shadow: 0 0 18px rgba(255, 126, 179, 0.75), inset 0 0 12px rgba(255, 200, 230, 0.55);
   animation: fxBuffRing 0.42s ease-out forwards;
+}
+
+.fx-buff-ring.theme-yellow {
+  border-color: rgba(232, 192, 68, 0.95);
+  box-shadow: 0 0 18px rgba(232, 192, 68, 0.75), inset 0 0 12px rgba(255, 240, 180, 0.55);
 }
 
 .fx-buffed {
@@ -1031,6 +1047,12 @@ html, body {
 .skill-btn .skill-icon[data-kind="green_mend"],
 .skill-btn .skill-icon[data-kind="green_bloom"] {
   background: linear-gradient(180deg, #b8efb0, #6ecf6a);
+}
+
+.skill-btn .skill-icon[data-kind="yellow_hit"],
+.skill-btn .skill-icon[data-kind="yellow_slam"],
+.skill-btn .skill-icon[data-kind="yellow_fortify"] {
+  background: linear-gradient(180deg, #ffe08a, #e8c044);
 }
 
 .skill-btn .skill-name {

@@ -207,6 +207,11 @@ export function createUI(ctx) {
     green_bloom: "芽",
     green_life: "生",
     green_aftercare: "疗",
+    yellow_hit: "盾",
+    yellow_slam: "猛",
+    yellow_fortify: "壁",
+    yellow_reflect: "反",
+    yellow_armor: "甲",
   };
 
   function skillFace(skill) {
@@ -665,7 +670,9 @@ export function createUI(ctx) {
     if (slotKey === "weapon") {
       if (hero.statsId === "pink") limitHint = "（小粉仅可装备枪械）";
       else if (hero.statsId === "green") limitHint = "（小绿仅可装备法杖）";
-      else if (hero.statsId === "omni") limitHint = "（全能可装备全部武器）";
+      else if (hero.statsId === "omni" || hero.statsId === "yellow") {
+        limitHint = "（可装备全部武器）";
+      }
     }
     if (sub) {
       sub.textContent = `从背包选择可装备到「${SLOT_LABEL[slotKey]}」的道具${limitHint}`;

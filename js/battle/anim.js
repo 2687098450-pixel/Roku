@@ -63,6 +63,16 @@ export function resolveFxProfile(style, meta = {}) {
     return { kind: "bolt", theme: "green", shape: "leaf" };
   }
 
+  if (statsId === "yellow" || skillId.startsWith("yellow_")) {
+    if (skillId === "yellow_fortify" || style === "buff") {
+      return { kind: "buff-ring", theme: "yellow", bursts: 1 };
+    }
+    if (skillId === "yellow_slam") {
+      return { kind: "melee-slash", theme: "yellow", impact: "flash" };
+    }
+    return { kind: "melee-slash", theme: "yellow" };
+  }
+
   if (statsId === "omni" || ["attack", "radiant", "quake"].includes(skillId)) {
     if (skillId === "quake" || (style === "melee" && skillId === "quake")) {
       return { kind: "quake", theme: "omni" };

@@ -116,7 +116,7 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
     slotKey === "weapon" || item.slot === "weapon";
   if (!isWeapon) return true;
   const id = hero.statsId;
-  if (id === "omni") return true;
+  if (id === "omni" || id === "yellow") return true;
   const cls = weaponClass(item);
   if (id === "pink") return cls === "gun";
   if (id === "green") return cls === "staff";
@@ -128,6 +128,8 @@ export const UNIQUE_SKILL_IDS = {
   pink_burst_echo: { owner: "pink", skillId: "pink_burst" },
   omni_balance_spirit: { owner: "omni", skillId: "boost" },
   green_life_flow: { owner: "green", skillId: "green_life" },
+  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect" },
+  green_mend_pulse: { owner: "green", skillId: "green_mend" },
 };
 
 export function isSkillStrengthenGear(item) {
@@ -782,6 +784,35 @@ export function createDefaultEquip(statsId = "omni") {
         icon: "vine_shield.png",
         desc: "藤枝编成的小盾。绿装带 1 条词条。",
         affixes: fixedAffixes([{ key: "def", value: 1 }]),
+      }),
+    };
+  }
+  if (statsId === "yellow") {
+    return {
+      ...gear,
+      weapon: makeItem("短剑", "weapon", { atk: 3 }, {
+        id: "sword_yellow",
+        kind: "剑",
+        rarity: "white",
+        level: 1,
+        icon: "sword.png",
+        desc: "坦克配刀。白装无额外词条。",
+      }),
+      shield: makeItem("木盾", "shield", { def: 4, hp: 8 }, {
+        id: "wood_shield_yellow",
+        rarity: "green",
+        level: 1,
+        icon: "wood_shield.png",
+        desc: "厚实木盾。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "def", value: 2 }]),
+      }),
+      armor: makeItem("布衣", "armor", { def: 3, hp: 14 }, {
+        id: "cloth_yellow",
+        rarity: "green",
+        level: 1,
+        icon: "cloth.png",
+        desc: "厚实布甲。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "hp", value: 8 }]),
       }),
     };
   }

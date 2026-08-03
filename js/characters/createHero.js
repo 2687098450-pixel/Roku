@@ -43,6 +43,7 @@ const DESC = {
   omni: "各项属性均衡的全能型角色。近战与远程兼备，可用震地击控场。",
   pink: "远程爆发型射手。脆皮高攻，可用燃心提升攻击与暴伤。",
   green: "浅绿色治疗型角色。战中治疗队友，战后为全体参战者恢复。",
+  yellow: "黄色坦克。高生命高防御，受伤时对全场反伤，可用铁壁强化防御。",
 };
 
 export function createHero(statsId) {
@@ -92,6 +93,10 @@ export function createPinkHero() {
 
 export function createGreenHero() {
   return createHero("green");
+}
+
+export function createYellowHero() {
+  return createHero("yellow");
 }
 
 /** 战斗阵容：3 列 × 2 排（与战斗画面一致：上前排 / 下后排） */

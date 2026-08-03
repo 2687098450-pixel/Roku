@@ -82,6 +82,7 @@ export {
   createOmniHero,
   createPinkHero,
   createGreenHero,
+  createYellowHero,
   createHero,
   FORMATION_COLS,
   FORMATION_SLOTS,

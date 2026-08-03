@@ -13,6 +13,7 @@ import {
   createOmniHero,
   createPinkHero,
   createGreenHero,
+  createYellowHero,
   getDeployedHeroes,
   normalizeFormation,
   FORMATION_SLOTS,
@@ -41,9 +42,10 @@ const STEP_DUR = 0.16;
 const omni = createOmniHero();
 const pink = createPinkHero();
 const green = createGreenHero();
+const yellow = createYellowHero();
 
 function defaultFormation() {
-  return [omni.id, null, null, pink.id, green.id, null];
+  return [yellow.id, omni.id, null, pink.id, green.id, null];
 }
 
 function restoreFormation(party) {
@@ -96,8 +98,8 @@ const state = {
   map: null,
   playerPos: null,
   displayPos: null,
-  party: [omni, pink, green],
-  formation: restoreFormation([omni, pink, green]),
+  party: [omni, pink, green, yellow],
+  formation: restoreFormation([omni, pink, green, yellow]),
   inventory: [
     {
       id: "phone",

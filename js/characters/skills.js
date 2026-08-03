@@ -34,6 +34,16 @@ export const SKILL_POWER = {
   green_mend: { healMaxHp: 0.16, healFlat: 10, style: "heal", target: "lowest" },
   green_bloom: { healMaxHp: 0.08, healFlat: 4, style: "heal", target: "all" },
 
+  // —— 小黄：坦克 ——
+  yellow_hit: { mult: 1.0, flat: 2, style: "melee" },
+  yellow_slam: { mult: 1.65, flat: 6, style: "melee" },
+  yellow_fortify: {
+    style: "buff",
+    target: "self",
+    defMult: 0.45,
+    turns: 3,
+  },
+
   // —— 被动：战后 ——
   aftercare: { healRatio: 0.25, healParty: false },
   /** 小绿：战后为所有参战人员恢复 */
@@ -52,6 +62,7 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.healFlat != null) out.healFlat = Math.round(out.healFlat + lv * 2);
   if (out.atkMult != null) out.atkMult = +(out.atkMult + lv * 0.03).toFixed(3);
   if (out.critDmgBonus != null) out.critDmgBonus = +(out.critDmgBonus + lv * 0.05).toFixed(3);
+  if (out.defMult != null) out.defMult = +(out.defMult + lv * 0.04).toFixed(3);
   if (out.turns != null) out.turns = out.turns + Math.floor(lv / 3);
   if (out.healRatio != null) out.healRatio = +(out.healRatio + lv * 0.02).toFixed(3);
   return out;
@@ -115,6 +126,13 @@ function skillNumsAndDesc(skillId, level = 1) {
   if (s.style === "buff") {
     const atkPct = Math.round((s.atkMult || 0) * 100);
     const critPct = Math.round((s.critDmgBonus || 0) * 100);
+    const defPct = Math.round((s.defMult || 0) * 100);
+    if (defPct && !atkPct) {
+      return {
+        nums: `防御+${defPct}% · ${s.turns}回合`,
+        desc: `主动强化自身：防御 +${defPct}%，持续 ${s.turns} 回合。`,
+      };
+    }
     return {
       nums: `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`,
       desc: `主动强化自身：攻击 +${atkPct}%，暴击伤害 +${critPct}%（叠加在基础 150% 上），持续 ${s.turns} 回合。`,
@@ -170,6 +188,7 @@ export function attrPassiveSkillId(statsId) {
   if (statsId === "pink") return "pink_focus";
   if (statsId === "green") return "green_life";
   if (statsId === "omni") return "boost";
+  if (statsId === "yellow") return "yellow_armor";
   return null;
 }
 
@@ -208,15 +227,29 @@ export function refreshSkillTexts(hero) {
         sk.desc = `被动属性强化。当前：${sk.nums}。灵衡强化：十字格友军共享均衡属性；自身化为灵体（不造成/不受伤害、不可被锁定），震地击眩晕时间减半；友军全部阵亡则战斗失败。`;
       } else if (sk.id === "green_life" && heroHasUnique(hero, "green_life_flow")) {
         sk.desc = `被动属性强化。当前：${sk.nums}。生机杖强化：造成治疗时提升友军伤害。`;
+      } else if (sk.id === "yellow_armor") {
+        sk.desc = `被动：提升防御与生命。当前：${sk.nums}。`;
       } else {
         sk.desc = `被动属性强化，随技能等级提升。当前：${sk.nums}。`;
       }
+      continue;
+    }
+    if (sk.id === "yellow_reflect") {
+      const base = "受到任意伤害时，对场上其他单位造成基于自身防御的反伤；友军受到的反伤较低。";
+      sk.nums = heroHasUnique(hero, "yellow_reflect_shield")
+        ? "防御反伤 · 攻防参与"
+        : "防御反伤";
+      sk.desc = heroHasUnique(hero, "yellow_reflect_shield")
+        ? `${base} 反伤盾强化：反伤 =（攻击/防御）× 仅按防御计算的结果。`
+        : base;
       continue;
     }
     const { nums, desc } = skillNumsAndDesc(sk.id, lv);
     sk.nums = nums;
     if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
       sk.desc = `${desc} 爆裂枪强化：击杀后再次释放。`;
+    } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
+      sk.desc = `${desc} 治愈戒强化：治疗后附加 2 秒脉动——行动条每走 10 掉血，每走 20 恢复刚掉血量的 2.5 倍。`;
     } else {
       sk.desc = desc;
     }
@@ -246,7 +279,7 @@ export function createOmniSkills() {
   return [
     makeSkill({
       id: "attack",
-      name: "普通攻击",
+      name: "斩击",
       kind: "active",
       style: "melee",
     }),
@@ -353,10 +386,51 @@ export function createGreenSkills() {
   ];
 }
 
+export function createYellowSkills() {
+  const sheet = getCharacterStats("yellow");
+  return [
+    makeSkill({
+      id: "yellow_hit",
+      name: "盾击",
+      kind: "active",
+      style: "melee",
+    }),
+    makeSkill({
+      id: "yellow_slam",
+      name: "盾猛",
+      kind: "active",
+      style: "melee",
+    }),
+    makeSkill({
+      id: "yellow_fortify",
+      name: "铁壁",
+      kind: "active",
+      style: "buff",
+    }),
+    {
+      id: "yellow_reflect",
+      name: "反伤",
+      kind: "passive",
+      level: 1,
+      nums: "防御反伤",
+      desc: "受到任意伤害时，对场上其他单位造成基于自身防御的反伤；友军受到的反伤较低。",
+    },
+    {
+      id: "yellow_armor",
+      name: "坚甲",
+      kind: "passive",
+      level: 1,
+      nums: passiveNums(sheet),
+      desc: `被动：坦克型，${passiveNums(sheet)}。`,
+    },
+  ];
+}
+
 const KIT = {
   omni: createOmniSkills,
   pink: createPinkSkills,
   green: createGreenSkills,
+  yellow: createYellowSkills,
 };
 
 export function createHeroSkills(statsId) {

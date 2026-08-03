@@ -158,6 +158,9 @@ export function createBattleApi(ctx) {
     green_bolt: "叶",
     green_mend: "愈",
     green_bloom: "芽",
+    yellow_hit: "盾",
+    yellow_slam: "猛",
+    yellow_fortify: "壁",
   };
 
   function updateBattleSkillButtons(unit) {
@@ -186,6 +189,10 @@ export function createBattleApi(ctx) {
     return Math.max(1, Math.floor((unit.atk || 0) * (1 + (unit.atkBuff || 0))));
   }
 
+  function effectiveDef(unit) {
+    return Math.max(0, Math.floor((unit.def || 0) * (1 + (unit.defBuff || 0))));
+  }
+
   function unitCritRate(unit) {
     return unit.critRate ?? DEFAULT_CRIT_RATE;
   }
@@ -199,6 +206,7 @@ export function createBattleApi(ctx) {
     unit.buffTurns -= 1;
     if (unit.buffTurns <= 0) {
       unit.atkBuff = 0;
+      unit.defBuff = 0;
       unit.critDmgBonus = 0;
       unit.buffTurns = 0;
     }
@@ -282,7 +290,12 @@ export function createBattleApi(ctx) {
   function dealDamage(target, power, opts = {}) {
     if (!target || target.hp <= 0) return 0;
     if (target.spiritForm) return 0;
-    let raw = Math.max(1, power - (target.def || 0) + irand(-1, 2));
+    let raw;
+    if (opts.trueDamage) {
+      raw = Math.max(1, Math.floor(power));
+    } else {
+      raw = Math.max(1, power - effectiveDef(target) + irand(-1, 2));
+    }
     let crit = false;
     if (opts.canCrit) {
       const rate = opts.critRate ?? DEFAULT_CRIT_RATE;
@@ -299,7 +312,39 @@ export function createBattleApi(ctx) {
       void unit.offsetWidth;
       unit.classList.add(crit ? "crit" : "hit");
     }
+    if (!opts.fromReflect && raw > 0) {
+      triggerReflect(target);
+    }
     return raw;
+  }
+
+  function reflectBaseDamage(victim) {
+    const def = Math.max(1, effectiveDef(victim));
+    let base = Math.max(1, Math.floor(def * 0.6 + 4));
+    const hero = actingHero(victim);
+    if (heroHasUnique(hero, "yellow_reflect_shield")) {
+      const atk = Math.max(0, effectiveAtk(victim));
+      base = Math.max(1, Math.floor((atk / def) * base));
+    }
+    return base;
+  }
+
+  function triggerReflect(victim) {
+    const b = getState().battle;
+    if (!b || !victim?.isHero) return;
+    const hero = actingHero(victim);
+    if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
+    const enemyDmg = reflectBaseDamage(victim);
+    const allyDmg = Math.max(1, Math.floor(enemyDmg * 0.7));
+    for (const u of battleUnits(b)) {
+      if (!u || u.hp <= 0 || u.id === victim.id) continue;
+      const isAlly = !!u.isHero;
+      dealDamage(u, isAlly ? allyDmg : enemyDmg, {
+        fromReflect: true,
+        trueDamage: true,
+      });
+    }
+    syncHeroHp(b);
   }
 
   function heroStrike(attacker, target, skillId, mods) {
@@ -338,6 +383,41 @@ export function createBattleApi(ctx) {
     for (const a of livingAllies(b)) {
       a.atkBuff = Math.max(a.atkBuff || 0, 0.22);
       a.buffTurns = Math.max(a.buffTurns || 0, 2);
+    }
+  }
+
+  /** 治愈戒：治疗后 2 秒脉动（行动条走 10 掉血 / 走 20 回 2.5 倍） */
+  function applyMendPulse(b, healer, target, healedAmount) {
+    const hero = actingHero(healer);
+    if (!heroHasUnique(hero, "green_mend_pulse") || !target) return;
+    const tickDmg = Math.max(1, Math.floor(Math.max(1, healedAmount) * 0.2));
+    target.mendPulse = {
+      ticksLeft: 20, // 2s / 0.1s
+      walk: 0,
+      lostThisCycle: false,
+      lastLost: 0,
+      tickDmg,
+    };
+  }
+
+  function advanceMendPulse(b, unit, walked) {
+    const p = unit?.mendPulse;
+    if (!p || unit.hp <= 0) return;
+    p.walk += walked;
+    if (p.walk >= 10 && !p.lostThisCycle) {
+      const lost = dealDamage(unit, p.tickDmg, {
+        fromReflect: true,
+        trueDamage: true,
+      });
+      p.lastLost = lost || p.tickDmg;
+      p.lostThisCycle = true;
+    }
+    if (p.walk >= 20) {
+      const healAmt = Math.max(1, Math.floor(p.lastLost * 2.5));
+      applyHeal(unit, healAmt);
+      p.walk -= 20;
+      p.lostThisCycle = false;
+      p.lastLost = 0;
     }
   }
 
@@ -553,8 +633,9 @@ export function createBattleApi(ctx) {
     let killed = false;
     if (isBuffSkill(used)) {
       await playSkillAnim("buff", ally.id, ally.id, fxMeta);
-      ally.atkBuff = def.atkMult || 0;
-      ally.critDmgBonus = def.critDmgBonus || 0;
+      if (def.atkMult) ally.atkBuff = def.atkMult || 0;
+      if (def.critDmgBonus) ally.critDmgBonus = def.critDmgBonus || 0;
+      if (def.defMult) ally.defBuff = def.defMult || 0;
       ally.buffTurns = def.turns || 3;
       appliedBuff = true;
     } else if (isHealSkill(used)) {
@@ -568,7 +649,8 @@ export function createBattleApi(ctx) {
         const t = pickLowestAlly(b);
         if (!t) return false;
         await playSkillAnim(style, ally.id, t.id, fxMeta);
-        applyHeal(t, amount);
+        const healed = applyHeal(t, amount);
+        if (used === "green_mend") applyMendPulse(b, ally, t, healed || amount);
       }
       applyLifeFlowBuff(b, ally);
       syncHeroHp(b);
@@ -813,6 +895,10 @@ export function createBattleApi(ctx) {
     let ready = null;
     for (let i = 0; i < steps; i++) {
       for (const u of battleUnits(b)) {
+        if (u.mendPulse) {
+          u.mendPulse.ticksLeft -= 1;
+          if (u.mendPulse.ticksLeft <= 0) u.mendPulse = null;
+        }
         if (u.hp <= 0) continue;
         // 眩晕：真实行动条冻结；隐形条按速度走，攒满 stun（如 100）后解除
         if (isStunned(u)) {
@@ -824,6 +910,7 @@ export function createBattleApi(ctx) {
           continue;
         }
         u.gauge += u.spd;
+        if (u.mendPulse) advanceMendPulse(b, u, u.spd);
         if (u.gauge >= GAUGE_MAX) {
           u.gauge = GAUGE_MAX;
           if (!ready || u.spd > ready.spd) ready = u;
@@ -831,6 +918,7 @@ export function createBattleApi(ctx) {
       }
       if (ready) break;
     }
+    syncHeroHp(b);
     updateGaugeBars(b);
     if (ready) void unitAct(b, ready);
   }
@@ -897,6 +985,7 @@ export function createBattleApi(ctx) {
       critRate: hero.critRate ?? DEFAULT_CRIT_RATE,
       critDmg: hero.critDmg ?? DEFAULT_CRIT_DMG,
       atkBuff: 0,
+      defBuff: 0,
       critDmgBonus: 0,
       buffTurns: 0,
       row,
@@ -908,6 +997,7 @@ export function createBattleApi(ctx) {
       isHero: true,
       rotIndex: 0,
       spiritForm: false,
+      mendPulse: null,
     }));
 
     state.battle = {

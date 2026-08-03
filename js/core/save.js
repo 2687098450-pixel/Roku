@@ -4,6 +4,7 @@ import {
   createOmniHero,
   createPinkHero,
   createGreenHero,
+  createYellowHero,
   refreshHeroStats,
   normalizeFormation,
   FORMATION_SLOTS,
@@ -310,6 +311,7 @@ export function loadProgressIntoState(state, applyFloorFn) {
     omni: createOmniHero,
     pink: createPinkHero,
     green: createGreenHero,
+    yellow: createYellowHero,
   };
 
   const party = [];
@@ -319,6 +321,12 @@ export function loadProgressIntoState(state, applyFloorFn) {
     if (raw.id) hero.id = raw.id;
     applyHeroSave(hero, raw);
     party.push(hero);
+  }
+  // 旧档补全小黄
+  for (const sid of Object.keys(makers)) {
+    if (!party.some((h) => h.statsId === sid)) {
+      party.push(makers[sid]());
+    }
   }
   if (!party.length) return { ok: false, restored: false, reason: "no-party" };
 
