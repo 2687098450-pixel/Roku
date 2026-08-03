@@ -24,7 +24,7 @@ export const VIEW_COLS = 6;
  * 按楼层配置生成地图壳
  * def: { playCols, playRows, spawn, exit, walls[], water[], rocks[], shape, name, floor }
  * 非矩形外形：外形外为海洋，海岸线自动铺沙墙
- * 陆地边缘除入口/出口外封死，保证出口唯一
+ * 通往出口只保留「Boss 格」这一条通路，不封死整圈陆地边缘
  */
 export function createDungeonShell(def, mask = null) {
   const playCols = def.playCols || PLAY_COLS;
@@ -96,37 +96,18 @@ export function createDungeonShell(def, mask = null) {
     if (p) protectedPlay.add(`${p.x},${p.y}`);
   }
 
-  // 陆地边缘开口封死：只保留入口 / 出口（及 spawn、boss），避免多处「假出口」
-  for (let py = 0; py < playRows; py++) {
-    for (let px = 0; px < playCols; px++) {
-      if (!has(px, py)) continue;
-      if (protectedPlay.has(`${px},${py}`)) continue;
-      const x = ox + px;
-      const y = oy + py;
-      if (tiles[y][x] !== FLOOR) continue;
-      let onLandEdge = false;
-      for (const [dx, dy] of dirs4) {
-        if (!has(px + dx, py + dy)) {
-          onLandEdge = true;
-          break;
-        }
-      }
-      if (onLandEdge) tiles[y][x] = WALL;
-    }
-  }
-
-  // 内陆水池 / 礁石（不可走）
+  // 少量装饰障碍（可选）；不拿来封出口
   for (const c of def.water || []) {
     if (!has(c.x, c.y)) continue;
     if (protectedPlay.has(`${c.x},${c.y}`)) continue;
     const t = tiles[oy + c.y][ox + c.x];
-    if (t === FLOOR || t === WALL) tiles[oy + c.y][ox + c.x] = WATER;
+    if (t === FLOOR) tiles[oy + c.y][ox + c.x] = WATER;
   }
   for (const c of def.rocks || []) {
     if (!has(c.x, c.y)) continue;
     if (protectedPlay.has(`${c.x},${c.y}`)) continue;
     const t = tiles[oy + c.y][ox + c.x];
-    if (t === FLOOR || t === WALL) tiles[oy + c.y][ox + c.x] = ROCK;
+    if (t === FLOOR) tiles[oy + c.y][ox + c.x] = ROCK;
   }
 
   // 唯一出口：清掉其它 EXIT，再盖回配置出口
@@ -155,11 +136,19 @@ export function createDungeonShell(def, mask = null) {
 
   const bx = ox + def.boss.x;
   const by = oy + def.boss.y;
-  const bossTile = tiles[by][bx];
-  if (bossTile !== EXIT && bossTile !== ENTRANCE) tiles[by][bx] = FLOOR;
+  if (tiles[by]?.[bx] != null && tiles[by][bx] !== EXIT && tiles[by][bx] !== ENTRANCE) {
+    tiles[by][bx] = FLOOR;
+  }
 
-  // 若封边导致 spawn→exit 不通，沿最短障碍挖回地板（保出口唯一）
-  ensurePath(tiles, cols, rows, { x: sx, y: sy }, { x: ex, y: ey });
+  // 出口四邻只留 Boss 格可走：通往出口只有这一条路
+  sealExitBossGate(tiles, cols, rows, { x: ex, y: ey }, { x: bx, y: by });
+
+  // 先保证能走到 Boss；再重封出口，避免挖路把旁路又挖开
+  ensurePath(tiles, cols, rows, { x: sx, y: sy }, { x: bx, y: by });
+  sealExitBossGate(tiles, cols, rows, { x: ex, y: ey }, { x: bx, y: by });
+  // Boss → 出口相邻即可；若被误封则强制 Boss 为地板
+  tiles[by][bx] = FLOOR;
+  tiles[ey][ex] = EXIT;
 
   return {
     id: `floor_${def.floor || 1}`,
@@ -176,7 +165,30 @@ export function createDungeonShell(def, mask = null) {
     spawn: { x: sx, y: sy },
     exit: { x: ex, y: ey },
     entrance: enx != null ? { x: enx, y: eny } : null,
+    boss: { x: bx, y: by },
   };
+}
+
+/**
+ * 出口正交相邻格全部封墙，只保留 Boss 所在格为地板。
+ * 这样进出口在几何上只有一条路，且必经 Boss。
+ */
+function sealExitBossGate(tiles, cols, rows, exitAbs, bossAbs) {
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [dx, dy] of dirs) {
+    const nx = exitAbs.x + dx;
+    const ny = exitAbs.y + dy;
+    if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+    if (nx === bossAbs.x && ny === bossAbs.y) {
+      if (tiles[ny][nx] !== EXIT && tiles[ny][nx] !== ENTRANCE) {
+        tiles[ny][nx] = FLOOR;
+      }
+      continue;
+    }
+    const t = tiles[ny][nx];
+    if (t === OCEAN || t === EXIT || t === ENTRANCE) continue;
+    tiles[ny][nx] = WALL;
+  }
 }
 
 function tilePassableForPath(t) {
