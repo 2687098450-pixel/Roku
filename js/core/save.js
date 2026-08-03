@@ -187,9 +187,12 @@ export function serializeProgress(state) {
       : [1],
     gold: state.gold || 0,
     gem: state.gem || 0,
-    playerPos: state.playerPos
-      ? { x: state.playerPos.x, y: state.playerPos.y }
-      : null,
+    // 坐标仅作参考；读档时强制回出生点，不恢复站位
+    playerPos: state.map?.spawn
+      ? { x: state.map.spawn.x, y: state.map.spawn.y }
+      : state.playerPos
+        ? { x: state.playerPos.x, y: state.playerPos.y }
+        : null,
     formation: Array.isArray(state.formation)
       ? state.formation.map((id) => id || null)
       : [],
@@ -334,14 +337,11 @@ export function loadProgressIntoState(state, applyFloorFn) {
         : Math.max(state.monsterTotal || 0, restoredMonsters.length);
   }
 
-  if (data.playerPos && state.map) {
-    const x = Math.round(data.playerPos.x);
-    const y = Math.round(data.playerPos.y);
-    if (x >= 0 && y >= 0 && x < state.map.cols && y < state.map.rows) {
-      state.playerPos = { x, y };
-      state.displayPos = { x, y };
-      state.camReady = false;
-    }
+  // 刷新读档：进度保留，位置始终回到本层起点
+  if (state.map?.spawn) {
+    state.playerPos = { ...state.map.spawn };
+    state.displayPos = { ...state.map.spawn };
+    state.camReady = false;
   }
 
   state.mode = "explore";

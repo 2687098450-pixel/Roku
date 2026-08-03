@@ -26,7 +26,6 @@ import { createBattleApi } from "./battle/system.js";
 import { createUI } from "./ui/shell.js";
 import {
   loadProgressIntoState,
-  scheduleSave,
   flushSave,
 } from "./core/save.js";
 
@@ -210,7 +209,7 @@ function goNextFloor() {
   showToast(`进入 ${state.placeName}（${state.placeFloor}）`, 2400);
   ui.refreshExploreHud();
   resize();
-  scheduleSave(state);
+  flushSave(state);
 }
 
 /** 传送刷新球：跳到已访问层并重建怪物 */
@@ -224,7 +223,7 @@ function warpToFloor(floorNum) {
   showToast(`传送至 ${state.placeName}（${f}层），怪物已刷新`, 2800);
   ui.refreshExploreHud();
   resize();
-  scheduleSave(state);
+  flushSave(state);
   return true;
 }
 
@@ -258,13 +257,13 @@ const battle = createBattleApi({
       if (deadNames.length) parts.push(`${deadNames.join("、")}阵亡`);
       if (parts.length) showToast(parts.join(" · "), 3600);
       ui.refreshExploreHud();
-      scheduleSave(state);
+      flushSave(state);
       return;
     }
     if (result === "lose") {
       showToast("全员阵亡！可在阵容或角色详情中单独复活英雄", 3200);
       ui.refreshExploreHud();
-      scheduleSave(state);
+      flushSave(state);
     }
     if (!pack.length) return;
     if (result === "flee" || result === "lose") {
@@ -277,7 +276,7 @@ const battle = createBattleApi({
           resetMonsterAway(monster);
         }
       }
-      scheduleSave(state);
+      flushSave(state);
     }
   },
 });
@@ -287,7 +286,7 @@ const ui = createUI({
   setMode,
   canOpenParty: () => state.mode === "explore" || state.mode === "menu" || state.mode === "detail",
   onWarpFloor: warpToFloor,
-  onProgressChange: () => scheduleSave(state),
+  onProgressChange: () => flushSave(state),
 });
 
 function resize() {
@@ -502,7 +501,6 @@ function updateStep(dt) {
   state.playerPos.y = step.toY;
   state.step = null;
   finishStep();
-  scheduleSave(state);
 }
 
 function movePlayer(dx, dy) {
@@ -622,7 +620,7 @@ battle.bind();
 const loaded = loadProgressIntoState(state, applyFloor);
 if (!loaded.restored) {
   applyFloor(state, 1);
-  scheduleSave(state);
+  flushSave(state);
 }
 
 resize();
