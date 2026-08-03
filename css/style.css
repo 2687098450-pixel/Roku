@@ -1767,11 +1767,22 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .hero-tabs {
   flex: 0 0 auto;
   display: flex;
+  align-items: center;
   gap: 6px;
   margin: 0 0 6px;
   padding: 0;
   position: relative;
   z-index: 2;
+}
+
+.hero-tabs[data-side="right"] {
+  justify-content: space-between;
+}
+
+.hero-tabs-group {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
 }
 
 .hero-tab {
@@ -1789,6 +1800,22 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: var(--ink);
   background: #ffe7b8;
   box-shadow: inset 0 -2px 0 #ffb14a;
+}
+
+.hero-tabs .skill-points-bar {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 2px 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+.hero-tabs .skill-points-bar b {
+  color: #2f9d6a;
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .hero-tab-body {
@@ -1810,23 +1837,44 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .tab-pane.on { display: block; }
 
-/* 技能页：顶栏固定，列表内滚动 */
+/* 技能页：列表在圆角滚动容器内，避免滚动条像被截断 */
 .tab-pane[data-pane="skills"].on {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-bottom: 4px;
+  padding: 0;
 }
-.tab-pane[data-pane="skills"] .skill-points-bar {
-  flex: 0 0 auto;
-}
-.tab-pane[data-pane="skills"] .skill-list {
+.tab-pane[data-pane="skills"] .skill-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 6px 4px 6px 4px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.42);
+  border: 1.5px solid rgba(255, 184, 77, 0.32);
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #e0a85a rgba(255, 232, 190, 0.95);
+}
+.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 232, 190, 0.95);
+  border-radius: 999px;
+  margin: 6px 0;
+}
+.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar-thumb {
+  background: #e0a85a;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 232, 190, 0.95);
+  background-clip: padding-box;
+}
+.tab-pane[data-pane="skills"] .skill-list {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
 }
 
 .auto-hint {
@@ -2344,7 +2392,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
-  margin-bottom: 6px;
+  margin-bottom: 0;
   padding-right: 2px;
 }
 .skill-points-bar b {

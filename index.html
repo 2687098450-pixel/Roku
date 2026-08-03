@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=23" />
+  <link rel="stylesheet" href="css/style.css?v=24" />
 </head>
 <body>
   <div id="app">
@@ -163,18 +163,22 @@
           </section>
           <section class="hero-col hero-panel" aria-label="技能">
             <div class="hero-tabs" data-side="right" role="tablist">
-              <button type="button" class="hero-tab on" data-tab="skills">技能</button>
-              <button type="button" class="hero-tab" data-tab="auto">自动战斗</button>
+              <div class="hero-tabs-group">
+                <button type="button" class="hero-tab on" data-tab="skills">技能</button>
+                <button type="button" class="hero-tab" data-tab="auto">自动战斗</button>
+              </div>
+              <div class="skill-points-bar" title="技能点">
+                <b id="detailSkillPoints">0</b>
+              </div>
             </div>
             <div class="hero-tab-body" data-side="right">
               <div class="tab-pane on" data-pane="skills" data-side="right">
-                <div class="skill-points-bar" title="技能点">
-                  <b id="detailSkillPoints">0</b>
+                <div class="skill-scroll">
+                  <ul id="skillList" class="skill-list"></ul>
                 </div>
-                <ul id="skillList" class="skill-list"></ul>
               </div>
               <div class="tab-pane" data-pane="auto" data-side="right">
-                <p class="auto-hint">点击某一招，选择自动战斗技能</p>
+                <p class="auto-hint">点击序号更换自动战斗技能</p>
                 <div id="autoSlots" class="auto-slots"></div>
               </div>
             </div>
@@ -340,6 +344,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=23"></script>
+  <script type="module" src="js/main.js?v=24"></script>
 </body>
 </html>

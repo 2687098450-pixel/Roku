@@ -825,18 +825,7 @@ export function createUI(ctx) {
       })
       .join("");
 
-    const slots = hero.autoRotation
-      .map((sid, i) => {
-        const current = hero.skills.find((s) => s.id === sid);
-        return `<button type="button" class="auto-slot-btn" data-edit="${i}">
-          <span class="auto-slot-label">第 ${i + 1} 招</span>
-          <strong class="auto-current">${current ? current.name : "未选"}</strong>
-          <span class="auto-slot-meta">${current ? styleTag(current.style) : ""} · 点击选择</span>
-        </button>`;
-      })
-      .join("");
-
-    box.innerHTML = `<div class="auto-summary">${summary}</div><div class="auto-slot-list">${slots}</div>`;
+    box.innerHTML = `<div class="auto-summary">${summary}</div>`;
     box.querySelectorAll("[data-edit]").forEach((btn) => {
       btn.addEventListener("click", () => openSkillPick(hero, Number(btn.dataset.edit)));
     });
