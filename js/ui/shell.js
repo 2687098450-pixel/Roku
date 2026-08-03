@@ -1277,7 +1277,7 @@ export function createUI(ctx) {
       else misc.push(it);
     }
     equips.sort(compareEquipByRarityLevel);
-    // 非装备：按种类再按名称，稳定收在装备后面
+    // 道具优先于装备；道具内：消耗品 → 道具 → 其余
     const kindOrder = { consumable: 0, tool: 1, material: 2 };
     misc.sort((a, b) => {
       const ka = kindOrder[a.kind] ?? 9;
@@ -1285,7 +1285,7 @@ export function createUI(ctx) {
       if (ka !== kb) return ka - kb;
       return String(a.name || "").localeCompare(String(b.name || ""), "zh");
     });
-    state.inventory = [...equips, ...misc];
+    state.inventory = [...misc, ...equips];
     renderBag();
     bumpSave();
     const btn = $("btnBagSort");

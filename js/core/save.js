@@ -256,9 +256,9 @@ export const PHONE_ITEM = {
   desc: "一部能拨号的手机。",
 };
 
-const DEAD_BAG_IDS = new Set(["potion_hp", "potion_mp", "cake"]);
+const DEAD_BAG_IDS = new Set(["potion_hp", "potion_mp", "cake", "seed"]);
 
-/** 去掉无功能药水等，并确保背包里有手机 */
+/** 去掉已废弃道具，确保有手机；道具优先于装备 */
 export function sanitizeInventory(state) {
   if (!state) return;
   let inv = Array.isArray(state.inventory) ? state.inventory.filter(Boolean) : [];
@@ -266,7 +266,13 @@ export function sanitizeInventory(state) {
   if (!inv.some((it) => it.useId === "phone_dial" || it.id === "phone")) {
     inv = [{ ...PHONE_ITEM }, ...inv];
   }
-  state.inventory = inv;
+  const tools = [];
+  const equips = [];
+  for (const it of inv) {
+    if (it.slot || it.kind === "equip" || it.rarity) equips.push(it);
+    else tools.push(it);
+  }
+  state.inventory = [...tools, ...equips];
 }
 
 export function saveProgress(state) {

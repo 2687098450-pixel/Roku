@@ -108,7 +108,6 @@ const state = {
       tint: "#6b7c8f",
       desc: "一部能拨号的手机。",
     },
-    { id: "seed", name: "阳光种子", kind: "material", qty: 5, tint: "#9ad66a" },
     {
       id: "warp_refresh_orb",
       name: "传送刷新球",
