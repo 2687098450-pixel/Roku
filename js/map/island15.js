@@ -8,6 +8,10 @@ export const FLOOR = 2;
 export const EXIT = 3;
 /** 入口台阶（来自上一层）；人物站在外侧 spawn */
 export const ENTRANCE = 4;
+/** 内陆水池：不可通行，装饰用 */
+export const WATER = 5;
+/** 礁石 / 碎岩：不可通行 */
+export const ROCK = 6;
 export const OX = 2;
 export const OY = 2;
 export const COLS = PLAY_COLS + OX * 2;
@@ -18,8 +22,9 @@ export const VIEW_COLS = 6;
 
 /**
  * 按楼层配置生成地图壳
- * def: { playCols, playRows, spawn, exit, walls[], shape, name, floor }
+ * def: { playCols, playRows, spawn, exit, walls[], water[], rocks[], shape, name, floor }
  * 非矩形外形：外形外为海洋，海岸线自动铺沙墙
+ * 陆地边缘除入口/出口外封死，保证出口唯一
  */
 export function createDungeonShell(def, mask = null) {
   const playCols = def.playCols || PLAY_COLS;
@@ -39,6 +44,7 @@ export function createDungeonShell(def, mask = null) {
   })();
 
   const has = (px, py) => land.has(`${px},${py}`);
+  const dirs4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   for (let py = 0; py < playRows; py++) {
     for (let px = 0; px < playCols; px++) {
@@ -53,11 +59,10 @@ export function createDungeonShell(def, mask = null) {
   }
 
   // 海岸沙墙：与陆地相邻的海洋格
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       if (tiles[y][x] !== OCEAN) continue;
-      for (const [dx, dy] of dirs) {
+      for (const [dx, dy] of dirs4) {
         const t = tiles[y + dy]?.[x + dx];
         if (t === FLOOR || t === WALL) {
           tiles[y][x] = WALL;
@@ -86,6 +91,51 @@ export function createDungeonShell(def, mask = null) {
   applyAlcove(def.entrance, def.entranceAlcove || null);
   applyAlcove(def.exit, def.exitAlcove || null);
 
+  const protectedPlay = new Set();
+  for (const p of [def.spawn, def.entrance, def.exit, def.boss]) {
+    if (p) protectedPlay.add(`${p.x},${p.y}`);
+  }
+
+  // 陆地边缘开口封死：只保留入口 / 出口（及 spawn、boss），避免多处「假出口」
+  for (let py = 0; py < playRows; py++) {
+    for (let px = 0; px < playCols; px++) {
+      if (!has(px, py)) continue;
+      if (protectedPlay.has(`${px},${py}`)) continue;
+      const x = ox + px;
+      const y = oy + py;
+      if (tiles[y][x] !== FLOOR) continue;
+      let onLandEdge = false;
+      for (const [dx, dy] of dirs4) {
+        if (!has(px + dx, py + dy)) {
+          onLandEdge = true;
+          break;
+        }
+      }
+      if (onLandEdge) tiles[y][x] = WALL;
+    }
+  }
+
+  // 内陆水池 / 礁石（不可走）
+  for (const c of def.water || []) {
+    if (!has(c.x, c.y)) continue;
+    if (protectedPlay.has(`${c.x},${c.y}`)) continue;
+    const t = tiles[oy + c.y][ox + c.x];
+    if (t === FLOOR || t === WALL) tiles[oy + c.y][ox + c.x] = WATER;
+  }
+  for (const c of def.rocks || []) {
+    if (!has(c.x, c.y)) continue;
+    if (protectedPlay.has(`${c.x},${c.y}`)) continue;
+    const t = tiles[oy + c.y][ox + c.x];
+    if (t === FLOOR || t === WALL) tiles[oy + c.y][ox + c.x] = ROCK;
+  }
+
+  // 唯一出口：清掉其它 EXIT，再盖回配置出口
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (tiles[y][x] === EXIT) tiles[y][x] = FLOOR;
+    }
+  }
+
   const ex = ox + def.exit.x;
   const ey = oy + def.exit.y;
   tiles[ey][ex] = EXIT;
@@ -95,7 +145,7 @@ export function createDungeonShell(def, mask = null) {
   if (def.entrance) {
     enx = ox + def.entrance.x;
     eny = oy + def.entrance.y;
-    tiles[eny][enx] = ENTRANCE;
+    if (!(enx === ex && eny === ey)) tiles[eny][enx] = ENTRANCE;
   }
 
   const sx = ox + def.spawn.x;
@@ -107,6 +157,9 @@ export function createDungeonShell(def, mask = null) {
   const by = oy + def.boss.y;
   const bossTile = tiles[by][bx];
   if (bossTile !== EXIT && bossTile !== ENTRANCE) tiles[by][bx] = FLOOR;
+
+  // 若封边导致 spawn→exit 不通，沿最短障碍挖回地板（保出口唯一）
+  ensurePath(tiles, cols, rows, { x: sx, y: sy }, { x: ex, y: ey });
 
   return {
     id: `floor_${def.floor || 1}`,
@@ -124,6 +177,75 @@ export function createDungeonShell(def, mask = null) {
     exit: { x: ex, y: ey },
     entrance: enx != null ? { x: enx, y: eny } : null,
   };
+}
+
+function tilePassableForPath(t) {
+  return t === FLOOR || t === ENTRANCE || t === EXIT;
+}
+
+/** BFS：不通则把路上的墙/水/礁挖成地板（不改入口出口格） */
+function ensurePath(tiles, cols, rows, from, to) {
+  const key = (x, y) => `${x},${y}`;
+  const inb = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows;
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  function reachable() {
+    const q = [from];
+    const seen = new Set([key(from.x, from.y)]);
+    while (q.length) {
+      const cur = q.shift();
+      if (cur.x === to.x && cur.y === to.y) return true;
+      for (const [dx, dy] of dirs) {
+        const nx = cur.x + dx;
+        const ny = cur.y + dy;
+        if (!inb(nx, ny)) continue;
+        const k = key(nx, ny);
+        if (seen.has(k)) continue;
+        if (!tilePassableForPath(tiles[ny][nx])) continue;
+        seen.add(k);
+        q.push({ x: nx, y: ny });
+      }
+    }
+    return false;
+  }
+
+  if (reachable()) return;
+
+  // 允许穿过墙/水/礁做寻路，再挖通
+  const q = [{ x: from.x, y: from.y }];
+  const seen = new Set([key(from.x, from.y)]);
+  const prev = new Map();
+  let found = false;
+  while (q.length) {
+    const cur = q.shift();
+    if (cur.x === to.x && cur.y === to.y) {
+      found = true;
+      break;
+    }
+    for (const [dx, dy] of dirs) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (!inb(nx, ny)) continue;
+      const t = tiles[ny][nx];
+      if (t === OCEAN) continue;
+      const k = key(nx, ny);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      prev.set(k, cur);
+      q.push({ x: nx, y: ny });
+    }
+  }
+  if (!found) return;
+  let cur = { ...to };
+  while (!(cur.x === from.x && cur.y === from.y)) {
+    const t = tiles[cur.y][cur.x];
+    if (t !== EXIT && t !== ENTRANCE && t !== FLOOR) {
+      tiles[cur.y][cur.x] = FLOOR;
+    }
+    const p = prev.get(key(cur.x, cur.y));
+    if (!p) break;
+    cur = p;
+  }
 }
 
 /** 兼容旧接口：第 1 层默认岛 */
@@ -158,7 +280,9 @@ export function canWalk(map, x, y) {
 
 export function isExitCell(map, x, y) {
   if (x < 0 || y < 0 || x >= map.cols || y >= map.rows) return false;
-  return map.tiles[y][x] === EXIT;
+  if (map.tiles[y][x] !== EXIT) return false;
+  // 只认配置的唯一出口坐标
+  return !!map.exit && map.exit.x === x && map.exit.y === y;
 }
 
 export function isEntranceCell(map, x, y) {
@@ -213,6 +337,44 @@ function drawTile(ctx, type, x, y, T, time) {
     ctx.fillRect(px + 3, py + 3, T - 6, T - 6);
     ctx.fillStyle = "rgba(255,255,255,0.22)";
     ctx.fillRect(px + 5, py + 5, T - 10, 5);
+    return;
+  }
+  if (type === WATER) {
+    const wave = Math.sin(time * 2.2 + x * 0.9 + y * 0.6) * 0.05 + 1;
+    ctx.fillStyle = (x + y) % 2 === 0 ? "#3aa7c4" : "#4db8d4";
+    ctx.fillRect(px, py, T + 0.5, T + 0.5);
+    ctx.fillStyle = `rgba(180, 235, 255,${0.28 * wave})`;
+    ctx.beginPath();
+    if (ctx.ellipse) {
+      ctx.ellipse(px + T * 0.4, py + T * 0.5, T * 0.22, T * 0.08, 0, 0, Math.PI * 2);
+    } else {
+      ctx.arc(px + T * 0.4, py + T * 0.5, T * 0.12, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.fillStyle = "rgba(40, 120, 90, 0.35)";
+    ctx.beginPath();
+    ctx.arc(px + T * 0.7, py + T * 0.35, T * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  if (type === ROCK) {
+    ctx.fillStyle = "#d7c4a0";
+    ctx.fillRect(px, py, T + 0.5, T + 0.5);
+    ctx.fillStyle = "#8a7a68";
+    ctx.beginPath();
+    ctx.moveTo(px + T * 0.22, py + T * 0.7);
+    ctx.lineTo(px + T * 0.38, py + T * 0.28);
+    ctx.lineTo(px + T * 0.72, py + T * 0.34);
+    ctx.lineTo(px + T * 0.82, py + T * 0.72);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#6e5f50";
+    ctx.beginPath();
+    ctx.moveTo(px + T * 0.3, py + T * 0.78);
+    ctx.lineTo(px + T * 0.48, py + T * 0.48);
+    ctx.lineTo(px + T * 0.62, py + T * 0.78);
+    ctx.closePath();
+    ctx.fill();
     return;
   }
   if (type === EXIT || type === ENTRANCE) {

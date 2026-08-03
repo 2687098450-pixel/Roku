@@ -79,7 +79,7 @@ const SKILL_AFFIX_POOL = [
 /** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
 export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
 /** 列表/槽位用 slot/ 小图；大图约 1MB，手机易加载失败或极慢 */
-export const ITEM_ICON_VER = "11";
+export const ITEM_ICON_VER = "12";
 
 export function slotTitle(slotKey) {
   return `装备-${SLOT_LABEL[slotKey] || "部位"}`;

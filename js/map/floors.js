@@ -1,13 +1,22 @@
 /**
  * 十层关卡配置
  * - entrance / entranceAlcove：入口壁龛（人物站在入口外侧 spawn）
- * - exit / exitAlcove：出口壁龛
+ * - exit / exitAlcove：出口壁龛（全层唯一）
  * - walls：外形内部的额外围墙
+ * - water / rocks：内陆水池 / 礁石（不可通行）
  */
 
 export const MAX_FLOOR = 10;
 
 const MOB_COUNTS = [3, 5, 4, 7, 9, 6, 11, 14, 12, 16];
+
+function cellsRect(x0, y0, w, h) {
+  const out = [];
+  for (let y = y0; y < y0 + h; y++) {
+    for (let x = x0; x < x0 + w; x++) out.push({ x, y });
+  }
+  return out;
+}
 
 export const FLOOR_DEFS = [
   {
@@ -22,7 +31,11 @@ export const FLOOR_DEFS = [
     exit: { x: 9, y: 4 },
     exitAlcove: "e",
     boss: { x: 8, y: 4 },
-    walls: [],
+    walls: [
+      { x: 4, y: 2 }, { x: 5, y: 5 },
+    ],
+    water: [...cellsRect(3, 5, 2, 2)],
+    rocks: [{ x: 6, y: 2 }],
     mobCount: MOB_COUNTS[0],
     scale: 1,
   },
@@ -42,6 +55,8 @@ export const FLOOR_DEFS = [
       { x: 2, y: 4 }, { x: 2, y: 5 },
       { x: 6, y: 8 }, { x: 7, y: 8 },
     ],
+    water: [...cellsRect(4, 7, 2, 2), { x: 1, y: 7 }],
+    rocks: [{ x: 8, y: 8 }, { x: 3, y: 2 }],
     mobCount: MOB_COUNTS[1],
     scale: 1.2,
   },
@@ -61,6 +76,8 @@ export const FLOOR_DEFS = [
       { x: 3, y: 2 }, { x: 9, y: 2 },
       { x: 5, y: 5 }, { x: 7, y: 5 },
     ],
+    water: [...cellsRect(1, 1, 2, 2), ...cellsRect(10, 1, 2, 2)],
+    rocks: [{ x: 4, y: 6 }, { x: 8, y: 6 }],
     mobCount: MOB_COUNTS[2],
     scale: 1.4,
   },
@@ -73,7 +90,8 @@ export const FLOOR_DEFS = [
     entrance: { x: 0, y: 1 },
     entranceAlcove: "w",
     spawn: { x: 1, y: 1 },
-    exit: { x: 11, y: 1 },
+    // 右臂北端唯一出口（左臂北端封边后不再像出口）
+    exit: { x: 11, y: 0 },
     exitAlcove: "n",
     boss: { x: 11, y: 2 },
     walls: [
@@ -81,6 +99,8 @@ export const FLOOR_DEFS = [
       { x: 10, y: 5 }, { x: 11, y: 5 },
       { x: 6, y: 9 },
     ],
+    water: [...cellsRect(5, 8, 3, 2)],
+    rocks: [{ x: 1, y: 3 }, { x: 11, y: 3 }, { x: 6, y: 9 }],
     mobCount: MOB_COUNTS[3],
     scale: 1.65,
   },
@@ -101,6 +121,8 @@ export const FLOOR_DEFS = [
       { x: 5, y: 7 }, { x: 7, y: 7 },
       { x: 3, y: 6 }, { x: 9, y: 6 },
     ],
+    water: [...cellsRect(1, 5, 2, 2), ...cellsRect(10, 5, 2, 2)],
+    rocks: [{ x: 6, y: 4 }, { x: 6, y: 8 }, { x: 4, y: 6 }, { x: 8, y: 6 }],
     mobCount: MOB_COUNTS[4],
     scale: 1.9,
   },
@@ -113,13 +135,15 @@ export const FLOOR_DEFS = [
     entrance: { x: 0, y: 1 },
     entranceAlcove: "w",
     spawn: { x: 1, y: 1 },
-    exit: { x: 12, y: 6 },
+    exit: { x: 13, y: 6 },
     exitAlcove: "e",
     boss: { x: 11, y: 6 },
     walls: [
       { x: 2, y: 4 }, { x: 2, y: 7 },
       { x: 7, y: 1 }, { x: 7, y: 10 },
     ],
+    water: [...cellsRect(1, 4, 2, 2), { x: 10, y: 2 }, { x: 10, y: 9 }],
+    rocks: [{ x: 3, y: 2 }, { x: 4, y: 9 }, { x: 12, y: 4 }],
     mobCount: MOB_COUNTS[5],
     scale: 2.15,
   },
@@ -140,6 +164,8 @@ export const FLOOR_DEFS = [
       { x: 12, y: 3 }, { x: 12, y: 7 },
       { x: 7, y: 4 }, { x: 7, y: 6 },
     ],
+    water: [...cellsRect(3, 4, 2, 2), ...cellsRect(10, 4, 2, 2)],
+    rocks: [{ x: 5, y: 3 }, { x: 9, y: 7 }, { x: 7, y: 5 }],
     mobCount: MOB_COUNTS[6],
     scale: 2.45,
   },
@@ -152,7 +178,7 @@ export const FLOOR_DEFS = [
     entrance: { x: 0, y: 1 },
     entranceAlcove: "w",
     spawn: { x: 1, y: 1 },
-    exit: { x: 13, y: 10 },
+    exit: { x: 13, y: 11 },
     exitAlcove: "s",
     boss: { x: 12, y: 10 },
     walls: [
@@ -160,6 +186,8 @@ export const FLOOR_DEFS = [
       { x: 8, y: 6 }, { x: 9, y: 6 },
       { x: 10, y: 8 },
     ],
+    water: [...cellsRect(7, 8, 2, 2), { x: 3, y: 4 }],
+    rocks: [{ x: 4, y: 2 }, { x: 11, y: 7 }, { x: 9, y: 9 }],
     mobCount: MOB_COUNTS[7],
     scale: 2.8,
   },
@@ -172,13 +200,15 @@ export const FLOOR_DEFS = [
     entrance: { x: 2, y: 6 },
     entranceAlcove: "w",
     spawn: { x: 3, y: 6 },
-    exit: { x: 13, y: 8 },
+    exit: { x: 14, y: 8 },
     exitAlcove: "e",
     boss: { x: 12, y: 8 },
     walls: [
       { x: 6, y: 5 }, { x: 7, y: 5 }, { x: 7, y: 6 },
       { x: 9, y: 8 }, { x: 10, y: 7 },
     ],
+    water: [...cellsRect(8, 3, 3, 2), ...cellsRect(4, 9, 2, 2)],
+    rocks: [{ x: 5, y: 4 }, { x: 11, y: 5 }, { x: 10, y: 10 }],
     mobCount: MOB_COUNTS[8],
     scale: 3.2,
   },
@@ -199,6 +229,8 @@ export const FLOOR_DEFS = [
       { x: 8, y: 3 }, { x: 9, y: 8 },
       { x: 12, y: 5 }, { x: 12, y: 7 },
     ],
+    water: [...cellsRect(7, 5, 2, 2), { x: 3, y: 7 }, { x: 11, y: 3 }],
+    rocks: [{ x: 6, y: 4 }, { x: 10, y: 7 }, { x: 13, y: 4 }, { x: 4, y: 8 }],
     mobCount: MOB_COUNTS[9],
     scale: 3.7,
   },
