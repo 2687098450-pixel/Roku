@@ -2973,7 +2973,9 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   width: min(320px, calc(100% - 28px));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  overflow: visible;
+  max-height: none;
 }
 
 .phone-display {
@@ -2987,6 +2989,15 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   letter-spacing: 0.06em;
   text-align: center;
   word-break: break-all;
+}
+
+.phone-hint {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8a6a42;
+  text-align: center;
 }
 
 .phone-pad {
@@ -3021,15 +3032,6 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: #5a4630;
   background: rgba(255, 224, 168, 0.7);
   cursor: pointer;
-}
-
-.phone-hint {
-  margin: 0;
-  padding: 0 2px;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--muted);
-  text-align: center;
 }
 
 .modal-card.reset-card {
