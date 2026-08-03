@@ -1710,7 +1710,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: #4a2a10;
 }
 
-/* 下：左属性数值 | 右技能（含自动战斗） */
+/* 下：左属性/介绍 | 右技能/自动战斗；分栏位置固定 */
 .hero-bottom {
   flex: 1 1 auto;
   min-height: 0;
@@ -1726,52 +1726,44 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   z-index: 1;
 }
 
-.hero-col-title {
-  flex: 0 0 auto;
-  font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 14px;
-  color: var(--ink);
-  margin-bottom: 4px;
-}
-
-.hero-stats {
+.hero-col {
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.hero-stats {
   padding-right: 4px;
 }
 
 .hero-power {
   flex: 0 0 auto;
   font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 20px;
+  font-size: 18px;
   color: #ff8a3d;
   margin-bottom: 6px;
 }
 
 .hero-stats .stat-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
+  margin: 0;
+  padding: 0;
 }
 
-.hero-stats-desc {
-  flex: 0 0 auto;
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.35;
+.hero-intro-desc {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
   color: var(--muted);
 }
 
 .hero-panel {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  position: relative;
 }
 
-/* 右栏页签：技能 / 自动战斗 */
+/* 左右栏各自页签；切页不改动分栏几何 */
 .hero-tabs {
   flex: 0 0 auto;
   display: flex;
@@ -1785,9 +1777,9 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .hero-tab {
   border: none;
   border-radius: 10px;
-  padding: 7px 10px;
+  padding: 6px 9px;
   font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   background: rgba(255, 224, 168, 0.55);
   cursor: pointer;
@@ -1811,14 +1803,14 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   position: absolute;
   inset: 0;
   overflow: auto;
-  padding: 0 4px 10px 0;
+  padding: 0 2px 8px 0;
   border-radius: 8px;
   -webkit-overflow-scrolling: touch;
 }
 
 .tab-pane.on { display: block; }
 
-/* 技能页：顶栏固定，列表内滚动，避免滚动条顶穿外层圆角 */
+/* 技能页：顶栏固定，列表内滚动 */
 .tab-pane[data-pane="skills"].on {
   display: flex;
   flex-direction: column;
@@ -2222,10 +2214,10 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-list .skill-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 14px;
-  padding: 10px 10px 10px 10px;
+  border-radius: 12px;
+  padding: 8px;
   border: 1px solid rgba(255, 184, 77, 0.22);
 }
 
@@ -2235,7 +2227,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   width: auto;
   display: flex;
   flex-direction: row;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   border: none;
   background: transparent;
@@ -2247,6 +2239,9 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   cursor: pointer;
   border-radius: 10px;
   writing-mode: horizontal-tb;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .skill-row.skill-open:active {
   background: rgba(255, 184, 77, 0.12);
@@ -2254,12 +2249,12 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .skill-ico {
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 900;
   color: #fff;
   background: linear-gradient(180deg, #ffc56d, #ff9f43);
@@ -2271,7 +2266,6 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 .skill-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
 .skill-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
 
-/* 截图比例：名称 / 类型 / 等级 竖排，不与右侧 + 抢位 */
 .skill-meta {
   min-width: 0;
   flex: 1 1 auto;
@@ -2280,7 +2274,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   writing-mode: horizontal-tb;
   text-orientation: mixed;
 }
@@ -2299,18 +2293,18 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .skill-list .sname {
   font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 15px;
+  font-size: 13px;
   color: #3b2460;
   line-height: 1.15;
 }
 .skill-list .stype {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--muted);
   line-height: 1.2;
 }
 .skill-list .slv {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   color: #c06818;
   line-height: 1.2;
@@ -2318,13 +2312,13 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 .skill-up-btn {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: none;
-  border-radius: 11px;
+  border-radius: 10px;
   padding: 0;
   font: inherit;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
@@ -2341,25 +2335,65 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   box-shadow: none;
 }
 .skill-up-spacer {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
 }
 
 .skill-points-bar {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   padding-right: 2px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--ink);
 }
 .skill-points-bar b {
   color: #2f9d6a;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 按住技能预览（非弹窗） */
+.skill-hold-preview {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 8px;
+  z-index: 30;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(40, 36, 30, 0.92);
+  color: #fff8ec;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+.skill-hold-preview.hidden {
+  display: none;
+}
+.skill-hold-preview .shp-name {
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+.skill-hold-preview .shp-meta {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 248, 236, 0.72);
+  margin-bottom: 6px;
+}
+.skill-hold-preview .shp-nums {
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffd28a;
+  margin-bottom: 4px;
+}
+.skill-hold-preview .shp-desc {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 248, 236, 0.9);
 }
 
 /* 技能详情弹层 */

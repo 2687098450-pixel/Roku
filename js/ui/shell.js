@@ -53,6 +53,8 @@ export function createUI(ctx) {
   const { getState, setMode, canOpenParty, onWarpFloor, onProgressChange } = ctx;
   const bumpSave = () => onProgressChange?.();
   let detailTab = "skills";
+  let leftDetailTab = "info";
+  let rightDetailTab = "skills";
   let detailHeroId = null;
   let autoEditIdx = -1;
   let formDrag = null;
@@ -62,6 +64,7 @@ export function createUI(ctx) {
   let sellRarity = null;
   /** 手机拨号缓冲 */
   let phoneDigits = "";
+  let skillHoldBound = false;
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
@@ -292,6 +295,7 @@ export function createUI(ctx) {
   function closeModals() {
     closeSkillPick();
     closeSkillDetail();
+    hideSkillHoldPreview();
     closeEquipPreview();
     closeBagSell();
     closeWarp();
@@ -729,15 +733,82 @@ export function createUI(ctx) {
     bumpSave();
   }
 
+  function setLeftDetailTab(tab) {
+    leftDetailTab = tab === "intro" ? "intro" : "info";
+    document.querySelectorAll('.hero-tabs[data-side="left"] .hero-tab').forEach((btn) => {
+      btn.classList.toggle("on", btn.dataset.tab === leftDetailTab);
+    });
+    document.querySelectorAll('.tab-pane[data-side="left"]').forEach((pane) => {
+      pane.classList.toggle("on", pane.dataset.pane === leftDetailTab);
+    });
+  }
+
+  function setRightDetailTab(tab) {
+    rightDetailTab = tab === "auto" ? "auto" : "skills";
+    detailTab = rightDetailTab;
+    document.querySelectorAll('.hero-tabs[data-side="right"] .hero-tab').forEach((btn) => {
+      btn.classList.toggle("on", btn.dataset.tab === rightDetailTab);
+    });
+    document.querySelectorAll('.tab-pane[data-side="right"]').forEach((pane) => {
+      pane.classList.toggle("on", pane.dataset.pane === rightDetailTab);
+    });
+  }
+
   function setDetailTab(tab) {
-    const next = tab === "auto" ? "auto" : "skills";
-    detailTab = next;
-    document.querySelectorAll(".hero-tab").forEach((btn) => {
-      btn.classList.toggle("on", btn.dataset.tab === next);
+    if (tab === "info" || tab === "intro") setLeftDetailTab(tab);
+    else setRightDetailTab(tab);
+  }
+
+  function hideSkillHoldPreview() {
+    const el = $("skillHoldPreview");
+    if (!el) return;
+    el.classList.add("hidden");
+    el.setAttribute("aria-hidden", "true");
+    el.innerHTML = "";
+  }
+
+  function showSkillHoldPreview(hero, skillId) {
+    const skill = hero?.skills?.find((s) => s.id === skillId);
+    const el = $("skillHoldPreview");
+    if (!skill || !el) return;
+    const lv = getSkillLevel(hero, skill.id);
+    const typeLine =
+      skill.kind === "passive"
+        ? "被动"
+        : `${skillKindLabel(skill)}${skill.style ? ` · ${styleTag(skill.style)}` : ""}`;
+    el.innerHTML = `
+      <div class="shp-name">${skill.name}</div>
+      <div class="shp-meta">${typeLine} · 等级 ${lv}/${MAX_SKILL_LEVEL}</div>
+      ${skill.nums ? `<div class="shp-nums">${skill.nums}</div>` : ""}
+      <p class="shp-desc">${skill.desc || "暂无说明。"}</p>`;
+    el.classList.remove("hidden");
+    el.setAttribute("aria-hidden", "false");
+  }
+
+  function bindSkillHoldPreview(hero) {
+    hideSkillHoldPreview();
+    $("skillList")?.querySelectorAll(".skill-open").forEach((btn) => {
+      const onDown = (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        e.preventDefault();
+        try {
+          btn.setPointerCapture?.(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        showSkillHoldPreview(hero, btn.dataset.skill);
+      };
+      const onUp = () => hideSkillHoldPreview();
+      btn.addEventListener("pointerdown", onDown);
+      btn.addEventListener("pointerup", onUp);
+      btn.addEventListener("pointercancel", onUp);
+      btn.addEventListener("pointerleave", onUp);
+      btn.addEventListener("lostpointercapture", onUp);
     });
-    document.querySelectorAll(".tab-pane").forEach((pane) => {
-      pane.classList.toggle("on", pane.dataset.pane === next);
-    });
+    if (!skillHoldBound) {
+      skillHoldBound = true;
+      window.addEventListener("blur", hideSkillHoldPreview);
+    }
   }
 
   function renderAutoSlots(hero) {
@@ -861,7 +932,8 @@ export function createUI(ctx) {
     setMode("detail");
     refreshHeroStats(hero);
     $("detailModal").classList.remove("hidden");
-    setDetailTab(detailTab || "skills");
+    setLeftDetailTab(leftDetailTab || "info");
+    setRightDetailTab(rightDetailTab || "skills");
     syncDetailNav();
 
     const nameV = $("detailNameV");
@@ -1027,9 +1099,6 @@ export function createUI(ctx) {
       })
       .join("");
 
-    $("skillList")?.querySelectorAll(".skill-open").forEach((btn) => {
-      btn.addEventListener("click", () => openSkillDetail(hero.id, btn.dataset.skill));
-    });
     $("skillList")?.querySelectorAll(".skill-up-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1038,13 +1107,10 @@ export function createUI(ctx) {
           openDetail(hero.id);
           refreshExploreHud();
           bumpSave();
-          const modal = $("skillDetailModal");
-          if (modal && !modal.classList.contains("hidden")) {
-            openSkillDetail(hero.id, btn.dataset.skill);
-          }
         }
       });
     });
+    bindSkillHoldPreview(hero);
 
     renderAutoSlots(hero);
   }
@@ -1550,7 +1616,11 @@ export function createUI(ctx) {
     $("detailPrev")?.addEventListener("click", () => shiftDetail(-1));
     $("detailNext")?.addEventListener("click", () => shiftDetail(1));
     document.querySelectorAll(".hero-tab").forEach((btn) => {
-      btn.addEventListener("click", () => setDetailTab(btn.dataset.tab));
+      btn.addEventListener("click", () => {
+        const side = btn.closest(".hero-tabs")?.dataset.side;
+        if (side === "left") setLeftDetailTab(btn.dataset.tab);
+        else setRightDetailTab(btn.dataset.tab);
+      });
     });
   }
 
