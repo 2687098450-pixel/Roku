@@ -9,9 +9,98 @@
   --panel: rgba(255, 250, 242, 0.95);
   --line: rgba(58, 42, 26, 0.12);
   --shadow: 0 12px 30px rgba(90, 50, 20, 0.12);
+  --scroll-track: #ffe8be;
+  --scroll-thumb: #e0a85a;
+  --scroll-ink: rgba(120, 70, 20, 0.35);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 全站统一滚动条：暖色圆角轨道 + 琥珀滑块 */
+.modal-card,
+.equip-preview-body,
+.equip-pick-list,
+.skill-pick-list,
+.skill-detail-body,
+.bag-grid,
+.warp-floor-list,
+.bag-sell-rarities,
+.tab-pane,
+.skill-scroll,
+.auto-slots,
+.form-pool {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-card::-webkit-scrollbar,
+.equip-preview-body::-webkit-scrollbar,
+.equip-pick-list::-webkit-scrollbar,
+.skill-pick-list::-webkit-scrollbar,
+.skill-detail-body::-webkit-scrollbar,
+.bag-grid::-webkit-scrollbar,
+.warp-floor-list::-webkit-scrollbar,
+.bag-sell-rarities::-webkit-scrollbar,
+.tab-pane::-webkit-scrollbar,
+.skill-scroll::-webkit-scrollbar,
+.auto-slots::-webkit-scrollbar,
+.form-pool::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.modal-card::-webkit-scrollbar-track,
+.equip-preview-body::-webkit-scrollbar-track,
+.equip-pick-list::-webkit-scrollbar-track,
+.skill-pick-list::-webkit-scrollbar-track,
+.skill-detail-body::-webkit-scrollbar-track,
+.bag-grid::-webkit-scrollbar-track,
+.warp-floor-list::-webkit-scrollbar-track,
+.bag-sell-rarities::-webkit-scrollbar-track,
+.tab-pane::-webkit-scrollbar-track,
+.skill-scroll::-webkit-scrollbar-track,
+.auto-slots::-webkit-scrollbar-track,
+.form-pool::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+  border-radius: 999px;
+  margin: 6px;
+  border: 1px solid var(--scroll-ink);
+}
+
+.modal-card::-webkit-scrollbar-thumb,
+.equip-preview-body::-webkit-scrollbar-thumb,
+.equip-pick-list::-webkit-scrollbar-thumb,
+.skill-pick-list::-webkit-scrollbar-thumb,
+.skill-detail-body::-webkit-scrollbar-thumb,
+.bag-grid::-webkit-scrollbar-thumb,
+.warp-floor-list::-webkit-scrollbar-thumb,
+.bag-sell-rarities::-webkit-scrollbar-thumb,
+.tab-pane::-webkit-scrollbar-thumb,
+.skill-scroll::-webkit-scrollbar-thumb,
+.auto-slots::-webkit-scrollbar-thumb,
+.form-pool::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f0c070, var(--scroll-thumb));
+  border-radius: 999px;
+  border: 2px solid var(--scroll-track);
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--scroll-ink);
+}
+
+.modal-card::-webkit-scrollbar-thumb:active,
+.equip-preview-body::-webkit-scrollbar-thumb:active,
+.equip-pick-list::-webkit-scrollbar-thumb:active,
+.skill-pick-list::-webkit-scrollbar-thumb:active,
+.skill-detail-body::-webkit-scrollbar-thumb:active,
+.bag-grid::-webkit-scrollbar-thumb:active,
+.warp-floor-list::-webkit-scrollbar-thumb:active,
+.bag-sell-rarities::-webkit-scrollbar-thumb:active,
+.tab-pane::-webkit-scrollbar-thumb:active,
+.skill-scroll::-webkit-scrollbar-thumb:active,
+.auto-slots::-webkit-scrollbar-thumb:active,
+.form-pool::-webkit-scrollbar-thumb:active {
+  background: #d4923f;
+}
 
 html, body {
   width: 100%;
@@ -1853,23 +1942,6 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.42);
   border: 1.5px solid rgba(255, 184, 77, 0.32);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: #e0a85a rgba(255, 232, 190, 0.95);
-}
-.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 232, 190, 0.95);
-  border-radius: 999px;
-  margin: 6px 0;
-}
-.tab-pane[data-pane="skills"] .skill-scroll::-webkit-scrollbar-thumb {
-  background: #e0a85a;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 232, 190, 0.95);
-  background-clip: padding-box;
 }
 .tab-pane[data-pane="skills"] .skill-list {
   margin: 0;
@@ -1888,6 +1960,8 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .auto-summary {
@@ -2460,6 +2534,8 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
 }
 .skill-detail-top {
   display: flex;
