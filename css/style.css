@@ -2662,22 +2662,41 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   font: inherit;
   font-weight: 800;
   color: #fff;
-  cursor: default;
-  opacity: 0.55;
-}
-
-.bag-btn.sort { background: linear-gradient(180deg, #7ed99a, #4db86e); }
-.bag-btn.sell {
-  background: linear-gradient(180deg, #ff9a8b, #ef6b6b);
   cursor: pointer;
   opacity: 1;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+  transition: transform 0.08s ease, filter 0.12s ease, box-shadow 0.08s ease;
 }
-.bag-btn.sell:active { transform: scale(0.98); }
+
+.bag-btn:active {
+  transform: scale(0.97) translateY(1px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.18);
+  filter: brightness(0.96);
+}
+
+.bag-btn.sort {
+  background: linear-gradient(180deg, #6fd88f, #3aaa5f);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+.bag-btn.sort.flash {
+  animation: bag-btn-flash 0.35s ease;
+}
+@keyframes bag-btn-flash {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.18); }
+  100% { filter: brightness(1); }
+}
+.bag-btn.sell {
+  background: linear-gradient(180deg, #ff9a8b, #ef6b6b);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
 .bag-btn.sell:disabled,
 .bag-btn.sell.confirm:disabled {
   opacity: 0.45;
   cursor: default;
   transform: none;
+  box-shadow: none;
+  filter: none;
 }
 
 .bag-btn.sell.confirm {

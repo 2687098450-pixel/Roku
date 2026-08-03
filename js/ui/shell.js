@@ -48,7 +48,8 @@ import { setSavedFormation } from "../characters/stats.js";
 const BAG_SLOTS = 48;
 
 export function createUI(ctx) {
-  const { getState, setMode, canOpenParty, onWarpFloor } = ctx;
+  const { getState, setMode, canOpenParty, onWarpFloor, onProgressChange } = ctx;
+  const bumpSave = () => onProgressChange?.();
   let detailTab = "skills";
   let detailHeroId = null;
   let autoEditIdx = -1;
@@ -88,6 +89,7 @@ export function createUI(ctx) {
       return state.party.find((h) => h.id === id)?.statsId || null;
     });
     setSavedFormation(slots);
+    bumpSave();
   }
 
   /** 左侧头像条：只显示已上阵 */
@@ -121,6 +123,7 @@ export function createUI(ctx) {
     refreshHeroStats(hero);
     showReviveToast(`${hero.name} 已复活（-${r.cost} 金币）`);
     refreshExploreHud();
+    bumpSave();
     if (reopenDetail) openDetail(hero.id);
     if (refreshForm) renderFormation();
     return true;
@@ -367,6 +370,7 @@ export function createUI(ctx) {
       clearTimeout(toast._upTimer);
       toast._upTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
     }
+    bumpSave();
   }
 
   function formatBonusRows(bonus, compact = false, emptyText = "无加成") {
@@ -547,6 +551,7 @@ export function createUI(ctx) {
     closeEquipPreview();
     renderBag();
     refreshTopBar();
+    bumpSave();
   }
 
   function unequipCurrent() {
@@ -562,6 +567,7 @@ export function createUI(ctx) {
     refreshHeroStats(hero);
     openDetail(hero.id, { keepEquip: true });
     openEquipPreview(hero, slotKey);
+    bumpSave();
   }
 
   function candidatesForSlot(slotKey) {
@@ -661,6 +667,7 @@ export function createUI(ctx) {
     refreshHeroStats(hero);
     closeEquipPreview(); // 更换完成：预览与选择一并关掉
     openDetail(hero.id);
+    bumpSave();
   }
 
   function setDetailTab(tab) {
@@ -739,6 +746,7 @@ export function createUI(ctx) {
       card.addEventListener("click", () => {
         updateRotationSlot(hero, autoEditIdx, card.dataset.skill);
         renderAutoSlots(hero);
+        bumpSave();
         // 选完不关，点 × 才关；刷新「当前」标记
         openSkillPick(hero, autoEditIdx);
       });
@@ -969,6 +977,7 @@ export function createUI(ctx) {
           refreshHeroStats(hero);
           openDetail(hero.id);
           refreshExploreHud();
+          bumpSave();
           const modal = $("skillDetailModal");
           if (modal && !modal.classList.contains("hidden")) {
             openSkillDetail(hero.id, btn.dataset.skill);
@@ -1022,6 +1031,7 @@ export function createUI(ctx) {
           openDetail(hero.id);
           openSkillDetail(hero.id, skill.id);
           refreshExploreHud();
+          bumpSave();
         }
       };
     }
@@ -1127,6 +1137,7 @@ export function createUI(ctx) {
     renderBag();
     refreshTopBar();
     if (count > 0) {
+      bumpSave();
       const toast = $("lootToast");
       if (toast) {
         toast.textContent = `已出售 ${count} 件${info.label}装，+${gold} 金币`;
@@ -1157,6 +1168,20 @@ export function createUI(ctx) {
     });
     state.inventory = [...equips, ...misc];
     renderBag();
+    bumpSave();
+    const btn = $("btnBagSort");
+    if (btn) {
+      btn.classList.remove("flash");
+      void btn.offsetWidth;
+      btn.classList.add("flash");
+    }
+    const toast = $("toast");
+    if (toast) {
+      toast.textContent = items.length ? "背包已整理" : "背包是空的";
+      toast.classList.remove("hidden");
+      clearTimeout(toast._bagSortTimer);
+      toast._bagSortTimer = setTimeout(() => toast.classList.add("hidden"), 1600);
+    }
   }
 
   function renderBag() {
