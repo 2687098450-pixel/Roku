@@ -12,7 +12,7 @@
       b.href = p;
       document.head.insertBefore(b, document.head.firstChild);
       /* 图标地址写在 HTML 里，避免手机缓存旧 JS 仍去拉 1MB 大图 */
-      var VER = "10";
+      var VER = "11";
       window.__ITEM_ICON_VER__ = VER;
       window.__itemIconUrl = function (item, opts) {
         if (!item || !item.icon) return "";
@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=10" />
+  <link rel="stylesheet" href="css/style.css?v=11" />
 </head>
 <body>
   <div id="app">
@@ -239,7 +239,7 @@
         </div>
         <div id="bagGrid" class="bag-grid" aria-label="物品栏"></div>
         <div class="bag-actions">
-          <button type="button" class="bag-btn sort" disabled>整理</button>
+          <button type="button" class="bag-btn sort" id="btnBagSort">整理</button>
           <button type="button" class="bag-btn sell" id="btnBagSell">批量出售</button>
         </div>
       </div>
@@ -293,6 +293,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=10"></script>
+  <script type="module" src="js/main.js?v=11"></script>
 </body>
 </html>

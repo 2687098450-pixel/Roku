@@ -13,6 +13,8 @@ import {
   RARITY_ORDER,
   normalizeRarity,
   canEquipInSlot,
+  canHeroEquipItem,
+  compareEquipByRarityLevel,
   itemLevel,
   itemPrice,
   toBagEquip,
@@ -563,14 +565,17 @@ export function createUI(ctx) {
   }
 
   function candidatesForSlot(slotKey) {
+    const hero = currentEquipHero();
     const inv = getState().inventory || [];
     return inv
       .map((it, index) => ({ it, index }))
       .filter(({ it }) => {
         if (!it) return false;
         if (it.kind && it.kind !== "equip" && !it.slot) return false;
-        return canEquipInSlot(it, slotKey);
-      });
+        if (!hero) return canEquipInSlot(it, slotKey);
+        return canHeroEquipItem(hero, it, slotKey);
+      })
+      .sort((a, b) => compareEquipByRarityLevel(a.it, b.it));
   }
 
   function openEquipPick() {
@@ -581,7 +586,15 @@ export function createUI(ctx) {
     const sub = $("equipPickSub");
     const list = $("equipPickList");
     if (title) title.textContent = `选择${SLOT_LABEL[slotKey] || "装备"}`;
-    if (sub) sub.textContent = `从背包选择可装备到「${SLOT_LABEL[slotKey]}」的道具`;
+    let limitHint = "";
+    if (slotKey === "weapon") {
+      if (hero.statsId === "pink") limitHint = "（小粉仅可装备枪械）";
+      else if (hero.statsId === "green") limitHint = "（小绿仅可装备法杖）";
+      else if (hero.statsId === "omni") limitHint = "（全能可装备全部武器）";
+    }
+    if (sub) {
+      sub.textContent = `从背包选择可装备到「${SLOT_LABEL[slotKey]}」的道具${limitHint}`;
+    }
 
     const candidates = candidatesForSlot(slotKey);
     if (!list) return;
@@ -629,7 +642,7 @@ export function createUI(ctx) {
     const state = getState();
     const inv = state.inventory || [];
     const picked = inv[invIndex];
-    if (!picked || !canEquipInSlot(picked, slotKey)) return;
+    if (!picked || !canHeroEquipItem(hero, picked, slotKey)) return;
 
     const worn = hero.equip?.[slotKey] || null;
     // 从背包取出（按索引，避免同 id 误删）
@@ -1124,6 +1137,28 @@ export function createUI(ctx) {
     }
   }
 
+  function sortBagInventory() {
+    const state = getState();
+    const items = (state.inventory || []).filter(Boolean);
+    const equips = [];
+    const misc = [];
+    for (const it of items) {
+      if (isEquipItem(it)) equips.push(it);
+      else misc.push(it);
+    }
+    equips.sort(compareEquipByRarityLevel);
+    // 非装备：按种类再按名称，稳定收在装备后面
+    const kindOrder = { consumable: 0, tool: 1, material: 2 };
+    misc.sort((a, b) => {
+      const ka = kindOrder[a.kind] ?? 9;
+      const kb = kindOrder[b.kind] ?? 9;
+      if (ka !== kb) return ka - kb;
+      return String(a.name || "").localeCompare(String(b.name || ""), "zh");
+    });
+    state.inventory = [...equips, ...misc];
+    renderBag();
+  }
+
   function renderBag() {
     const grid = $("bagGrid");
     if (!grid) return;
@@ -1409,6 +1444,7 @@ export function createUI(ctx) {
     });
     $("btnUpgradeEquip")?.addEventListener("click", doUpgradeEquip);
     $("btnBagSell")?.addEventListener("click", openBagSell);
+    $("btnBagSort")?.addEventListener("click", sortBagInventory);
     $("btnConfirmSell")?.addEventListener("click", confirmBagSell);
     $("btnBag")?.addEventListener("click", openBag);
     $("btnFormation")?.addEventListener("click", openFormation);

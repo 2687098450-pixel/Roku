@@ -79,7 +79,7 @@ const SKILL_AFFIX_POOL = [
 /** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
 export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
 /** 列表/槽位用 slot/ 小图；大图约 1MB，手机易加载失败或极慢 */
-export const ITEM_ICON_VER = "10";
+export const ITEM_ICON_VER = "11";
 
 export function slotTitle(slotKey) {
   return `装备-${SLOT_LABEL[slotKey] || "部位"}`;
@@ -91,6 +91,44 @@ export function canEquipInSlot(item, slotKey) {
   const rings = slotKey === "ringL" || slotKey === "ringR";
   const itemRing = item.slot === "ringL" || item.slot === "ringR";
   return rings && itemRing;
+}
+
+/** 武器大类：sword / gun / staff / other */
+export function weaponClass(item) {
+  if (!item || item.slot !== "weapon") return null;
+  const kind = String(item.kind || "");
+  const name = String(item.name || "");
+  const icon = String(item.icon || "").toLowerCase();
+  const blob = `${kind} ${name} ${icon}`;
+  if (/法杖|杖/.test(blob) || icon.includes("staff")) return "staff";
+  if (/枪/.test(blob) || icon.includes("pistol") || icon.includes("gun")) return "gun";
+  if (/剑/.test(blob) || icon.includes("sword")) return "sword";
+  return "other";
+}
+
+/**
+ * 角色能否穿戴该装备（含武器职业限制）
+ * 全能：任意武器；小粉：仅枪械；小绿：仅法杖
+ */
+export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
+  if (!hero || !item || !canEquipInSlot(item, slotKey)) return false;
+  const isWeapon =
+    slotKey === "weapon" || item.slot === "weapon";
+  if (!isWeapon) return true;
+  const id = hero.statsId;
+  if (id === "omni") return true;
+  const cls = weaponClass(item);
+  if (id === "pink") return cls === "gun";
+  if (id === "green") return cls === "staff";
+  return true;
+}
+
+/** 品质高→低，同品质等级高→低（用于背包整理 / 更换列表） */
+export function compareEquipByRarityLevel(a, b) {
+  const ra = rarityInfo(a?.rarity).rank;
+  const rb = rarityInfo(b?.rarity).rank;
+  if (rb !== ra) return rb - ra;
+  return itemLevel(b) - itemLevel(a);
 }
 
 export function itemLevel(item) {
