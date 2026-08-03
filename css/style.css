@@ -3023,6 +3023,15 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   cursor: pointer;
 }
 
+.phone-hint {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: center;
+}
+
 .modal-card.reset-card {
   width: min(360px, calc(100% - 28px));
   display: flex;
