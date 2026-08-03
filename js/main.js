@@ -24,6 +24,11 @@ import { getSavedFormation } from "./characters/stats.js";
 import { moveSlimeOnce } from "./monsters/slime.js";
 import { createBattleApi } from "./battle/system.js";
 import { createUI } from "./ui/shell.js";
+import {
+  loadProgressIntoState,
+  scheduleSave,
+  flushSave,
+} from "./core/save.js";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -133,8 +138,6 @@ const state = {
   time: 0,
 };
 
-applyFloor(state, 1);
-
 let toastTimer = 0;
 
 function showToast(msg, ms = 2600) {
@@ -207,6 +210,7 @@ function goNextFloor() {
   showToast(`进入 ${state.placeName}（${state.placeFloor}）`, 2400);
   ui.refreshExploreHud();
   resize();
+  scheduleSave(state);
 }
 
 /** 传送刷新球：跳到已访问层并重建怪物 */
@@ -220,6 +224,7 @@ function warpToFloor(floorNum) {
   showToast(`传送至 ${state.placeName}（${f}层），怪物已刷新`, 2800);
   ui.refreshExploreHud();
   resize();
+  scheduleSave(state);
   return true;
 }
 
@@ -253,11 +258,13 @@ const battle = createBattleApi({
       if (deadNames.length) parts.push(`${deadNames.join("、")}阵亡`);
       if (parts.length) showToast(parts.join(" · "), 3600);
       ui.refreshExploreHud();
+      scheduleSave(state);
       return;
     }
     if (result === "lose") {
       showToast("全员阵亡！可在阵容或角色详情中单独复活英雄", 3200);
       ui.refreshExploreHud();
+      scheduleSave(state);
     }
     if (!pack.length) return;
     if (result === "flee" || result === "lose") {
@@ -270,6 +277,7 @@ const battle = createBattleApi({
           resetMonsterAway(monster);
         }
       }
+      scheduleSave(state);
     }
   },
 });
@@ -279,6 +287,7 @@ const ui = createUI({
   setMode,
   canOpenParty: () => state.mode === "explore" || state.mode === "menu" || state.mode === "detail",
   onWarpFloor: warpToFloor,
+  onProgressChange: () => scheduleSave(state),
 });
 
 function resize() {
@@ -493,6 +502,7 @@ function updateStep(dt) {
   state.playerPos.y = step.toY;
   state.step = null;
   finishStep();
+  scheduleSave(state);
 }
 
 function movePlayer(dx, dy) {
@@ -608,7 +618,27 @@ function frame(now) {
 ui.bind();
 bindExplore();
 battle.bind();
+
+const loaded = loadProgressIntoState(state, applyFloor);
+if (!loaded.restored) {
+  applyFloor(state, 1);
+  scheduleSave(state);
+}
+
 resize();
 ui.refreshExploreHud();
-showToast("点击地面可自动寻路。出口在蓝色楼梯，击败紫色 Boss 后前进。", 3600);
+if (loaded.restored) {
+  const f = state.floor || 1;
+  showToast(`已读取本地进度 · 当前 ${state.placeName || ""} ${f}层`, 3200);
+  flushSave(state);
+} else {
+  showToast("点击地面可自动寻路。出口在蓝色楼梯，击败紫色 Boss 后前进。", 3600);
+}
+
+window.addEventListener("pagehide", () => flushSave(state));
+window.addEventListener("beforeunload", () => flushSave(state));
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushSave(state);
+});
+
 requestAnimationFrame(frame);
