@@ -44,8 +44,10 @@ import {
 } from "../characters/omni/index.js";
 import { sumEquipBonus } from "../characters/omni/equipment.js";
 import { setSavedFormation } from "../characters/stats.js";
+import { resetGameLocalData } from "../core/save.js";
 
 const BAG_SLOTS = 48;
+const PHONE_RESET_CODE = "*886#";
 
 export function createUI(ctx) {
   const { getState, setMode, canOpenParty, onWarpFloor, onProgressChange } = ctx;
@@ -58,6 +60,8 @@ export function createUI(ctx) {
   let equipEdit = null;
   /** 批量出售选中的品质 */
   let sellRarity = null;
+  /** 手机拨号缓冲 */
+  let phoneDigits = "";
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
@@ -238,12 +242,61 @@ export function createUI(ctx) {
     $("warpModal")?.classList.add("hidden");
   }
 
+  function closePhone() {
+    $("phoneModal")?.classList.add("hidden");
+    phoneDigits = "";
+    syncPhoneDisplay();
+  }
+
+  function closeResetConfirm() {
+    $("resetConfirmModal")?.classList.add("hidden");
+  }
+
+  function syncPhoneDisplay() {
+    const el = $("phoneDisplay");
+    if (el) el.textContent = phoneDigits || "输入号码";
+  }
+
+  function openPhoneDial() {
+    closeEquipPreview();
+    phoneDigits = "";
+    syncPhoneDisplay();
+    $("phoneModal")?.classList.remove("hidden");
+  }
+
+  function openResetConfirm() {
+    $("resetConfirmModal")?.classList.remove("hidden");
+  }
+
+  function pressPhoneKey(key) {
+    if (!key) return;
+    if (phoneDigits.length >= 16) return;
+    phoneDigits += key;
+    syncPhoneDisplay();
+    if (key === "#" && phoneDigits === PHONE_RESET_CODE) {
+      openResetConfirm();
+    }
+  }
+
+  function clearPhoneDigits() {
+    phoneDigits = "";
+    syncPhoneDisplay();
+  }
+
+  function confirmResetGame() {
+    resetGameLocalData();
+    window.__MOKU_SKIP_SAVE__ = true;
+    location.reload();
+  }
+
   function closeModals() {
     closeSkillPick();
     closeSkillDetail();
     closeEquipPreview();
     closeBagSell();
     closeWarp();
+    closePhone();
+    closeResetConfirm();
     $("detailModal")?.classList.add("hidden");
     $("bagModal")?.classList.add("hidden");
     $("formationModal")?.classList.add("hidden");
@@ -508,11 +561,14 @@ export function createUI(ctx) {
     } else {
       if (title) title.textContent = MISC_KIND_LABEL[item.kind] || "物品";
       const isWarp = item.useId === "warp_refresh";
+      const isPhone = item.useId === "phone_dial";
       setPreviewActions({ replace: false, sellOne: false });
       const kindLabel = MISC_KIND_LABEL[item.kind] || "道具";
       const useBtn = isWarp
         ? `<button type="button" class="equip-btn replace" id="btnUseWarp">选择楼层传送</button>`
-        : "";
+        : isPhone
+          ? `<button type="button" class="equip-btn replace" id="btnUsePhone">打开拨号</button>`
+          : "";
       body.innerHTML = `
         <div class="equip-preview-top">
           <div class="equip-preview-ico empty misc" style="--tint:${item.tint || "#ddd"}">
@@ -523,7 +579,9 @@ export function createUI(ctx) {
               <span class="equip-preview-name">${item.name}</span>
               <span class="stag kind">${kindLabel}</span>
             </div>
-            <div class="equip-preview-rarity">${isWarp ? "可重复使用" : `数量 ×${item.qty ?? 1}`}</div>
+            <div class="equip-preview-rarity">${
+              isWarp || isPhone ? "可重复使用" : `数量 ×${item.qty ?? 1}`
+            }</div>
           </div>
         </div>
         <p class="equip-preview-desc">${
@@ -536,6 +594,7 @@ export function createUI(ctx) {
         }</p>
         ${useBtn}`;
       body.querySelector("#btnUseWarp")?.addEventListener("click", openWarpPicker);
+      body.querySelector("#btnUsePhone")?.addEventListener("click", openPhoneDial);
     }
     $("equipPreviewModal").classList.remove("hidden");
   }
@@ -1464,6 +1523,20 @@ export function createUI(ctx) {
     $("closeEquipPick")?.addEventListener("click", closeEquipPick);
     $("closeBagSell")?.addEventListener("click", closeBagSell);
     $("closeWarp")?.addEventListener("click", closeWarp);
+    $("closePhone")?.addEventListener("click", closePhone);
+    $("closeResetConfirm")?.addEventListener("click", () => {
+      closeResetConfirm();
+      closePhone();
+    });
+    $("btnPhoneClear")?.addEventListener("click", clearPhoneDigits);
+    $("btnResetCancel")?.addEventListener("click", () => {
+      closeResetConfirm();
+      closePhone();
+    });
+    $("btnResetConfirm")?.addEventListener("click", confirmResetGame);
+    $("phonePad")?.querySelectorAll(".phone-key").forEach((btn) => {
+      btn.addEventListener("click", () => pressPhoneKey(btn.dataset.key));
+    });
     $("btnReplace")?.addEventListener("click", openEquipPick);
     $("btnSellOne")?.addEventListener("click", () => {
       if (equipEdit?.source === "bag") sellBagItemAt(equipEdit.invIndex);

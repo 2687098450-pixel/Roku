@@ -13,7 +13,7 @@ import {
 } from "../characters/omni/index.js";
 import { createPatrolMonster } from "../monsters/slime.js";
 import { createBoss } from "../monsters/boss.js";
-import { setSavedFormation } from "../characters/stats.js";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -240,6 +240,35 @@ export function clearSave() {
   }
 }
 
+/** 清空进度与角色设置，用于「重置游戏」 */
+export function resetGameLocalData() {
+  clearSave();
+  clearCharacterSettings();
+}
+
+export const PHONE_ITEM = {
+  id: "phone",
+  name: "手机",
+  kind: "tool",
+  useId: "phone_dial",
+  qty: 1,
+  tint: "#6b7c8f",
+  desc: "一部能拨号的手机。",
+};
+
+const DEAD_BAG_IDS = new Set(["potion_hp", "potion_mp", "cake"]);
+
+/** 去掉无功能药水等，并确保背包里有手机 */
+export function sanitizeInventory(state) {
+  if (!state) return;
+  let inv = Array.isArray(state.inventory) ? state.inventory.filter(Boolean) : [];
+  inv = inv.filter((it) => it && !DEAD_BAG_IDS.has(it.id));
+  if (!inv.some((it) => it.useId === "phone_dial" || it.id === "phone")) {
+    inv = [{ ...PHONE_ITEM }, ...inv];
+  }
+  state.inventory = inv;
+}
+
 export function saveProgress(state) {
   const snap = serializeProgress(state);
   if (!snap) return false;
@@ -349,6 +378,8 @@ export function loadProgressIntoState(state, applyFloorFn) {
   state.moving = false;
   state.step = null;
   state.path = null;
+
+  sanitizeInventory(state);
 
   return { ok: true, restored: true };
 }

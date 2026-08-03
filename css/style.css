@@ -2745,6 +2745,102 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   line-height: 1.45;
 }
 
+.modal-card.phone-card {
+  width: min(320px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone-display {
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #1f2a33;
+  color: #e8f0f4;
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  word-break: break-all;
+}
+
+.phone-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.phone-key {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 22px;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fff8eb, #ffe2b0);
+  box-shadow: 0 2px 0 rgba(180, 120, 40, 0.28);
+  cursor: pointer;
+}
+.phone-key:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  filter: brightness(0.97);
+}
+
+.phone-clear {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  font-weight: 800;
+  color: #5a4630;
+  background: rgba(255, 224, 168, 0.7);
+  cursor: pointer;
+}
+
+.modal-card.reset-card {
+  width: min(360px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reset-hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.reset-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.reset-btn {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 10px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.reset-btn.cancel {
+  color: #5a4630;
+  background: rgba(255, 224, 168, 0.75);
+}
+.reset-btn.confirm {
+  color: #fff;
+  background: linear-gradient(180deg, #ff9a8b, #ef6b6b);
+  box-shadow: 0 2px 0 rgba(160, 60, 50, 0.28);
+}
+.reset-btn:active {
+  transform: translateY(1px);
+}
+
 .warp-floor-list {
   display: flex;
   flex-direction: column;

@@ -27,6 +27,7 @@ import { createUI } from "./ui/shell.js";
 import {
   loadProgressIntoState,
   flushSave,
+  sanitizeInventory,
 } from "./core/save.js";
 
 const canvas = $("map");
@@ -98,9 +99,15 @@ const state = {
   party: [omni, pink, green],
   formation: restoreFormation([omni, pink, green]),
   inventory: [
-    { id: "potion_hp", name: "小红药", kind: "consumable", qty: 3, tint: "#ff8a9a" },
-    { id: "potion_mp", name: "小蓝药", kind: "consumable", qty: 2, tint: "#7ec8ff" },
-    { id: "cake", name: "奶油蛋糕", kind: "consumable", qty: 1, tint: "#ffe0a0" },
+    {
+      id: "phone",
+      name: "手机",
+      kind: "tool",
+      useId: "phone_dial",
+      qty: 1,
+      tint: "#6b7c8f",
+      desc: "一部能拨号的手机。",
+    },
     { id: "seed", name: "阳光种子", kind: "material", qty: 5, tint: "#9ad66a" },
     {
       id: "warp_refresh_orb",
@@ -554,6 +561,16 @@ function bindExplore() {
 
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      const reset = $("resetConfirmModal");
+      if (reset && !reset.classList.contains("hidden")) {
+        reset.querySelector("#closeResetConfirm")?.click();
+        return;
+      }
+      const phone = $("phoneModal");
+      if (phone && !phone.classList.contains("hidden")) {
+        phone.querySelector("#closePhone")?.click();
+        return;
+      }
       const warp = $("warpModal");
       if (warp && !warp.classList.contains("hidden")) {
         warp.querySelector("#closeWarp")?.click();
@@ -620,22 +637,29 @@ battle.bind();
 const loaded = loadProgressIntoState(state, applyFloor);
 if (!loaded.restored) {
   applyFloor(state, 1);
-  flushSave(state);
 }
+sanitizeInventory(state);
+flushSave(state);
 
 resize();
 ui.refreshExploreHud();
 if (loaded.restored) {
   const f = state.floor || 1;
   showToast(`已读取本地进度 · 当前 ${state.placeName || ""} ${f}层`, 3200);
-  flushSave(state);
 } else {
   showToast("点击地面可自动寻路。出口在蓝色楼梯，击败紫色 Boss 后前进。", 3600);
 }
 
-window.addEventListener("pagehide", () => flushSave(state));
-window.addEventListener("beforeunload", () => flushSave(state));
+window.addEventListener("pagehide", () => {
+  if (window.__MOKU_SKIP_SAVE__) return;
+  flushSave(state);
+});
+window.addEventListener("beforeunload", () => {
+  if (window.__MOKU_SKIP_SAVE__) return;
+  flushSave(state);
+});
 document.addEventListener("visibilitychange", () => {
+  if (window.__MOKU_SKIP_SAVE__) return;
   if (document.visibilityState === "hidden") flushSave(state);
 });
 

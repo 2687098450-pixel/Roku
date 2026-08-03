@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=21" />
+  <link rel="stylesheet" href="css/style.css?v=22" />
 </head>
 <body>
   <div id="app">
@@ -254,6 +254,47 @@
       </div>
     </div>
 
+    <!-- 手机拨号 -->
+    <div id="phoneModal" class="modal nested hidden">
+      <div class="modal-card phone-card">
+        <div class="modal-head">
+          <h2>手机</h2>
+          <button type="button" class="icon-close" id="closePhone">×</button>
+        </div>
+        <div id="phoneDisplay" class="phone-display" aria-live="polite"></div>
+        <div id="phonePad" class="phone-pad" role="group" aria-label="拨号键盘">
+          <button type="button" class="phone-key" data-key="1">1</button>
+          <button type="button" class="phone-key" data-key="2">2</button>
+          <button type="button" class="phone-key" data-key="3">3</button>
+          <button type="button" class="phone-key" data-key="4">4</button>
+          <button type="button" class="phone-key" data-key="5">5</button>
+          <button type="button" class="phone-key" data-key="6">6</button>
+          <button type="button" class="phone-key" data-key="7">7</button>
+          <button type="button" class="phone-key" data-key="8">8</button>
+          <button type="button" class="phone-key" data-key="9">9</button>
+          <button type="button" class="phone-key" data-key="*">*</button>
+          <button type="button" class="phone-key" data-key="0">0</button>
+          <button type="button" class="phone-key" data-key="#">#</button>
+        </div>
+        <button type="button" class="phone-clear" id="btnPhoneClear">清除</button>
+      </div>
+    </div>
+
+    <!-- 重置游戏确认 -->
+    <div id="resetConfirmModal" class="modal nested hidden">
+      <div class="modal-card reset-card">
+        <div class="modal-head">
+          <h2>重置游戏</h2>
+          <button type="button" class="icon-close" id="closeResetConfirm">×</button>
+        </div>
+        <p class="reset-hint">确认后将清除全部本地进度，游戏回到最初状态。此操作不可撤销。</p>
+        <div class="reset-actions">
+          <button type="button" class="reset-btn cancel" id="btnResetCancel">取消</button>
+          <button type="button" class="reset-btn confirm" id="btnResetConfirm">确认重置</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 按品质批量出售背包装备 -->
     <div id="bagSellModal" class="modal nested hidden">
       <div class="modal-card bag-sell-card">
@@ -290,6 +331,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=21"></script>
+  <script type="module" src="js/main.js?v=22"></script>
 </body>
 </html>

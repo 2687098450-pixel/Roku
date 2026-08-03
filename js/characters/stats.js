@@ -218,3 +218,13 @@ export function setSavedFormation(slots) {
   persist();
   return getSavedFormation();
 }
+
+/** 清除角色侧本地设置（阵容 / 自动战斗等）；通常配合整页刷新） */
+export function clearCharacterSettings() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  savedFormation = null;
+}
