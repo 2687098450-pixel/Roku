@@ -1157,10 +1157,12 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   padding: 18px;
 }
 
-/* 外壳：箭头外扩；内卡片裁切，避免页签和战力叠层 */
+/* 外壳：箭头外扩；内卡片裁切，避免页签和战力叠层
+ * 最窄约 320px（再窄装备/属性会挤乱），桌面上限 420px */
 .hero-sheet {
   position: relative;
   width: min(420px, calc(100% - 60px));
+  min-width: min(320px, 100%);
   height: min(92vh, 760px);
   max-height: min(92vh, 760px);
 }
@@ -2705,7 +2707,8 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 
 @media (max-width: 420px) {
   .hero-sheet {
-    width: calc(100% - 56px);
+    width: max(320px, calc(100% - 56px));
+    min-width: 320px;
     height: min(90vh, 740px);
   }
 
