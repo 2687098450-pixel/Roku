@@ -29,10 +29,11 @@ export function refreshHeroStats(hero) {
   }
   const eq = sumEquipBonus(hero.equip);
   const stats = calcStats(hero.base, hero.passiveBoost, eq, hero.level || 1);
-  hero.maxHp = stats.maxHp;
-  hero.atk = stats.atk;
-  hero.def = stats.def;
-  hero.spd = stats.spd;
+  const mult = hero.isCaptain ? 1.1 : 1;
+  hero.maxHp = Math.max(1, Math.floor(stats.maxHp * mult));
+  hero.atk = Math.max(1, Math.floor(stats.atk * mult));
+  hero.def = Math.max(0, Math.floor(stats.def * mult));
+  hero.spd = Math.max(1, Math.floor(stats.spd * mult));
   if (hero.critRate == null) hero.critRate = DEFAULT_CRIT_RATE;
   if (hero.critDmg == null) hero.critDmg = DEFAULT_CRIT_DMG;
   if (hero.hp == null) hero.hp = hero.maxHp;

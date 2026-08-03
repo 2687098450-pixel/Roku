@@ -958,7 +958,10 @@ export function createBattleApi(ctx) {
       }
       lineup = [{ hero, row: "front", col: 1, slot: 4 }];
     }
-    for (const { hero } of lineup) refreshHeroStats(hero);
+    for (const { hero } of lineup) {
+      hero.isCaptain = hero.id === state.captainId;
+      refreshHeroStats(hero);
+    }
 
     setMode("battle");
     hideExplore();

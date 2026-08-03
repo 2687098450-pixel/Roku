@@ -202,6 +202,9 @@ export function serializeProgress(state) {
       const h = state.party?.find((p) => p.id === id);
       return h?.statsId || null;
     }),
+    captainId: state.captainId || null,
+    captainStatsId:
+      state.party?.find((h) => h.id === state.captainId)?.statsId || null,
     inventory: (state.inventory || []).map(serializeItem),
     party: (state.party || []).map(serializeHero),
     monsters: (state.monsters || [])
@@ -338,6 +341,19 @@ export function loadProgressIntoState(state, applyFloorFn) {
     ? data.visitedFloors.filter((n) => n >= 1)
     : [1];
   if (!state.visitedFloors.length) state.visitedFloors = [1];
+
+  if (data.captainId && party.some((h) => h.id === data.captainId)) {
+    state.captainId = data.captainId;
+  } else if (data.captainStatsId) {
+    state.captainId =
+      party.find((h) => h.statsId === data.captainStatsId)?.id || party[0]?.id || null;
+  } else {
+    state.captainId = party[0]?.id || null;
+  }
+  for (const h of party) {
+    h.isCaptain = h.id === state.captainId;
+    refreshHeroStats(h);
+  }
 
   if (Array.isArray(data.formation) && data.formation.some(Boolean)) {
     state.formation = data.formation.map((id) => {

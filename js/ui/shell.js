@@ -139,6 +139,34 @@ export function createUI(ctx) {
     return true;
   }
 
+  function syncCaptainFlags(state = getState()) {
+    if (!state?.party?.length) return;
+    let id = state.captainId;
+    if (!id || !state.party.some((h) => h.id === id)) {
+      id =
+        (state.formation || []).find((fid) => !!fid) ||
+        state.party[0]?.id ||
+        null;
+      state.captainId = id;
+    }
+    for (const h of state.party) {
+      h.isCaptain = h.id === id;
+      refreshHeroStats(h);
+    }
+  }
+
+  function setCaptain(heroId) {
+    const state = getState();
+    const hero = state.party.find((h) => h.id === heroId);
+    if (!hero) return;
+    state.captainId = heroId;
+    syncCaptainFlags(state);
+    renderFormation();
+    refreshExploreHud();
+    if (detailHeroId) openDetail(detailHeroId);
+    bumpSave();
+  }
+
   function renderPartyStrip() {
     const box = $("partyStrip");
     if (!box) return;
@@ -181,6 +209,7 @@ export function createUI(ctx) {
   }
 
   function refreshExploreHud() {
+    syncCaptainFlags();
     renderPartyStrip();
     refreshTopBar();
   }
@@ -1013,8 +1042,9 @@ export function createUI(ctx) {
         deploy.classList.add("off", "dead-tag");
       } else {
         const on = isDeployed(hero.id);
-        deploy.textContent = on ? "已上阵" : "未上阵";
-        deploy.classList.toggle("off", !on);
+        const cap = !!hero.isCaptain || hero.id === getState().captainId;
+        deploy.textContent = cap ? (on ? "队长·已上阵" : "队长") : on ? "已上阵" : "未上阵";
+        deploy.classList.toggle("off", !on && !cap);
         deploy.classList.remove("dead-tag");
       }
       deploy.hidden = false;
@@ -1128,11 +1158,12 @@ export function createUI(ctx) {
     const eq = sumEquipBonus(hero.equip);
     const critRate = Math.round((hero.critRate ?? DEFAULT_CRIT_RATE) * 100);
     const critDmg = Math.round((hero.critDmg ?? DEFAULT_CRIT_DMG) * 100);
+    const capNote = hero.isCaptain ? " · 队长+10%" : "";
     $("statList").innerHTML = [
-      ["生命", `${Math.ceil(hero.hp)} / ${hero.maxHp}`, `基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}`],
-      ["攻击", String(hero.atk), `基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}`],
-      ["防御", String(hero.def), `基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}`],
-      ["速度", String(hero.spd), `基础${hero.base.spd} + 装备${eq.spd}`],
+      ["生命", `${Math.ceil(hero.hp)} / ${hero.maxHp}`, `基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}`],
+      ["攻击", String(hero.atk), `基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote}`],
+      ["防御", String(hero.def), `基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}`],
+      ["速度", String(hero.spd), `基础${hero.base.spd} + 装备${eq.spd}${capNote}`],
       ["暴击率", `${critRate}%`, "默认 10%"],
       ["暴击伤害", `${critDmg}%`, "默认 150%（暴击时伤害倍率）"],
     ]
@@ -1542,6 +1573,7 @@ export function createUI(ctx) {
   function renderFormation() {
     const state = getState();
     normalizeFormation(state, FORMATION_SLOTS);
+    syncCaptainFlags(state);
     clearFormDrag();
     const { power, luck } = formationPowerLuck();
     const powerEl = $("formPower");
@@ -1563,10 +1595,12 @@ export function createUI(ctx) {
       }
       const dead = isHeroDead(hero);
       const cost = reviveCost(hero.level || 1);
-      slots.push(`<div class="form-slot filled${dead ? " dead" : ""}" data-slot="${i}" data-id="${hero.id}">
+      const cap = hero.id === state.captainId;
+      slots.push(`<div class="form-slot filled${dead ? " dead" : ""}${cap ? " captain" : ""}" data-slot="${i}" data-id="${hero.id}">
         <button type="button" class="form-x" data-undep="${hero.id}" title="下阵">×</button>
+        ${cap ? '<span class="form-slot-captain" title="队长">★</span>' : ""}
         <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party)}"></div>
-        <b>${hero.name}${dead ? "·亡" : ""}</b>
+        <b>${hero.name}${dead ? "·亡" : ""}${cap ? "·长" : ""}</b>
         ${
           dead
             ? `<button type="button" class="form-revive-btn" data-revive="${hero.id}">复活 ${cost}金</button>`
@@ -1582,9 +1616,13 @@ export function createUI(ctx) {
         const on = isDeployed(h.id);
         const dead = isHeroDead(h);
         const cost = reviveCost(h.level || 1);
+        const cap = h.id === state.captainId;
         const tag = dead ? "阵亡" : on ? "已上阵" : "点击上阵";
-        return `<div class="form-pool-card ${on ? "on" : ""}${dead ? " dead" : ""}" data-pool="${h.id}">
-          <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party)}"></div>
+        return `<div class="form-pool-card ${on ? "on" : ""}${dead ? " dead" : ""}${cap ? " captain" : ""}" data-pool="${h.id}">
+          <button type="button" class="form-captain-btn${cap ? " on" : ""}" data-captain="${h.id}" title="${cap ? "当前队长" : "设为队长"}">★</button>
+          <div class="form-pool-face">
+            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party)}"></div>
+          </div>
           <span class="form-pool-name">${h.name}</span>
           <span class="form-pool-tag ${on ? "deployed" : ""}${dead ? " dead" : ""}">${tag}</span>
           ${
@@ -1614,9 +1652,15 @@ export function createUI(ctx) {
         tryReviveHero(btn.dataset.revive, { refreshForm: true });
       });
     });
+    pool.querySelectorAll("[data-captain]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setCaptain(btn.dataset.captain);
+      });
+    });
     pool.querySelectorAll("[data-pool]").forEach((card) => {
       card.addEventListener("click", (e) => {
-        if (e.target.closest("[data-revive]")) return;
+        if (e.target.closest("[data-revive],[data-captain]")) return;
         const id = card.dataset.pool;
         const hero = state.party.find((h) => h.id === id);
         if (hero && isHeroDead(hero)) {

@@ -20,6 +20,7 @@ import {
   diamondDims,
   makeItem,
   toBagEquip,
+  refreshHeroStats,
 } from "./characters/omni/index.js";
 import { getSavedFormation } from "./characters/stats.js";
 import { moveSlimeOnce } from "./monsters/slime.js";
@@ -100,6 +101,7 @@ const state = {
   displayPos: null,
   party: [omni, pink, green, yellow],
   formation: restoreFormation([omni, pink, green, yellow]),
+  captainId: yellow.id,
   inventory: [
     {
       id: "phone",
@@ -638,6 +640,14 @@ battle.bind();
 const loaded = loadProgressIntoState(state, applyFloor);
 if (!loaded.restored) {
   applyFloor(state, 1);
+}
+if (!state.captainId || !state.party.some((h) => h.id === state.captainId)) {
+  state.captainId =
+    (state.formation || []).find((id) => !!id) || state.party[0]?.id || null;
+}
+for (const h of state.party) {
+  h.isCaptain = h.id === state.captainId;
+  refreshHeroStats(h);
 }
 sanitizeInventory(state);
 flushSave(state);
