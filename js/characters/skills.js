@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=59";
-import { getCharacterStats } from "./stats.js?v=59";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=59";
-import { heroHasUnique } from "./omni/equipment.js?v=59";
+import { skillPowerText } from "../core/utils.js?v=60";
+import { getCharacterStats } from "./stats.js?v=60";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=60";
+import { heroHasUnique } from "./omni/equipment.js?v=60";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -43,10 +43,10 @@ export const SKILL_POWER = {
     defMult: 0.45,
     turns: 3,
   },
-  /** 被动反伤：敌人 = 防御×reflectMult+reflectFlat；友军 = 敌人×allyRatio */
+  /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)；友军 = 对敌×allyRatio */
   yellow_reflect: {
-    reflectMult: 0.6,
-    reflectFlat: 4,
+    /** 每级 10%：9 级 90%、10 级 100% */
+    reflectPctPerLevel: 0.1,
     allyRatio: 0.7,
   },
 
@@ -71,8 +71,12 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.defMult != null) out.defMult = +(out.defMult + lv * 0.04).toFixed(3);
   if (out.turns != null) out.turns = out.turns + Math.floor(lv / 3);
   if (out.healRatio != null) out.healRatio = +(out.healRatio + lv * 0.02).toFixed(3);
-  if (out.reflectMult != null) out.reflectMult = +(out.reflectMult + lv * 0.04).toFixed(3);
-  if (out.reflectFlat != null) out.reflectFlat = Math.round(out.reflectFlat + lv * 1);
+  // 反伤：系数 = 等级 × 10%（不走通用 +flat 成长）
+  if (out.reflectPctPerLevel != null) {
+    const rank = Math.max(1, Math.floor(skillLevel || 1));
+    out.reflectMult = +(out.reflectPctPerLevel * rank).toFixed(3);
+    delete out.reflectFlat;
+  }
   // 友军反伤是副作用：升级应减轻，不是加重
   if (out.allyRatio != null) {
     out.allyRatio = Math.max(0.2, +(out.allyRatio - lv * 0.025).toFixed(3));
@@ -109,30 +113,39 @@ export function isBuffSkill(skillId) {
 
 /** 反伤系数（随等级）；战斗与面板共用 */
 export function getReflectParams(skillLevel = 1) {
-  const s = scaledSkillDef("yellow_reflect", skillLevel) || SKILL_POWER.yellow_reflect;
+  const rank = Math.max(1, Math.floor(skillLevel || 1));
+  const s = scaledSkillDef("yellow_reflect", rank) || SKILL_POWER.yellow_reflect;
+  const per = s.reflectPctPerLevel ?? 0.1;
   return {
-    reflectMult: s.reflectMult,
-    reflectFlat: s.reflectFlat,
+    reflectMult: s.reflectMult ?? +(per * rank).toFixed(3),
     allyRatio: s.allyRatio,
   };
 }
 
 /**
+ * 对敌反伤：防御力 × (等级×10%) × (1 + 攻击÷防御)
+ */
+export function calcReflectEnemyDamage(atk, def, skillLevel = 1) {
+  const p = getReflectParams(skillLevel);
+  const d = Math.max(1, Math.floor(def || 1));
+  const a = Math.max(0, Math.floor(atk || 0));
+  return Math.max(1, Math.floor(d * p.reflectMult * (1 + a / d)));
+}
+
+/**
  * 按角色当前攻防预览反伤数值（真实伤害，未算战中 buff）
- * @returns {{ enemy: number, ally: number, reflectMult: number, reflectFlat: number, allyRatio: number, hasShield: boolean }}
  */
 export function previewReflectDamage(hero) {
   const lv = getSkillLevel(hero, "yellow_reflect");
   const p = getReflectParams(lv);
   const def = Math.max(1, Math.floor(hero?.def || 1));
-  let enemy = Math.max(1, Math.floor(def * p.reflectMult + p.reflectFlat));
+  const atk = Math.max(0, Math.floor(hero?.atk || 0));
   const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
-  if (hasShield) {
-    const atk = Math.max(0, Math.floor(hero?.atk || 0));
-    enemy = Math.max(1, Math.floor((atk / def) * enemy));
-  }
-  const ally = Math.max(1, Math.floor(enemy * p.allyRatio));
-  return { enemy, ally, ...p, hasShield };
+  let allyRatio = p.allyRatio;
+  if (hasShield) allyRatio = Math.max(0.1, +(allyRatio * 0.75).toFixed(3));
+  const enemy = calcReflectEnemyDamage(atk, def, lv);
+  const ally = Math.max(1, Math.floor(enemy * allyRatio));
+  return { enemy, ally, ...p, allyRatio, hasShield };
 }
 
 function passiveNums(sheet) {
@@ -279,11 +292,12 @@ export function buildSkillText(hero, skillId, level = 1) {
   if (skillId === "yellow_reflect") {
     const p = getReflectParams(lv);
     const pct = Math.round(p.reflectMult * 100);
-    const allyPct = Math.round(p.allyRatio * 100);
-    const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
-    const enemyFormula = hasShield
-      ? `防御力×${pct}%+${p.reflectFlat}×(攻击÷防御)`
-      : `防御力×${pct}%+${p.reflectFlat}`;
+    let allyRatio = p.allyRatio;
+    if (heroHasUnique(hero, "yellow_reflect_shield")) {
+      allyRatio = Math.max(0.1, +(allyRatio * 0.75).toFixed(3));
+    }
+    const allyPct = Math.round(allyRatio * 100);
+    const enemyFormula = `防御力×${pct}%×(1+攻击÷防御)`;
     const nums = `敌${enemyFormula} · 友×${allyPct}%`;
     const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，对友方造成 该伤害×${allyPct}%。`;
     return { nums, desc };
@@ -472,8 +486,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "敌防御力×60%+4 · 友×70%",
-      desc: "受伤时，对敌人造成 防御力×60%+4 伤害，对友方造成 该伤害×70%。",
+      nums: "敌防御力×10%×(1+攻击÷防御) · 友×70%",
+      desc: "受伤时，对敌人造成 防御力×10%×(1+攻击÷防御) 伤害，对友方造成 该伤害×70%。",
     },
     {
       id: "yellow_armor",

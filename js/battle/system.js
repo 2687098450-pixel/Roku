@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=59";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=59";
+import { $, clamp, irand } from "../core/utils.js?v=60";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=60";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=59";
+} from "../characters/omni/index.js?v=60";
 import {
   gainExp,
   splitExp,
@@ -25,17 +25,17 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=59";
-import { refreshSkillTexts } from "../characters/skills.js?v=59";
-import { buildEncounter } from "../monsters/roster.js?v=59";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=59";
-import { rollBattleLoot } from "../loot/drops.js?v=59";
+} from "../characters/progression.js?v=60";
+import { refreshSkillTexts, calcReflectEnemyDamage } from "../characters/skills.js?v=60";
+import { buildEncounter } from "../monsters/roster.js?v=60";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=60";
+import { rollBattleLoot } from "../loot/drops.js?v=60";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=59";
-import { createTicker } from "../core/time.js?v=59";
+} from "../characters/stats.js?v=60";
+import { createTicker } from "../core/time.js?v=60";
 
 export function createBattleApi(ctx) {
   const {
@@ -324,17 +324,9 @@ export function createBattleApi(ctx) {
   function reflectBaseDamage(victim) {
     const hero = actingHero(victim);
     const lv = getSkillLevel(hero, "yellow_reflect");
-    const s = scaledSkillDef("yellow_reflect", lv) || {
-      reflectMult: 0.6,
-      reflectFlat: 4,
-    };
     const def = Math.max(1, effectiveDef(victim));
-    let base = Math.max(1, Math.floor(def * s.reflectMult + s.reflectFlat));
-    if (heroHasUnique(hero, "yellow_reflect_shield")) {
-      const atk = Math.max(0, effectiveAtk(victim));
-      base = Math.max(1, Math.floor((atk / def) * base));
-    }
-    return base;
+    const atk = Math.max(0, effectiveAtk(victim));
+    return calcReflectEnemyDamage(atk, def, lv);
   }
 
   function triggerReflect(victim) {
@@ -344,8 +336,12 @@ export function createBattleApi(ctx) {
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
     const lv = getSkillLevel(hero, "yellow_reflect");
     const s = scaledSkillDef("yellow_reflect", lv) || { allyRatio: 0.7 };
+    let allyRatio = s.allyRatio ?? 0.7;
+    if (heroHasUnique(hero, "yellow_reflect_shield")) {
+      allyRatio = Math.max(0.1, allyRatio * 0.75);
+    }
     const enemyDmg = reflectBaseDamage(victim);
-    const allyDmg = Math.max(1, Math.floor(enemyDmg * (s.allyRatio ?? 0.7)));
+    const allyDmg = Math.max(1, Math.floor(enemyDmg * allyRatio));
     const hitIds = [];
     for (const u of battleUnits(b)) {
       if (!u || u.hp <= 0 || u.id === victim.id) continue;

@@ -1,21 +1,21 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=59";
-import { calcStats } from "./omni/attributes.js?v=59";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=59";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=60";
+import { calcStats } from "./omni/attributes.js?v=60";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=60";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=59";
+} from "./skills.js?v=60";
 import {
   expToNext,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
-} from "./progression.js?v=59";
-import { bossCornerScoresForFloor } from "../monsters/boss.js?v=59";
+} from "./progression.js?v=60";
+import { bossCornerScoresForFloor } from "../monsters/boss.js?v=60";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {

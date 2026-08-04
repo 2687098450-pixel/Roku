@@ -142,7 +142,7 @@ export const UNIQUE_SKILL_IDS = {
   },
   omni_balance_spirit: { owner: "omni", skillId: "boost", text: "强化均衡：十字共享·灵体化" },
   green_life_flow: { owner: "green", skillId: "green_life", text: "强化生机流转：治疗提升友军伤害" },
-  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect", text: "强化反伤：攻击也计入反伤" },
+  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect", text: "强化反伤：友军溅射再降低 25%" },
   green_mend_pulse: { owner: "green", skillId: "green_mend", text: "强化治愈之触：治疗后脉动回血" },
 };
 
