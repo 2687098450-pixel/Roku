@@ -179,8 +179,8 @@ export const DIAMOND_ATTR_COLOR = {
   right: "#48b078", // 坦度
 };
 
-/** 端点相对满属性的染色强度（再淡 50%，避免像中毒） */
-const DIAMOND_TIP_STRENGTH = 0.36;
+/** 端点相对满属性的染色强度（再淡 50%） */
+const DIAMOND_TIP_STRENGTH = 0.18;
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, n));
