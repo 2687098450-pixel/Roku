@@ -293,7 +293,8 @@ export function refreshSkillTexts(hero) {
     const { nums, desc } = skillNumsAndDesc(sk.id, lv);
     sk.nums = nums;
     if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
-      sk.desc = `${desc} 爆裂枪强化：击杀后再次释放。`;
+      sk.nums = `${nums} · 三连射×50%`;
+      sk.desc = `${desc} 爆裂枪强化：每段独立连射 3 发子弹，每发为技能伤害的 50%，优先打血量最少的敌人；击杀则本段额外 +1 发。技能段数各自重新起手 3 发，互不影响。`;
     } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
       sk.desc = `${desc} 治愈戒强化：治疗后附加 2 秒脉动——行动条每走 10 掉血，每走 20 恢复刚掉血量的 2.5 倍。`;
     } else {

@@ -369,6 +369,31 @@ export function createBattleApi(ctx) {
     });
   }
 
+  /** 爆裂枪强化：单段连射（与技能段数独立；每段固定起手 3 发） */
+  async function resolvePinkBurstEchoSegment(b, ally, skillId, mods, skillLv, fxMeta) {
+    const shotPower = Math.max(
+      1,
+      Math.floor(skillPower(effectiveAtk(ally), skillId, mods, skillLv) * 0.5)
+    );
+    let remaining = 3;
+    while (remaining > 0) {
+      const t = pickLowestEnemy(b);
+      if (!t) break;
+      remaining -= 1;
+      await playSkillAnim("ranged", ally.id, t.id, {
+        ...fxMeta,
+        shotDuration: 160,
+      });
+      dealDamage(t, shotPower, {
+        canCrit: true,
+        critRate: unitCritRate(ally),
+        critDmg: unitCritDmg(ally),
+      });
+      if (t.hp <= 0) remaining += 1;
+      renderBattle(b);
+    }
+  }
+
   function applyHeal(target, amount) {
     const before = target.hp;
     target.hp = Math.min(target.maxHp, target.hp + amount);
@@ -640,7 +665,6 @@ export function createBattleApi(ctx) {
     };
 
     let appliedBuff = false;
-    let killed = false;
     if (isBuffSkill(used)) {
       await playSkillAnim("buff", ally.id, ally.id, fxMeta);
       if (def.atkMult) ally.atkBuff = def.atkMult || 0;
@@ -672,7 +696,6 @@ export function createBattleApi(ctx) {
         for (const t of list) {
           if (t.hp <= 0) continue;
           heroStrike(ally, t, used, mods);
-          if (t.hp <= 0) killed = true;
         }
       }
     } else if (def.stunGauge || def.stunTurns) {
@@ -689,10 +712,18 @@ export function createBattleApi(ctx) {
           if (!ally.spiritForm) {
             if (t.hp <= 0) continue;
             heroStrike(ally, t, used, mods);
-            if (t.hp <= 0) killed = true;
           }
           if (h === 0) applyStun(t, stunNeed);
         }
+      }
+    } else if (
+      used === "pink_burst" &&
+      heroHasUnique(hero, "pink_burst_echo")
+    ) {
+      // 技能段数各自独立：每段起手 3 发半伤子弹，击杀仅本段 +1 发
+      for (let seg = 0; seg < hits; seg++) {
+        if (!livingEnemies(b).length) break;
+        await resolvePinkBurstEchoSegment(b, ally, used, mods, skillLv, fxMeta);
       }
     } else {
       const t =
@@ -702,28 +733,20 @@ export function createBattleApi(ctx) {
       if (!t) return false;
       await playSkillAnim(style, ally.id, t.id, fxMeta);
       for (let h = 0; h < hits; h++) {
-        if (t.hp <= 0) break;
-        heroStrike(ally, t, used, mods);
-        if (t.hp <= 0) killed = true;
+        const cur =
+          used === "pink_burst"
+            ? pickLowestEnemy(b) || (t.hp > 0 ? t : null)
+            : t.hp > 0
+              ? t
+              : null;
+        if (!cur) break;
+        heroStrike(ally, cur, used, mods);
       }
     }
 
     // 施加 buff 的当回合不扣持续时间
     if (!appliedBuff) tickUnitBuffs(ally);
     renderBattle(b);
-
-    // 爆裂枪：击杀后再次释放爆裂矢
-    if (
-      used === "pink_burst" &&
-      killed &&
-      heroHasUnique(hero, "pink_burst_echo") &&
-      livingEnemies(b).length &&
-      (opts.echoDepth || 0) < 8
-    ) {
-      await resolveHeroSkill(b, ally, "pink_burst", {
-        echoDepth: (opts.echoDepth || 0) + 1,
-      });
-    }
     return true;
   }
 

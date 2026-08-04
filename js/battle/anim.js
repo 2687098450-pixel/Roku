@@ -210,11 +210,13 @@ async function flyProjectile(fromId, toId, className, duration = 280) {
 async function animBolt(attackerId, targetId, profile) {
   const theme = profile.theme || "enemy";
   const shape = profile.shape || "orb";
+  const duration =
+    profile.duration ?? (profile.shape === "star" ? 240 : 280);
   const hit = await flyProjectile(
     attackerId,
     targetId,
     `fx-bolt shape-${shape} theme-${theme}`,
-    profile.shape === "star" ? 240 : 280
+    duration
   );
   if (!hit) return;
   hit.el.remove();
@@ -317,6 +319,7 @@ export async function playSkillAnim(style, attackerId, primaryTargetId, meta = {
     return;
   }
   const profile = resolveFxProfile(style, meta);
+  if (meta.shotDuration != null) profile.duration = meta.shotDuration;
 
   if (profile.kind === "buff-ring") {
     await animBuffRing(attackerId, profile);

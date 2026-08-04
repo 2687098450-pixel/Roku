@@ -39,7 +39,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "手枪",
       uniqueId: "pink_burst_echo",
       skillOwner: "pink",
-      uniqueText: "强化爆裂矢：击杀后再次释放",
+      uniqueText: "强化爆裂矢：三连射半伤·击杀加射",
       desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
     },
     {

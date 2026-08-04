@@ -135,11 +135,15 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
 
 /** 唯一技能强化装：仅对应角色生效；不受「额外技能装」数量限制 */
 export const UNIQUE_SKILL_IDS = {
-  pink_burst_echo: { owner: "pink", skillId: "pink_burst" },
-  omni_balance_spirit: { owner: "omni", skillId: "boost" },
-  green_life_flow: { owner: "green", skillId: "green_life" },
-  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect" },
-  green_mend_pulse: { owner: "green", skillId: "green_mend" },
+  pink_burst_echo: {
+    owner: "pink",
+    skillId: "pink_burst",
+    text: "强化爆裂矢：三连射半伤·击杀加射",
+  },
+  omni_balance_spirit: { owner: "omni", skillId: "boost", text: "强化均衡：十字共享·灵体化" },
+  green_life_flow: { owner: "green", skillId: "green_life", text: "强化生机流转：治疗提升友军伤害" },
+  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect", text: "强化反伤：攻击也计入反伤" },
+  green_mend_pulse: { owner: "green", skillId: "green_mend", text: "强化治愈之触：治疗后脉动回血" },
 };
 
 export function isSkillStrengthenGear(item) {
@@ -277,6 +281,15 @@ export function rebuildEquipStats(item) {
 /** 旧唯一装若只有 1 条，补满红装词条位（种子固定，读档不乱跳） */
 function fillUniqueAffixSlots(item) {
   if (!item?.uniqueId) return;
+  const meta = UNIQUE_SKILL_IDS[item.uniqueId];
+  if (meta?.text && Array.isArray(item.affixes)) {
+    for (const a of item.affixes) {
+      if (a?.type === "unique" || a?.uniqueId === item.uniqueId) {
+        a.text = meta.text;
+        a.uniqueId = item.uniqueId;
+      }
+    }
+  }
   const max = affixCountForRarity(item.rarity || "red");
   if (!Array.isArray(item.affixes)) item.affixes = [];
   if (item.affixes.length >= max) return;
