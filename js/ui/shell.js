@@ -899,8 +899,7 @@ export function createUI(ctx) {
     el.innerHTML = `
       <div class="shp-name">${skill.name}</div>
       <div class="shp-meta">${typeLine} · 等级 ${lv}/${MAX_SKILL_LEVEL}</div>
-      ${skill.nums ? `<div class="shp-nums">${skill.nums}</div>` : ""}
-      <p class="shp-desc">${skill.desc || "暂无说明。"}</p>`;
+      ${skill.nums ? `<div class="shp-nums">${skill.nums}</div>` : ""}`;
     el.dataset.skill = skillId;
     el.classList.remove("hidden");
     el.setAttribute("aria-hidden", "false");
@@ -997,7 +996,6 @@ export function createUI(ctx) {
               <div class="skill-pick-nums">${s.nums || ""}</div>
             </div>
           </div>
-          <p class="skill-pick-desc">${s.desc || ""}</p>
         </button>`;
         })
         .join("");
@@ -1287,7 +1285,6 @@ export function createUI(ctx) {
         </div>
       </div>
       ${skill.nums ? `<div class="skill-detail-nums">${skill.nums}</div>` : ""}
-      <p class="skill-detail-desc">${skill.desc || "暂无说明。"}</p>
       <div class="skill-detail-actions">
         <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
           ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}

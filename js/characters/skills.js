@@ -150,65 +150,40 @@ function skillNumsAndDesc(skillId, level = 1) {
 
   if (skillId === "aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    return {
-      nums: `恢复最大生命×${pct}%`,
-      desc: `战斗结束后恢复自身最大生命的 ${pct}%。`,
-    };
+    const nums = `最大生命×${pct}%`;
+    return { nums, desc: nums };
   }
   if (skillId === "green_aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    return {
-      nums: `参战全体×${pct}%`,
-      desc: `战斗结束后，为所有参战人员恢复各自最大生命的 ${pct}%。`,
-    };
+    const nums = `参战全体×${pct}%`;
+    return { nums, desc: nums };
   }
   if (s.style === "buff") {
     const atkPct = Math.round((s.atkMult || 0) * 100);
     const critPct = Math.round((s.critDmgBonus || 0) * 100);
     const defPct = Math.round((s.defMult || 0) * 100);
-    if (defPct && !atkPct) {
-      return {
-        nums: `防御+${defPct}% · ${s.turns}回合`,
-        desc: `主动强化自身：防御 +${defPct}%，持续 ${s.turns} 回合。`,
-      };
-    }
-    return {
-      nums: `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`,
-      desc: `主动强化自身：攻击 +${atkPct}%，暴击伤害 +${critPct}%（叠加在基础 150% 上），持续 ${s.turns} 回合。`,
-    };
+    const nums =
+      defPct && !atkPct
+        ? `防御+${defPct}% · ${s.turns}回合`
+        : `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`;
+    return { nums, desc: nums };
   }
   if (s.style === "heal") {
     const text = `生命×${Math.round((s.healMaxHp || 0) * 100)}%+${s.healFlat || 0}`;
-    const scope = s.target === "all" ? "全体友方" : "生命比例最低的友方";
-    return {
-      nums: s.target === "all" ? `${text} · 全体` : text,
-      desc: `治疗${scope}。恢复：${text}。`,
-    };
+    const nums = s.target === "all" ? `${text} · 全体` : text;
+    return { nums, desc: nums };
   }
   if (s.stunGauge || s.stunTurns) {
     const stun = s.stunGauge || s.stunTurns * 100;
-    return {
-      nums: `${skillPowerText(s.mult, s.flat)}，眩晕${stun}`,
-      desc: `近战。十字范围受伤并眩晕。眩晕期间冻结行动条，按速度攒满隐形条 ${stun} 后恢复。伤害：${skillPowerText(s.mult, s.flat)}。`,
-    };
+    const nums = `${skillPowerText(s.mult, s.flat)} · 眩晕${stun}`;
+    return { nums, desc: nums };
   }
   if (s.hitAllFront) {
-    return {
-      nums: `${skillPowerText(s.mult, s.flat)} · 前排全体`,
-      desc: `远程齐射。命中前排所有敌人。伤害：${skillPowerText(s.mult, s.flat)}（再减防御）。`,
-    };
+    const nums = `${skillPowerText(s.mult, s.flat)} · 前排全体`;
+    return { nums, desc: nums };
   }
-  if (skillId === "pink_burst") {
-    return {
-      nums: skillPowerText(s.mult, s.flat),
-      desc: `远程高伤。优先攻击当前生命最少的敌人。伤害：${skillPowerText(s.mult, s.flat)}（再减防御）。`,
-    };
-  }
-  const styleName = s.style === "ranged" ? "远程" : "近战";
-  return {
-    nums: skillPowerText(s.mult, s.flat),
-    desc: `${styleName}。伤害：${skillPowerText(s.mult, s.flat)}（再减防御）。`,
-  };
+  const nums = skillPowerText(s.mult, s.flat);
+  return { nums, desc: nums };
 }
 
 function makeSkill(partial) {
@@ -262,15 +237,7 @@ export function refreshSkillTexts(hero) {
       const base = hero.basePassiveBoost || hero.passiveBoost || {};
       const boosted = scaledPassiveBoost(base, lv);
       sk.nums = formatBoostNums(boosted);
-      if (sk.id === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
-        sk.desc = `被动属性强化。当前：${sk.nums}。灵衡强化：十字格友军共享均衡属性；自身化为灵体（不造成/不受伤害、不可被锁定），震地击眩晕时间减半；友军全部阵亡则战斗失败。`;
-      } else if (sk.id === "green_life" && heroHasUnique(hero, "green_life_flow")) {
-        sk.desc = `被动属性强化。当前：${sk.nums}。生机杖强化：造成治疗时提升友军伤害。`;
-      } else if (sk.id === "yellow_armor") {
-        sk.desc = `被动：提升防御与生命。当前：${sk.nums}。`;
-      } else {
-        sk.desc = `被动属性强化，随技能等级提升。当前：${sk.nums}。`;
-      }
+      sk.desc = sk.nums;
       continue;
     }
     if (sk.id === "yellow_reflect") {
@@ -280,26 +247,20 @@ export function refreshSkillTexts(hero) {
       const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
       const preview = previewReflectDamage(hero);
       sk.nums = hasShield
-        ? `防御×${pct}%+${p.reflectFlat} · ×(攻÷防) · 友军${allyPct}%`
-        : `防御×${pct}%+${p.reflectFlat} · 友军${allyPct}%`;
-      let desc = `受到任意伤害时，对场上其他单位造成真实反伤。敌人：防御×${pct}%+${p.reflectFlat}；友军：敌人反伤的 ${allyPct}%。`;
-      if (hasShield) {
-        desc += ` 反伤盾：再乘以（攻击÷防御）。`;
-      }
-      desc += ` 当前约 敌人 ${preview.enemy} / 友军 ${preview.ally}。`;
-      sk.desc = desc;
+        ? `敌${preview.enemy} · 友${preview.ally} · 防×${pct}%+${p.reflectFlat}×(攻÷防) · 友${allyPct}%`
+        : `敌${preview.enemy} · 友${preview.ally} · 防×${pct}%+${p.reflectFlat} · 友${allyPct}%`;
+      sk.desc = sk.nums;
       continue;
     }
-    const { nums, desc } = skillNumsAndDesc(sk.id, lv);
-    sk.nums = nums;
+    const { nums } = skillNumsAndDesc(sk.id, lv);
     if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
-      sk.nums = `${nums} · 三连射×50%`;
-      sk.desc = `${desc} 爆裂枪强化：每段独立连射 3 发子弹，每发为技能伤害的 50%，优先打血量最少的敌人；击杀则本段额外 +1 发。技能段数各自重新起手 3 发，互不影响。`;
+      sk.nums = `${nums} · 3发×50% · 击杀+1`;
     } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
-      sk.desc = `${desc} 治愈戒强化：治疗后附加 2 秒脉动——行动条每走 10 掉血，每走 20 恢复刚掉血量的 2.5 倍。`;
+      sk.nums = `${nums} · 脉动掉10/回×2.5`;
     } else {
-      sk.desc = desc;
+      sk.nums = nums;
     }
+    sk.desc = sk.nums;
   }
 }
 
@@ -348,7 +309,7 @@ export function createOmniSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `被动：${passiveNums(sheet)}。`,
+      desc: passiveNums(sheet),
     },
     makeSkill({
       id: "aftercare",
@@ -391,7 +352,7 @@ export function createPinkSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `被动：远程爆发型，${passiveNums(sheet)}。默认暴击率 10%，暴击伤害 150%。`,
+      desc: passiveNums(sheet),
     },
   ];
 }
@@ -423,7 +384,7 @@ export function createGreenSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `被动：治疗型，${passiveNums(sheet)}。`,
+      desc: passiveNums(sheet),
     },
     makeSkill({
       id: "green_aftercare",
@@ -460,7 +421,7 @@ export function createYellowSkills() {
       kind: "passive",
       level: 1,
       nums: "防御×60%+4 · 友军70%",
-      desc: "受到任意伤害时，对场上其他单位造成真实反伤。敌人：防御×60%+4；友军：敌人反伤的 70%。",
+      desc: "防御×60%+4 · 友军70%",
     },
     {
       id: "yellow_armor",
@@ -468,7 +429,7 @@ export function createYellowSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `被动：坦克型，${passiveNums(sheet)}。`,
+      desc: passiveNums(sheet),
     },
   ];
 }

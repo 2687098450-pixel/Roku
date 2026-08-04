@@ -2584,9 +2584,8 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   cursor: pointer;
   touch-action: manipulation;
   max-width: calc(100% - 44px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 .skill-list .skill-nums:active,
 .skill-list .skill-nums:focus-visible {
