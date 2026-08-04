@@ -4,8 +4,8 @@
  * - Boss：后排中央 + 前排/侧翼小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js";
-import { TYPE_SKILL_IDS } from "./skills.js";
+import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=56";
+import { TYPE_SKILL_IDS } from "./skills.js?v=56";
 
 let _seq = 1;
 function nextId(prefix) {

@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js";
+import { $, clamp, styleTag } from "../core/utils.js?v=56";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -44,11 +44,11 @@ import {
   reviveHero,
   isHeroDead,
   refreshSkillTexts,
-} from "../characters/omni/index.js";
-import { sumEquipBonus } from "../characters/omni/equipment.js";
-import { setSavedFormation } from "../characters/stats.js";
-import { resetGameLocalData } from "../core/save.js";
-import { createAllUniqueItems } from "../loot/drops.js";
+} from "../characters/omni/index.js?v=56";
+import { sumEquipBonus } from "../characters/omni/equipment.js?v=56";
+import { setSavedFormation } from "../characters/stats.js?v=56";
+import { resetGameLocalData } from "../core/save.js?v=56";
+import { createAllUniqueItems } from "../loot/drops.js?v=56";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -912,18 +912,6 @@ export function createUI(ctx) {
         openSkillDetail(hero.id, btn.dataset.skill);
       });
     });
-    $("skillList")?.querySelectorAll(".skill-nums").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const sid = btn.dataset.skill;
-        const el = $("skillHoldPreview");
-        if (el && !el.classList.contains("hidden") && el.dataset.skill === sid) {
-          hideSkillHoldPreview();
-        } else {
-          showSkillHoldPreview(hero, sid);
-        }
-      });
-    });
   }
 
   function renderAutoSlots(hero) {
@@ -1227,11 +1215,6 @@ export function createUI(ctx) {
                 <span class="slv">等级 ${lv}</span>
               </div>
             </button>
-            ${
-              s.nums
-                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.nums}</button>`
-                : ""
-            }
           </div>
           <button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
             lv >= MAX_SKILL_LEVEL ? "满" : "+"
