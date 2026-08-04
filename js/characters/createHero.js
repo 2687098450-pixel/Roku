@@ -175,11 +175,11 @@ function diamondScores(unit) {
 }
 
 /** 像素上下限（数值=0 → 下限；数值=队伍总和 → 上限）
- * 宽、高共用同一区间，极限宽高比 / 高宽比均为 2:1
- * （最宽最矮 → w:h=2:1；最高最窄 → h:w=2:1）
+ * 宽、高共用同一区间；极限宽高比 / 高宽比均为 2:1
+ * 最长边沿用旧版高度上限 56，最短边 = 56/2 = 28（不再整体缩小）
  */
-const DIAMOND_EDGE_MIN = 20;
-const DIAMOND_EDGE_MAX = 40;
+const DIAMOND_EDGE_MIN = 28;
+const DIAMOND_EDGE_MAX = 56;
 
 /**
  * 菱形长宽：
