@@ -174,17 +174,19 @@ function diamondScores(unit) {
   };
 }
 
-/** 像素上下限（数值=0 → 下限；数值=队伍总和 → 上限） */
-const DIAMOND_W_MIN = 14;
-const DIAMOND_W_MAX = 40;
-const DIAMOND_H_MIN = 22;
-const DIAMOND_H_MAX = 56;
+/** 像素上下限（数值=0 → 下限；数值=队伍总和 → 上限）
+ * 宽、高共用同一区间，极限宽高比 / 高宽比均为 2:1
+ * （最宽最矮 → w:h=2:1；最高最窄 → h:w=2:1）
+ */
+const DIAMOND_EDGE_MIN = 20;
+const DIAMOND_EDGE_MAX = 40;
 
 /**
  * 菱形长宽：
  * - 下限：对应分项数值为 0
  * - 上限：对应分项 = 队伍内所有人该项之和
  * - 每人在下限基础上，按 个人/队伍总和 向上限靠拢
+ * - 极限宽高比、高宽比均为 2:1
  */
 export function diamondDims(unit, scale = 1, peers = null) {
   const self = diamondScores(unit);
@@ -198,9 +200,9 @@ export function diamondDims(unit, scale = 1, peers = null) {
   const tW = sumW > 0 ? Math.min(1, self.width / sumW) : 0;
   const tH = sumH > 0 ? Math.min(1, self.height / sumH) : 0;
 
-  const w = (DIAMOND_W_MIN + (DIAMOND_W_MAX - DIAMOND_W_MIN) * tW) * scale;
-  const h = (DIAMOND_H_MIN + (DIAMOND_H_MAX - DIAMOND_H_MIN) * tH) * scale;
-  return { w, h, aspect: w / Math.max(1, h) };
+  const w = (DIAMOND_EDGE_MIN + (DIAMOND_EDGE_MAX - DIAMOND_EDGE_MIN) * tW) * scale;
+  const h = (DIAMOND_EDGE_MIN + (DIAMOND_EDGE_MAX - DIAMOND_EDGE_MIN) * tH) * scale;
+  return { w, h, aspect: w / Math.max(1e-6, h) };
 }
 
 /** 用于 style 属性：颜色 + 宽高；peers 为队伍对照 */
