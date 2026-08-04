@@ -147,43 +147,68 @@ function passiveNums(sheet) {
 function skillNumsAndDesc(skillId, level = 1) {
   const s = scaledSkillDef(skillId, level);
   if (!s) return { nums: "—", desc: "" };
+  const dmg = skillPowerText(s.mult, s.flat);
 
   if (skillId === "aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const nums = `战斗结束 · 自身×${pct}%`;
-    return { nums, desc: nums };
+    const desc = `战斗结束时，恢复自身最大生命×${pct}%。`;
+    return { nums: `战斗结束 · 自身×${pct}%`, desc };
   }
   if (skillId === "green_aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const nums = `战斗结束 · 参战全体×${pct}%`;
-    return { nums, desc: nums };
+    const desc = `战斗结束时，参战全体各恢复最大生命×${pct}%。`;
+    return { nums: `战斗结束 · 全体×${pct}%`, desc };
   }
   if (s.style === "buff") {
     const atkPct = Math.round((s.atkMult || 0) * 100);
     const critPct = Math.round((s.critDmgBonus || 0) * 100);
     const defPct = Math.round((s.defMult || 0) * 100);
-    const nums =
-      defPct && !atkPct
-        ? `防御+${defPct}% · ${s.turns}回合`
-        : `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`;
-    return { nums, desc: nums };
+    if (defPct && !atkPct) {
+      const desc = `自身防御+${defPct}%，持续 ${s.turns} 回合。`;
+      return { nums: `防御+${defPct}% · ${s.turns}回合`, desc };
+    }
+    const desc = `自身攻击+${atkPct}%、暴伤+${critPct}%，持续 ${s.turns} 回合。`;
+    return {
+      nums: `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`,
+      desc,
+    };
   }
   if (s.style === "heal") {
     const text = `生命×${Math.round((s.healMaxHp || 0) * 100)}%+${s.healFlat || 0}`;
-    const nums = s.target === "all" ? `${text} · 全体` : text;
-    return { nums, desc: nums };
+    if (s.target === "all") {
+      return {
+        nums: `${text} · 全体`,
+        desc: `治疗全体友方：${text}。`,
+      };
+    }
+    return {
+      nums: text,
+      desc: `治疗生命比例最低的友方：${text}。`,
+    };
   }
   if (s.stunGauge || s.stunTurns) {
     const stun = s.stunGauge || s.stunTurns * 100;
-    const nums = `${skillPowerText(s.mult, s.flat)} · 命中眩晕${stun}`;
-    return { nums, desc: nums };
+    return {
+      nums: `${dmg} · 命中眩晕${stun}`,
+      desc: `对十字范围造成 ${dmg} 伤害，命中眩晕 ${stun}。`,
+    };
   }
   if (s.hitAllFront) {
-    const nums = `${skillPowerText(s.mult, s.flat)} · 前排全体`;
-    return { nums, desc: nums };
+    return {
+      nums: `${dmg} · 前排全体`,
+      desc: `对前排全体造成 ${dmg} 伤害。`,
+    };
   }
-  const nums = skillPowerText(s.mult, s.flat);
-  return { nums, desc: nums };
+  if (skillId === "pink_burst") {
+    return {
+      nums: dmg,
+      desc: `对生命最低的敌人造成 ${dmg} 伤害。`,
+    };
+  }
+  return {
+    nums: dmg,
+    desc: `对单体造成 ${dmg} 伤害。`,
+  };
 }
 
 function makeSkill(partial) {
@@ -237,24 +262,32 @@ export function refreshSkillTexts(hero) {
       const base = hero.basePassiveBoost || hero.passiveBoost || {};
       const boosted = scaledPassiveBoost(base, lv);
       sk.nums = formatBoostNums(boosted);
-      sk.desc = sk.nums;
+      let desc = `永久属性：${sk.nums}。`;
+      if (sk.id === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
+        desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
+      } else if (sk.id === "green_life" && heroHasUnique(hero, "green_life_flow")) {
+        desc += `治疗时提升友军伤害。`;
+      }
+      sk.desc = desc;
       continue;
     }
     if (sk.id === "yellow_reflect") {
       const preview = previewReflectDamage(hero);
-      sk.nums = `受伤时 · 对敌${preview.enemy} · 对友${preview.ally}`;
-      sk.desc = sk.nums;
+      sk.nums = `对敌${preview.enemy} · 对友${preview.ally}`;
+      sk.desc = `受伤时，对敌人造成 ${preview.enemy} 伤害，对友方造成 ${preview.ally} 伤害。`;
       continue;
     }
-    const { nums } = skillNumsAndDesc(sk.id, lv);
+    const { nums, desc } = skillNumsAndDesc(sk.id, lv);
+    sk.nums = nums;
     if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
       sk.nums = `${nums} · 3发×50% · 击杀+1发`;
+      sk.desc = `${desc}每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。`;
     } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
-      sk.nums = `${nums} · 治疗后脉动：掉10/回×2.5`;
+      sk.nums = `${nums} · 治疗后脉动`;
+      sk.desc = `${desc}治疗后 2 秒脉动：行动条每走 10 掉血，每走 20 回复刚掉血量的 2.5 倍。`;
     } else {
-      sk.nums = nums;
+      sk.desc = desc;
     }
-    sk.desc = sk.nums;
   }
 }
 
@@ -303,7 +336,7 @@ export function createOmniSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
     },
     makeSkill({
       id: "aftercare",
@@ -346,7 +379,7 @@ export function createPinkSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
     },
   ];
 }
@@ -378,7 +411,7 @@ export function createGreenSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
     },
     makeSkill({
       id: "green_aftercare",
@@ -414,8 +447,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "受伤时 · 对敌— · 对友—",
-      desc: "受伤时 · 对敌— · 对友—",
+      nums: "对敌— · 对友—",
+      desc: "受伤时，对敌人造成伤害，对友方造成伤害。",
     },
     {
       id: "yellow_armor",
@@ -423,7 +456,7 @@ export function createYellowSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
     },
   ];
 }

@@ -899,7 +899,7 @@ export function createUI(ctx) {
     el.innerHTML = `
       <div class="shp-name">${skill.name}</div>
       <div class="shp-meta">${typeLine} · 等级 ${lv}/${MAX_SKILL_LEVEL}</div>
-      ${skill.nums ? `<div class="shp-nums">${skill.nums}</div>` : ""}`;
+      <p class="shp-desc">${skill.desc || skill.nums || ""}</p>`;
     el.dataset.skill = skillId;
     el.classList.remove("hidden");
     el.setAttribute("aria-hidden", "false");
@@ -993,7 +993,7 @@ export function createUI(ctx) {
                 <span class="stag">${styleTag(s.style)}</span>
                 ${on ? '<span class="stag current">当前</span>' : ""}
               </div>
-              <div class="skill-pick-nums">${s.nums || ""}</div>
+              <div class="skill-pick-nums">${s.desc || s.nums || ""}</div>
             </div>
           </div>
         </button>`;
@@ -1228,8 +1228,8 @@ export function createUI(ctx) {
               </div>
             </button>
             ${
-              s.nums
-                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.nums}</button>`
+              s.desc || s.nums
+                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.desc || s.nums}</button>`
                 : ""
             }
           </div>
@@ -1284,7 +1284,7 @@ export function createUI(ctx) {
           <div class="skill-detail-lv">等级 ${lv} / ${MAX_SKILL_LEVEL}</div>
         </div>
       </div>
-      ${skill.nums ? `<div class="skill-detail-nums">${skill.nums}</div>` : ""}
+      ${skill.desc || skill.nums ? `<div class="skill-detail-nums">${skill.desc || skill.nums}</div>` : ""}
       <div class="skill-detail-actions">
         <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
           ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
