@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=64";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=64";
+import { $, clamp, irand } from "../core/utils.js?v=65";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=65";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=64";
+} from "../characters/omni/index.js?v=65";
 import {
   gainExp,
   splitExp,
@@ -25,22 +25,22 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=64";
+} from "../characters/progression.js?v=65";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=64";
-import { buildEncounter } from "../monsters/roster.js?v=64";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=64";
-import { rollBattleLoot } from "../loot/drops.js?v=64";
+} from "../characters/skills.js?v=65";
+import { buildEncounter } from "../monsters/roster.js?v=65";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=65";
+import { rollBattleLoot } from "../loot/drops.js?v=65";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=64";
-import { createTicker } from "../core/time.js?v=64";
+} from "../characters/stats.js?v=65";
+import { createTicker } from "../core/time.js?v=65";
 
 export function createBattleApi(ctx) {
   const {
@@ -226,10 +226,7 @@ export function createBattleApi(ctx) {
     const side = enemy ? "enemy" : "ally";
     const shapeStyle =
       u.shape === "diamond"
-        ? diamondStyleAttr(u, 1.15, peers, {
-            floor: getState().floor || 1,
-            floorScale: getState().floorScale || 1,
-          })
+        ? diamondStyleAttr(u, 1.15, peers)
         : `--c:${u.color}`;
     const bossCls = u.isBoss ? " boss-unit" : "";
     const spiritCls = u.spiritForm ? " spirit-form" : "";

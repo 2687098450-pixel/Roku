@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=64";
+import { $, clamp, styleTag } from "../core/utils.js?v=65";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,11 +45,11 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=64";
-import { sumEquipBonus, UNIQUE_SKILL_IDS } from "../characters/omni/equipment.js?v=64";
-import { setSavedFormation } from "../characters/stats.js?v=64";
-import { resetGameLocalData } from "../core/save.js?v=64";
-import { createAllUniqueItems } from "../loot/drops.js?v=64";
+} from "../characters/omni/index.js?v=65";
+import { sumEquipBonus, UNIQUE_SKILL_IDS } from "../characters/omni/equipment.js?v=65";
+import { setSavedFormation } from "../characters/stats.js?v=65";
+import { resetGameLocalData } from "../core/save.js?v=65";
+import { createAllUniqueItems } from "../loot/drops.js?v=65";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -170,23 +170,17 @@ export function createUI(ctx) {
     bumpSave();
   }
 
-  function diamondOpts() {
-    const st = getState();
-    return { floor: st.floor || 1, floorScale: st.floorScale || 1 };
-  }
-
   function renderPartyStrip() {
     const box = $("partyStrip");
     if (!box) return;
     const party = getState().party || [];
-    const dOpts = diamondOpts();
     box.innerHTML = stripHeroes()
       .map((h) => {
         refreshHeroStats(h);
         const dead = isHeroDead(h);
         const pct = dead ? 0 : clamp((h.hp / h.maxHp) * 100, 0, 100);
         return `<button type="button" class="strip-hero${dead ? " dead" : ""}" data-id="${h.id}" title="${h.name}${dead ? " · 阵亡" : ""}">
-          <div class="strip-face ${h.shape}" style="${diamondStyleAttr(h, 0.72, party, dOpts)}"></div>
+          <div class="strip-face ${h.shape}" style="${diamondStyleAttr(h, 0.72, party)}"></div>
           <div class="strip-hp"><i style="width:${pct}%"></i></div>
         </button>`;
       })
@@ -1108,7 +1102,7 @@ export function createUI(ctx) {
     const spinWrap = $("detailSpin");
     const peers = getState().party;
     shape.className = `preview-shape ${hero.shape}`;
-    shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers, diamondOpts()));
+    shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers));
     // 转圈仅小粉；按像素高宽比（队伍占比体型）判断纤细
     spinWrap?.classList.toggle(
       "slender-spin",
@@ -1630,7 +1624,7 @@ export function createUI(ctx) {
       slots.push(`<div class="form-slot filled${dead ? " dead" : ""}${cap ? " captain" : ""}" data-slot="${i}" data-id="${hero.id}">
         <button type="button" class="form-x" data-undep="${hero.id}" title="下阵">×</button>
         ${cap ? '<span class="form-slot-captain" title="队长">★</span>' : ""}
-        <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party, diamondOpts())}"></div>
+        <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party)}"></div>
         <b>${hero.name}${dead ? "·亡" : ""}${cap ? "·长" : ""}</b>
         ${
           dead
@@ -1652,7 +1646,7 @@ export function createUI(ctx) {
         return `<div class="form-pool-card ${on ? "on" : ""}${dead ? " dead" : ""}${cap ? " captain" : ""}" data-pool="${h.id}">
           <button type="button" class="form-captain-btn${cap ? " on" : ""}" data-captain="${h.id}" title="${cap ? "当前队长" : "设为队长"}">★</button>
           <div class="form-pool-face">
-            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party, diamondOpts())}"></div>
+            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party)}"></div>
           </div>
           <span class="form-pool-name">${h.name}</span>
           <span class="form-pool-tag ${on ? "deployed" : ""}${dead ? " dead" : ""}">${tag}</span>

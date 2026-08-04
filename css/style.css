@@ -1198,16 +1198,11 @@ html, body {
   box-shadow: none;
 }
 
-/* 菱形：宽高 --dw/--dh；主体提亮 --c-mid；四角相对 Boss 着色 */
+/* 菱形：宽高 --dw/--dh；纯色主体 */
 .diamond, .preview-shape.diamond {
   width: var(--dw, 26px);
   height: var(--dh, 38px);
-  background-color: var(--c-mid, var(--c));
-  background-image:
-    linear-gradient(to top, var(--c-down, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to bottom, var(--c-up, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to left, var(--c-right, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to right, var(--c-left, var(--c-mid, var(--c))) 0%, transparent 55%);
+  background: var(--c);
   border-radius: 0;
   transform: none;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
@@ -3582,12 +3577,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   width: var(--dw, 22px);
   height: var(--dh, 32px);
   border-radius: 0;
-  background-color: var(--c-mid, var(--c, #3cb86a));
-  background-image:
-    linear-gradient(to top, var(--c-down, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to bottom, var(--c-up, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to left, var(--c-right, var(--c-mid, var(--c))) 0%, transparent 55%),
-    linear-gradient(to right, var(--c-left, var(--c-mid, var(--c))) 0%, transparent 55%);
+  background: var(--c, #3cb86a);
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
   box-shadow: none;
   filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95));

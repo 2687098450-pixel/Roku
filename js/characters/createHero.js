@@ -1,21 +1,20 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=64";
-import { calcStats } from "./omni/attributes.js?v=64";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=64";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=65";
+import { calcStats } from "./omni/attributes.js?v=65";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=65";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=64";
+} from "./skills.js?v=65";
 import {
   expToNext,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
-} from "./progression.js?v=64";
-import { bossCornerScoresForFloor } from "../monsters/boss.js?v=64";
+} from "./progression.js?v=65";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
@@ -171,97 +170,6 @@ export const DIAMOND_MID_COLOR = {
   yellow: "#eadcac",
 };
 
-/** 四角属性色：上输出紫 · 下幸运橙 · 左状态蓝 · 右坦度绿 */
-export const DIAMOND_ATTR_COLOR = {
-  up: "#a870e0", // 输出
-  down: "#ec8c40", // 幸运
-  left: "#508cec", // 状态
-  right: "#48b078", // 坦度
-};
-
-/** 端点相对满属性的染色强度（再淡 50%） */
-const DIAMOND_TIP_STRENGTH = 0.18;
-
-function clamp01(n) {
-  return Math.max(0, Math.min(1, n));
-}
-
-function hexToRgb(hex) {
-  const h = String(hex || "").replace("#", "");
-  if (h.length !== 6) return [160, 200, 160];
-  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
-}
-
-function rgbToHex(rgb) {
-  return (
-    "#" +
-    rgb
-      .map((n) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, "0"))
-      .join("")
-  );
-}
-
-function mixHex(a, b, t) {
-  const A = hexToRgb(a);
-  const B = hexToRgb(b);
-  const u = clamp01(t);
-  return rgbToHex([
-    A[0] + (B[0] - A[0]) * u,
-    A[1] + (B[1] - A[1]) * u,
-    A[2] + (B[2] - A[2]) * u,
-  ]);
-}
-
-/** 状态向能力分（英雄按技能类型；Boss/怪按技能数） */
-function statusCapability(unit) {
-  if (!unit) return 1;
-  const skills = unit.skills || [];
-  if (skills.length) {
-    let s = 0;
-    for (const sk of skills) {
-      if (!sk) continue;
-      if (sk.style === "buff" || sk.style === "heal") s += 22 + (sk.level || 1) * 4;
-      if (
-        sk.id === "quake" ||
-        sk.id === "yellow_reflect" ||
-        sk.id === "yellow_fortify" ||
-        sk.id === "pink_fervor" ||
-        sk.id === "green_mend" ||
-        sk.id === "green_bloom" ||
-        sk.id === "quake_roar" ||
-        sk.id === "soul_drain"
-      ) {
-        s += 28;
-      }
-    }
-    return Math.max(1, s);
-  }
-  const n = (unit.skillIds || []).length;
-  return Math.max(1, n * 22 + Math.floor((unit.atk || 0) * 0.35));
-}
-
-/**
- * 菱形四角对比用数值（英雄 / Boss 同一套）
- * 上输出·下幸运·左状态·右坦度
- */
-export function diamondCornerScores(unit) {
-  const atk = Math.max(0, unit?.atk ?? 0);
-  const def = Math.max(0, unit?.def ?? 0);
-  const hp = Math.max(0, unit?.maxHp ?? unit?.hp ?? 0);
-  const spd = Math.max(0, unit?.spd ?? 0);
-  return {
-    dps: Math.max(1, atk),
-    luck: Math.max(1, Math.floor(spd * 0.8 + atk * 0.2)),
-    status: statusCapability(unit),
-    tank: Math.max(1, Math.floor(hp * 0.35 + def * 12)),
-  };
-}
-
-/** 本层 Boss 对比基准（与 createBoss 成长一致） */
-export function floorBossCornerScores(floor = 1, floorScale = 1) {
-  return bossCornerScoresForFloor(floor, floorScale);
-}
-
 export function diamondMidColor(unit) {
   const id = unit?.statsId || unit?.id;
   if (id && DIAMOND_MID_COLOR[id]) return DIAMOND_MID_COLOR[id];
@@ -311,37 +219,11 @@ export function diamondDims(unit, scale = 1, peers = null) {
   return { w, h, aspect: w / Math.max(1e-6, h) };
 }
 
-/**
- * 用于 style：提亮主体色 + 四角相对本层 Boss 的着色 + 宽高
- * @param {{ floor?: number, floorScale?: number, bossScores?: object }} [opts]
- */
-export function diamondStyleAttr(unit, scale = 1, peers = null, opts = {}) {
+/** 用于 style：提亮主体色 + 宽高（无四角着色） */
+export function diamondStyleAttr(unit, scale = 1, peers = null) {
   const { w, h } = diamondDims(unit, scale, peers);
   const mid = diamondMidColor(unit);
-  const bossScores =
-    opts.bossScores || floorBossCornerScores(opts.floor ?? 1, opts.floorScale ?? 1);
-  const heroScores = diamondCornerScores(unit);
-  const ratio = (key) =>
-    clamp01(heroScores[key] / Math.max(1, bossScores[key] || 1));
-
-  const tip = (dir, key) =>
-    mixHex(mid, DIAMOND_ATTR_COLOR[dir], ratio(key) * DIAMOND_TIP_STRENGTH);
-
-  const cUp = tip("up", "dps");
-  const cDown = tip("down", "luck");
-  const cLeft = tip("left", "status");
-  const cRight = tip("right", "tank");
-
-  return [
-    `--c:${mid}`,
-    `--c-mid:${mid}`,
-    `--c-up:${cUp}`,
-    `--c-down:${cDown}`,
-    `--c-left:${cLeft}`,
-    `--c-right:${cRight}`,
-    `--dw:${w.toFixed(1)}px`,
-    `--dh:${h.toFixed(1)}px`,
-  ].join(";");
+  return [`--c:${mid}`, `--dw:${w.toFixed(1)}px`, `--dh:${h.toFixed(1)}px`].join(";");
 }
 
 /** 像素高/宽达到此值视为纤细（2:1 边框下小粉满配约 1.2+） */
