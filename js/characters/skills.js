@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=60";
-import { getCharacterStats } from "./stats.js?v=60";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=60";
-import { heroHasUnique } from "./omni/equipment.js?v=60";
+import { skillPowerText } from "../core/utils.js?v=61";
+import { getCharacterStats } from "./stats.js?v=61";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=61";
+import { heroHasUnique } from "./omni/equipment.js?v=61";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -43,11 +43,13 @@ export const SKILL_POWER = {
     defMult: 0.45,
     turns: 3,
   },
-  /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)；友军 = 对敌×allyRatio */
+  /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)
+   *  对友：1 级 60%，每级 -10%；≤ -10% 时改为治疗 |比例|×对敌伤害，并造成 1 真实伤害
+   */
   yellow_reflect: {
-    /** 每级 10%：9 级 90%、10 级 100% */
     reflectPctPerLevel: 0.1,
-    allyRatio: 0.7,
+    allyRatioBase: 0.6,
+    allyRatioStep: -0.1,
   },
 
   // —— 被动：战后 ——
@@ -76,10 +78,6 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
     const rank = Math.max(1, Math.floor(skillLevel || 1));
     out.reflectMult = +(out.reflectPctPerLevel * rank).toFixed(3);
     delete out.reflectFlat;
-  }
-  // 友军反伤是副作用：升级应减轻，不是加重
-  if (out.allyRatio != null) {
-    out.allyRatio = Math.max(0.2, +(out.allyRatio - lv * 0.025).toFixed(3));
   }
   return out;
 }
@@ -116,9 +114,12 @@ export function getReflectParams(skillLevel = 1) {
   const rank = Math.max(1, Math.floor(skillLevel || 1));
   const s = scaledSkillDef("yellow_reflect", rank) || SKILL_POWER.yellow_reflect;
   const per = s.reflectPctPerLevel ?? 0.1;
+  const base = s.allyRatioBase ?? 0.6;
+  const step = s.allyRatioStep ?? -0.1;
   return {
     reflectMult: s.reflectMult ?? +(per * rank).toFixed(3),
-    allyRatio: s.allyRatio,
+    /** 1 级 60%，每级 -10%；可为负（治疗模式） */
+    allyRatio: +(base + (rank - 1) * step).toFixed(3),
   };
 }
 
@@ -132,6 +133,12 @@ export function calcReflectEnemyDamage(atk, def, skillLevel = 1) {
   return Math.max(1, Math.floor(d * p.reflectMult * (1 + a / d)));
 }
 
+/** 唯一盾：友军比例再 -10%（更快转入治疗） */
+export function applyReflectAllyUnique(allyRatio, hasShield) {
+  if (!hasShield) return allyRatio;
+  return +(allyRatio - 0.1).toFixed(3);
+}
+
 /**
  * 按角色当前攻防预览反伤数值（真实伤害，未算战中 buff）
  */
@@ -141,11 +148,16 @@ export function previewReflectDamage(hero) {
   const def = Math.max(1, Math.floor(hero?.def || 1));
   const atk = Math.max(0, Math.floor(hero?.atk || 0));
   const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
-  let allyRatio = p.allyRatio;
-  if (hasShield) allyRatio = Math.max(0.1, +(allyRatio * 0.75).toFixed(3));
+  const allyRatio = applyReflectAllyUnique(p.allyRatio, hasShield);
   const enemy = calcReflectEnemyDamage(atk, def, lv);
-  const ally = Math.max(1, Math.floor(enemy * allyRatio));
-  return { enemy, ally, ...p, allyRatio, hasShield };
+  let ally = 0;
+  let allyHeal = 0;
+  if (allyRatio > 0) ally = Math.max(1, Math.floor(enemy * allyRatio));
+  else if (allyRatio < 0) {
+    allyHeal = Math.max(1, Math.floor(enemy * Math.abs(allyRatio)));
+    ally = 1; // 真实伤害
+  }
+  return { enemy, ally, allyHeal, ...p, allyRatio, hasShield };
 }
 
 function passiveNums(sheet) {
@@ -292,14 +304,26 @@ export function buildSkillText(hero, skillId, level = 1) {
   if (skillId === "yellow_reflect") {
     const p = getReflectParams(lv);
     const pct = Math.round(p.reflectMult * 100);
-    let allyRatio = p.allyRatio;
-    if (heroHasUnique(hero, "yellow_reflect_shield")) {
-      allyRatio = Math.max(0.1, +(allyRatio * 0.75).toFixed(3));
-    }
-    const allyPct = Math.round(allyRatio * 100);
+    const allyRatio = applyReflectAllyUnique(
+      p.allyRatio,
+      heroHasUnique(hero, "yellow_reflect_shield")
+    );
     const enemyFormula = `防御力×${pct}%×(1+攻击÷防御)`;
-    const nums = `敌${enemyFormula} · 友×${allyPct}%`;
-    const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，对友方造成 该伤害×${allyPct}%。`;
+    let allyText;
+    if (allyRatio > 0) {
+      allyText = `对友方造成 该伤害×${Math.round(allyRatio * 100)}%`;
+    } else if (allyRatio === 0) {
+      allyText = `对友方无溅射`;
+    } else {
+      allyText = `治疗友方 该伤害×${Math.round(Math.abs(allyRatio) * 100)}%，并造成 1 真实伤害`;
+    }
+    const nums =
+      allyRatio > 0
+        ? `敌${enemyFormula} · 友×${Math.round(allyRatio * 100)}%`
+        : allyRatio === 0
+          ? `敌${enemyFormula} · 友无溅射`
+          : `敌${enemyFormula} · 友治疗×${Math.round(Math.abs(allyRatio) * 100)}%+1真伤`;
+    const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，${allyText}。`;
     return { nums, desc };
   }
 
@@ -486,8 +510,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "敌防御力×10%×(1+攻击÷防御) · 友×70%",
-      desc: "受伤时，对敌人造成 防御力×10%×(1+攻击÷防御) 伤害，对友方造成 该伤害×70%。",
+      nums: "敌防御力×10%×(1+攻击÷防御) · 友×60%",
+      desc: "受伤时，对敌人造成 防御力×10%×(1+攻击÷防御) 伤害，对友方造成 该伤害×60%。",
     },
     {
       id: "yellow_armor",

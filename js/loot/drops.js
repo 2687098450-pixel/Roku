@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=60";
-import { getFloorDef } from "../map/floors.js?v=60";
+} from "../characters/omni/equipment.js?v=61";
+import { getFloorDef } from "../map/floors.js?v=61";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -50,7 +50,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "Boss",
       uniqueId: "yellow_reflect_shield",
       skillOwner: "yellow",
-      uniqueText: "强化反伤：友军溅射再降低 25%",
+      uniqueText: "强化反伤：友军比例再 -10%",
       desc: "潮汐冠廊守护者掉落。唯一词条强化反伤；仅小黄装备时生效。",
     },
   ],
