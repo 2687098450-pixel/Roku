@@ -344,13 +344,17 @@ export function diamondStyleAttr(unit, scale = 1, peers = null, opts = {}) {
   ].join(";");
 }
 
-/** 高/宽达到此值视为纤细体型（小粉当前体型可触发） */
+/** 高分/宽分达到此值视为纤细（按属性，不按队伍占比后的像素比） */
 export const SLENDER_RATIO = 1.55;
 
-/** 菱形高宽比（与缩放无关） */
-export function diamondSlenderRatio(unit, peers = null) {
-  const { w, h } = diamondDims(unit, 1, peers);
-  return h / Math.max(1e-6, w);
+/**
+ * 纤细比：攻速分 / 血防分
+ * 体型像素已改成队伍求和占比后，像素高宽比很难再到 1.55；
+ * 转圈仍按角色自身属性倾向判断（小粉默认可触发）。
+ */
+export function diamondSlenderRatio(unit, _peers = null) {
+  const s = diamondScores(unit);
+  return s.height / Math.max(1e-6, s.width);
 }
 
 /** 女性 + 足够纤细（小粉转圈用） */
