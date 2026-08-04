@@ -27,6 +27,8 @@ import {
   ensureRotation,
   activeSkills,
   updateRotationSlot,
+  basicAttackId,
+  isEmptyAutoSlot,
   FORMATION_SLOTS,
   getDeployedHeroes,
   normalizeFormation,
@@ -926,9 +928,14 @@ export function createUI(ctx) {
 
     const summary = hero.autoRotation
       .map((sid, i) => {
-        const sk = hero.skills.find((s) => s.id === sid);
-        return `<button type="button" class="auto-chip summary" data-edit="${i}" title="点击更换第 ${i + 1} 招">
-          ${i + 1}.${sk ? sk.name : "?"}
+        const empty = isEmptyAutoSlot(sid);
+        const sk = empty ? null : hero.skills.find((s) => s.id === sid);
+        const label = empty ? "空" : sk ? sk.name : "?";
+        const tip = empty
+          ? `第 ${i + 1} 招：空＝普通攻击`
+          : `点击更换第 ${i + 1} 招`;
+        return `<button type="button" class="auto-chip summary ${empty ? "is-empty" : ""}" data-edit="${i}" title="${tip}">
+          <span class="auto-chip-idx">${i + 1}.</span><span class="auto-chip-name">${label}</span>
         </button>`;
       })
       .join("");
@@ -944,17 +951,36 @@ export function createUI(ctx) {
     ensureRotation(hero);
     autoEditIdx = slotIdx;
     const currentId = hero.autoRotation[slotIdx];
+    const emptyOn = isEmptyAutoSlot(currentId);
     const title = $("skillPickTitle");
     const sub = $("skillPickSub");
     const list = $("skillPickList");
     if (title) title.textContent = `第 ${slotIdx + 1} 招`;
-    if (sub) sub.textContent = `为 ${hero.name} 选择自动战斗技能`;
+    if (sub) sub.textContent = `为 ${hero.name} 选择；清空＝普通攻击`;
 
+    const basicId = basicAttackId(hero);
+    const basic = hero.skills.find((s) => s.id === basicId);
     const actives = activeSkills(hero);
-    list.innerHTML = actives
-      .map((s) => {
-        const on = s.id === currentId;
-        return `<button type="button" class="skill-pick-item ${on ? "on" : ""}" data-skill="${s.id}">
+    const clearRow = `<button type="button" class="skill-pick-item clear ${emptyOn ? "on" : ""}" data-skill="" data-clear="1">
+      <div class="skill-pick-head">
+        <div class="skill-pick-ico clear">空</div>
+        <div class="skill-pick-meta">
+          <div class="skill-pick-name">清空
+            <span class="stag">普攻</span>
+            ${emptyOn ? '<span class="stag current">当前</span>' : ""}
+          </div>
+          <div class="skill-pick-nums">${basic ? basic.name : "普通攻击"}</div>
+        </div>
+      </div>
+      <p class="skill-pick-desc">本格不指定技能，自动战斗时打普通攻击。</p>
+    </button>`;
+
+    list.innerHTML =
+      clearRow +
+      actives
+        .map((s) => {
+          const on = !emptyOn && s.id === currentId;
+          return `<button type="button" class="skill-pick-item ${on ? "on" : ""}" data-skill="${s.id}">
           <div class="skill-pick-head">
             <div class="skill-pick-ico">${s.style === "heal" ? "愈" : s.style === "ranged" ? "远" : "近"}</div>
             <div class="skill-pick-meta">
@@ -967,16 +993,16 @@ export function createUI(ctx) {
           </div>
           <p class="skill-pick-desc">${s.desc || ""}</p>
         </button>`;
-      })
-      .join("");
+        })
+        .join("");
 
     list.querySelectorAll(".skill-pick-item").forEach((card) => {
       card.addEventListener("click", () => {
-        updateRotationSlot(hero, autoEditIdx, card.dataset.skill);
+        const sid = card.dataset.clear === "1" ? "" : card.dataset.skill;
+        updateRotationSlot(hero, autoEditIdx, sid);
         renderAutoSlots(hero);
         bumpSave();
-        // 选完不关，点 × 才关；刷新「当前」标记
-        openSkillPick(hero, autoEditIdx);
+        closeSkillPick();
       });
     });
 

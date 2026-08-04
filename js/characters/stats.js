@@ -44,7 +44,8 @@ export const CHARACTER_STATS = {
       def: 1,
       spd: 0,
     },
-    autoRotation: ["attack", "radiant", "quake", "attack", "radiant"],
+    // 空 = 普通攻击；默认全空
+    autoRotation: ["", "", "", "", ""],
   },
   pink: {
     id: "pink",
@@ -65,7 +66,7 @@ export const CHARACTER_STATS = {
       def: 0,
       spd: 1,
     },
-    autoRotation: ["pink_shot", "pink_fervor", "pink_burst", "pink_barrage", "pink_shot"],
+    autoRotation: ["", "", "", "", ""],
   },
   green: {
     id: "green",
@@ -86,7 +87,7 @@ export const CHARACTER_STATS = {
       def: 1,
       spd: 0,
     },
-    autoRotation: ["green_mend", "green_bolt", "green_mend", "green_bloom", "green_mend"],
+    autoRotation: ["", "", "", "", ""],
   },
   yellow: {
     id: "yellow",
@@ -107,7 +108,7 @@ export const CHARACTER_STATS = {
       def: 5,
       spd: 0,
     },
-    autoRotation: ["yellow_hit", "yellow_fortify", "yellow_slam", "yellow_hit", "yellow_slam"],
+    autoRotation: ["", "", "", "", ""],
   },
 };
 
@@ -164,14 +165,15 @@ export function loadSavedSettings() {
     for (const id of Object.keys(data.rotations)) {
       const rot = data.rotations[id];
       const allow = validActives[id];
+      const slotOk = (s) => s == null || s === "" || allow.has(s);
       if (
         CHARACTER_STATS[id] &&
         allow &&
         Array.isArray(rot) &&
         rot.length === 5 &&
-        rot.every((s) => allow.has(s))
+        rot.every(slotOk)
       ) {
-        CHARACTER_STATS[id].autoRotation = [...rot];
+        CHARACTER_STATS[id].autoRotation = rot.map((s) => (s == null || s === "" ? "" : s));
       }
     }
   }
@@ -204,12 +206,14 @@ export function getAutoRotation(id) {
   return [...rot];
 }
 
-/** 写回角色自动攻击顺序，并持久化（刷新后仍在） */
+/** 写回角色自动攻击顺序，并持久化（刷新后仍在）；"" 表示空＝普攻 */
 export function setAutoRotation(id, rotation) {
   if (!rotation || rotation.length !== 5) {
     throw new Error("autoRotation 必须是 5 个技能");
   }
-  getCharacterStats(id).autoRotation = [...rotation];
+  getCharacterStats(id).autoRotation = rotation.map((s) =>
+    s == null || s === "" ? "" : s
+  );
   persist();
   return getAutoRotation(id);
 }

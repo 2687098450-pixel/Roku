@@ -76,6 +76,9 @@ export {
   nextAutoSkill,
   activeSkills,
   updateRotationSlot,
+  basicAttackId,
+  isEmptyAutoSlot,
+  resolveAutoSkillId,
 } from "./autoAttack.js";
 export {
   refreshHeroStats,
