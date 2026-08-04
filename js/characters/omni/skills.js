@@ -18,4 +18,4 @@ export {
   scaledPassiveBoost,
   getReflectParams,
   previewReflectDamage,
-} from "../skills.js?v=57";
+} from "../skills.js?v=58";

@@ -1,7 +1,7 @@
 /** 全能：从总表读取基础属性，并计算最终数值 */
 
-import { getCharacterStats } from "../stats.js?v=57";
-import { levelStatBonus } from "../progression.js?v=57";
+import { getCharacterStats } from "../stats.js?v=58";
+import { levelStatBonus } from "../progression.js?v=58";
 
 const sheet = getCharacterStats("omni");
 

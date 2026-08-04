@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=57";
+import { $, clamp, styleTag } from "../core/utils.js?v=58";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,11 +45,11 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=57";
-import { sumEquipBonus } from "../characters/omni/equipment.js?v=57";
-import { setSavedFormation } from "../characters/stats.js?v=57";
-import { resetGameLocalData } from "../core/save.js?v=57";
-import { createAllUniqueItems } from "../loot/drops.js?v=57";
+} from "../characters/omni/index.js?v=58";
+import { sumEquipBonus } from "../characters/omni/equipment.js?v=58";
+import { setSavedFormation } from "../characters/stats.js?v=58";
+import { resetGameLocalData } from "../core/save.js?v=58";
+import { createAllUniqueItems } from "../loot/drops.js?v=58";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1261,9 +1261,7 @@ export function createUI(ctx) {
     if (title) title.textContent = skill.name;
     refreshSkillTexts(hero);
     const cur = skill.desc || skill.nums || "";
-    const nextLv = lv + 1;
-    const showNext = lv < MAX_SKILL_LEVEL;
-    const next = showNext ? buildSkillText(hero, skill.id, nextLv) : null;
+    const next = buildSkillText(hero, skill.id, lv + 1);
     const nextLine = next?.desc || next?.nums || "";
     body.innerHTML = `
       <div class="skill-detail-top">
