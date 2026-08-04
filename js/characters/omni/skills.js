@@ -15,4 +15,6 @@ export {
   createHeroSkills,
   attrPassiveSkillId,
   scaledPassiveBoost,
+  getReflectParams,
+  previewReflectDamage,
 } from "../skills.js";

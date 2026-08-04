@@ -319,9 +319,14 @@ export function createBattleApi(ctx) {
   }
 
   function reflectBaseDamage(victim) {
-    const def = Math.max(1, effectiveDef(victim));
-    let base = Math.max(1, Math.floor(def * 0.6 + 4));
     const hero = actingHero(victim);
+    const lv = getSkillLevel(hero, "yellow_reflect");
+    const s = scaledSkillDef("yellow_reflect", lv) || {
+      reflectMult: 0.6,
+      reflectFlat: 4,
+    };
+    const def = Math.max(1, effectiveDef(victim));
+    let base = Math.max(1, Math.floor(def * s.reflectMult + s.reflectFlat));
     if (heroHasUnique(hero, "yellow_reflect_shield")) {
       const atk = Math.max(0, effectiveAtk(victim));
       base = Math.max(1, Math.floor((atk / def) * base));
@@ -334,8 +339,10 @@ export function createBattleApi(ctx) {
     if (!b || !victim?.isHero) return;
     const hero = actingHero(victim);
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
+    const lv = getSkillLevel(hero, "yellow_reflect");
+    const s = scaledSkillDef("yellow_reflect", lv) || { allyRatio: 0.7 };
     const enemyDmg = reflectBaseDamage(victim);
-    const allyDmg = Math.max(1, Math.floor(enemyDmg * 0.7));
+    const allyDmg = Math.max(1, Math.floor(enemyDmg * (s.allyRatio ?? 0.7)));
     const hitIds = [];
     for (const u of battleUnits(b)) {
       if (!u || u.hp <= 0 || u.id === victim.id) continue;
