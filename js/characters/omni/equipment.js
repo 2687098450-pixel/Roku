@@ -31,6 +31,8 @@ export const BONUS_LABEL = {
   atk: "攻击",
   def: "防御",
   spd: "速度",
+  critRate: "暴击率",
+  critDmg: "暴击伤害",
 };
 
 /** 品质：白 < 绿 < 蓝 < 紫 < 橙 < 红 */
@@ -55,14 +57,22 @@ export const RARITY = {
   red: { id: "red", label: "红", rank: 5, affixes: 3, color: "#e23d4a" },
 };
 
-const STAT_KEYS = ["hp", "atk", "def", "spd"];
+/** 主属性键（整数成长） */
+const PRIMARY_STAT_KEYS = ["hp", "atk", "def", "spd"];
+/** 全部可加成属性（含百分比暴击） */
+const STAT_KEYS = ["hp", "atk", "def", "spd", "critRate", "critDmg"];
+const PCT_STAT_KEYS = new Set(["critRate", "critDmg"]);
+const DPS_STAT_KEYS = ["atk", "spd", "critRate", "critDmg"];
+const TANK_STAT_KEYS = ["hp", "def", "spd"];
 
-/** 属性词条成长（随装备等级） */
+/** 属性词条成长（随装备等级；暴击为小数比例） */
 const STAT_AFFIX_GROWTH = {
   hp: { base: 4, perLevel: 2.2 },
   atk: { base: 1, perLevel: 0.42 },
   def: { base: 1, perLevel: 0.38 },
   spd: { base: 1, perLevel: 0.18 },
+  critRate: { base: 0.012, perLevel: 0.0035 },
+  critDmg: { base: 0.04, perLevel: 0.01 },
 };
 
 /** 技能词条池（高品质 / Boss） */
@@ -219,7 +229,7 @@ export function applyMilestoneToPrimary(primary = {}, level = 1) {
   const n = milestoneCount(level);
   if (!n) return { ...primary };
   const out = {};
-  for (const key of STAT_KEYS) {
+  for (const key of PRIMARY_STAT_KEYS) {
     const v = Number(primary[key]) || 0;
     if (!v) continue;
     out[key] = Math.max(1, Math.round(v * (1 + n * 0.12)));
@@ -227,11 +237,20 @@ export function applyMilestoneToPrimary(primary = {}, level = 1) {
   return out;
 }
 
+function formatStatAffixText(stat, value) {
+  const label = BONUS_LABEL[stat] || stat;
+  if (PCT_STAT_KEYS.has(stat)) {
+    const pct = Math.round((Number(value) || 0) * 1000) / 10;
+    return `${label} +${pct}%`;
+  }
+  return `${label} +${value}`;
+}
+
 function refreshAffixText(a) {
   if (!a) return;
   if (a.type === "stat" && a.key) {
     a.bonus = { [a.key]: a.value };
-    a.text = `${BONUS_LABEL[a.key]} +${a.value}`;
+    a.text = formatStatAffixText(a.key, a.value);
   } else if (a.type === "skill" && a.skillMods) {
     a.text = formatSkillModsText(a.skillMods);
   }
@@ -249,9 +268,51 @@ export function rebuildEquipStats(item) {
   primary = applyMilestoneToPrimary(primary, level);
   item.level = level;
   item.primary = primary;
+  fillUniqueAffixSlots(item);
   item.bonus = bonusFromParts(primary, item.affixes || []);
   item.skillMods = skillModsFromAffixes(item.affixes || []);
   return item;
+}
+
+/** 旧唯一装若只有 1 条，补满红装词条位（种子固定，读档不乱跳） */
+function fillUniqueAffixSlots(item) {
+  if (!item?.uniqueId) return;
+  const max = affixCountForRarity(item.rarity || "red");
+  if (!Array.isArray(item.affixes)) item.affixes = [];
+  if (item.affixes.length >= max) return;
+  const used = new Set(
+    item.affixes.filter((a) => a.type === "stat" && a.key).map((a) => a.key)
+  );
+  const preferDps =
+    item.slot === "weapon" ||
+    item.slot === "ringL" ||
+    item.slot === "ringR" ||
+    item.skillOwner === "pink";
+  const preferTank =
+    item.slot === "shield" ||
+    item.slot === "armor" ||
+    item.skillOwner === "yellow";
+  const rng = seededRng(`${item.uniqueId}|${item.slot}|affix`);
+  while (item.affixes.length < max) {
+    const key = pickStatForAffix(used, { preferDps, preferTank: !preferDps && preferTank }, rng);
+    used.add(key);
+    item.affixes.push(makeStatAffix(key, rollStatValue(key, itemLevel(item), rng)));
+  }
+}
+
+function seededRng(seed) {
+  let h = 2166136261;
+  const s = String(seed || "");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return ((h >>> 0) % 10000) / 10000;
+  };
 }
 
 /**
@@ -280,10 +341,17 @@ export function upgradeEquip(item, state) {
   for (const a of item.affixes || []) {
     if (a.type === "stat" && a.key) {
       const g = STAT_AFFIX_GROWTH[a.key] || { perLevel: 0.4 };
-      const add = milestone
-        ? Math.max(3, Math.round(g.perLevel * 5 + 2))
-        : Math.max(1, Math.round(g.perLevel + 0.35));
-      a.value = Math.max(1, (a.value || 1) + add);
+      if (PCT_STAT_KEYS.has(a.key)) {
+        const add = milestone
+          ? Math.max(0.01, +(g.perLevel * 2.2).toFixed(4))
+          : Math.max(0.003, +(g.perLevel * 0.9).toFixed(4));
+        a.value = +((Number(a.value) || 0) + add).toFixed(4);
+      } else {
+        const add = milestone
+          ? Math.max(3, Math.round(g.perLevel * 5 + 2))
+          : Math.max(1, Math.round(g.perLevel + 0.35));
+        a.value = Math.max(1, (a.value || 1) + add);
+      }
       refreshAffixText(a);
     } else if (a.type === "skill" && a.skillMods && milestone) {
       const m = a.skillMods;
@@ -408,7 +476,7 @@ export function slotPrimaryBonus(slot, level, kind = "") {
 }
 
 function emptyBonus() {
-  return { hp: 0, atk: 0, def: 0, spd: 0 };
+  return { hp: 0, atk: 0, def: 0, spd: 0, critRate: 0, critDmg: 0 };
 }
 
 function mergeBonus(...parts) {
@@ -424,7 +492,11 @@ function rollStatValue(stat, level, rng = Math.random) {
   const g = STAT_AFFIX_GROWTH[stat];
   if (!g) return 1;
   const jitter = 0.85 + rng() * 0.3;
-  return Math.max(1, Math.round((g.base + level * g.perLevel) * jitter));
+  const raw = (g.base + level * g.perLevel) * jitter;
+  if (PCT_STAT_KEYS.has(stat)) {
+    return Math.max(0.005, +raw.toFixed(4));
+  }
+  return Math.max(1, Math.round(raw));
 }
 
 function skillAffixFromMods(skillMods, text) {
@@ -452,16 +524,29 @@ function makeStatAffix(stat, value) {
     key: stat,
     value,
     label: "词条",
-    text: `${BONUS_LABEL[stat]} +${value}`,
+    text: formatStatAffixText(stat, value),
     bonus: { [stat]: value },
   };
+}
+
+function pickStatForAffix(usedStats, opts, rng) {
+  let pool = STAT_KEYS.filter((k) => !usedStats.has(k));
+  if (!pool.length) pool = STAT_KEYS.slice();
+  if (opts.preferDps) {
+    const dps = pool.filter((k) => DPS_STAT_KEYS.includes(k));
+    if (dps.length && rng() < 0.78) pool = dps;
+  } else if (opts.preferTank) {
+    const tank = pool.filter((k) => TANK_STAT_KEYS.includes(k));
+    if (tank.length && rng() < 0.7) pool = tank;
+  }
+  return pool[Math.floor(rng() * pool.length)];
 }
 
 /**
  * 按品质数量随机词条
  * @param {number} count
  * @param {number} level
- * @param {{ allowSkill?: boolean, forcedSkillMods?: object, rng?: () => number }} [opts]
+ * @param {{ allowSkill?: boolean, forcedSkillMods?: object, preferDps?: boolean, preferTank?: boolean, rng?: () => number }} [opts]
  */
 export function rollAffixes(count, level, opts = {}) {
   const n = Math.max(0, Math.floor(count || 0));
@@ -492,9 +577,7 @@ export function rollAffixes(count, level, opts = {}) {
       }
     }
 
-    const stats = STAT_KEYS.filter((k) => !usedStats.has(k));
-    const pool = stats.length ? stats : STAT_KEYS;
-    const key = pool[Math.floor(rng() * pool.length)];
+    const key = pickStatForAffix(usedStats, opts, rng);
     usedStats.add(key);
     affixes.push(makeStatAffix(key, rollStatValue(key, L, rng)));
   }
@@ -546,7 +629,9 @@ export function itemPrice(item) {
     (bonus.hp || 0) +
     (bonus.atk || 0) * 4 +
     (bonus.def || 0) * 4 +
-    (bonus.spd || 0) * 4;
+    (bonus.spd || 0) * 4 +
+    (bonus.critRate || 0) * 220 +
+    (bonus.critDmg || 0) * 80;
   const affixN = (item.affixes || []).length || affixCountForRarity(item.rarity);
   return Math.max(
     1,
@@ -589,10 +674,16 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
     : null;
   if (!affixes) {
     const need = rollAffixCountForRarity(rarity, extra.rng);
+    const preferDps =
+      slot === "weapon" || slot === "ringL" || slot === "ringR";
+    const preferTank =
+      slot === "shield" || slot === "armor" || slot === "helmet";
     affixes = rollAffixes(need, level, {
       allowSkill: !!extra.bossOnly || rarityInfo(rarity).rank >= 3,
       forcedSkillMods: extra.skillMods || null,
       forcedSkillText: extra.skillAffixText || null,
+      preferDps: !!preferDps,
+      preferTank: !preferDps && !!preferTank,
       rng: extra.rng,
     });
   }
@@ -680,7 +771,12 @@ export function formatItemBonus(bonus = {}) {
   for (const key of STAT_KEYS) {
     const v = bonus[key] || 0;
     if (!v) continue;
-    parts.push(`${BONUS_LABEL[key]} ${v > 0 ? "+" : ""}${v}`);
+    if (PCT_STAT_KEYS.has(key)) {
+      const pct = Math.round(v * 1000) / 10;
+      parts.push(`${BONUS_LABEL[key]} +${pct}%`);
+    } else {
+      parts.push(`${BONUS_LABEL[key]} ${v > 0 ? "+" : ""}${v}`);
+    }
   }
   return parts.length ? parts.join("　") : "无属性加成";
 }

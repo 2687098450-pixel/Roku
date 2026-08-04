@@ -8,6 +8,7 @@ import {
   floorItemLevel,
   affixCountForRarity,
   makeUniqueAffix,
+  rollAffixes,
 } from "../characters/omni/equipment.js";
 import { getFloorDef } from "../map/floors.js";
 
@@ -446,6 +447,24 @@ function rollNormalItem(floor) {
 function rollUniqueBossItem(floor, tpl) {
   const level = floorItemLevel(floor, { boss: true });
   const place = floorName(floor);
+  const preferDps =
+    tpl.slot === "weapon" ||
+    tpl.slot === "ringL" ||
+    tpl.slot === "ringR" ||
+    tpl.skillOwner === "pink";
+  const preferTank =
+    tpl.slot === "shield" ||
+    tpl.slot === "armor" ||
+    tpl.skillOwner === "yellow";
+  // 红装 3 词条：1 唯一 + 2 属性（输出装偏向暴击/攻击）
+  const affixes = [
+    makeUniqueAffix(tpl.uniqueId, tpl.uniqueText),
+    ...rollAffixes(2, level, {
+      allowSkill: false,
+      preferDps,
+      preferTank: !preferDps && preferTank,
+    }),
+  ];
   return toBagEquip(
     makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
       id: `unique_${tpl.uniqueId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
@@ -457,7 +476,7 @@ function rollUniqueBossItem(floor, tpl) {
       uniqueId: tpl.uniqueId,
       skillOwner: tpl.skillOwner,
       skillStrengthen: true,
-      affixes: [makeUniqueAffix(tpl.uniqueId, tpl.uniqueText)],
+      affixes,
       bossOnly: true,
       bossFloor: floor,
     })

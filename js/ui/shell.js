@@ -529,10 +529,14 @@ export function createUI(ctx) {
   }
 
   function formatBonusRows(bonus, compact = false, emptyText = "无加成") {
-    const rows = ["hp", "atk", "def", "spd"]
+    const rows = ["hp", "atk", "def", "spd", "critRate", "critDmg"]
       .map((k) => {
         const v = bonus?.[k] || 0;
         if (!v) return "";
+        if (k === "critRate" || k === "critDmg") {
+          const pct = Math.round(v * 1000) / 10;
+          return `<li><span>${BONUS_LABEL[k]}</span><b>+${pct}%</b></li>`;
+        }
         return `<li><span>${BONUS_LABEL[k]}</span><b>${v > 0 ? "+" : ""}${v}</b></li>`;
       })
       .filter(Boolean);
@@ -578,7 +582,7 @@ export function createUI(ctx) {
     const info = rarityInfo(item.rarity);
     const lv = itemLevel(item);
     const affixN = (item.affixes || []).length;
-    const affixMax = item.uniqueId ? Math.max(1, affixN) : affixCountForRarity(item.rarity);
+    const affixMax = affixCountForRarity(item.rarity);
     const icon = itemIconUrl(item);
     const iconHtml = icon
       ? `<img src="${icon}" alt="${item.name}" decoding="async" loading="eager" />`
@@ -593,9 +597,9 @@ export function createUI(ctx) {
       : "";
     const metaLine = price
       ? `<div class="equip-preview-rarity">等级 ${lv} · 词条 ${affixN}/${affixMax} · 售价 <b style="color:#d4890a">${itemPrice(item)}</b></div>`
-      : item.uniqueId
-        ? `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 唯一词条</div>`
-        : `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 词条 ${affixN}/${affixMax}</div>`;
+      : `<div class="equip-preview-rarity">等级 ${lv} · ${info.label}装 · 词条 ${affixN}/${affixMax}${
+          item.uniqueId ? " · 含唯一" : ""
+        }</div>`;
     return `
       <div class="equip-preview-top">
         <div class="equip-preview-ico">${iconHtml}</div>
@@ -1164,8 +1168,8 @@ export function createUI(ctx) {
       ["攻击", String(hero.atk), `基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote}`],
       ["防御", String(hero.def), `基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}`],
       ["速度", String(hero.spd), `基础${hero.base.spd} + 装备${eq.spd}${capNote}`],
-      ["暴击率", `${critRate}%`, "默认 10%"],
-      ["暴击伤害", `${critDmg}%`, "默认 150%（暴击时伤害倍率）"],
+      ["暴击率", `${critRate}%`, `默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%`],
+      ["暴击伤害", `${critDmg}%`, `默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%`],
     ]
       .map(([label, val, tip]) => `<li title="${tip}"><span>${label}</span><b>${val}</b></li>`)
       .join("");

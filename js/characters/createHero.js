@@ -34,8 +34,8 @@ export function refreshHeroStats(hero) {
   hero.atk = Math.max(1, Math.floor(stats.atk * mult));
   hero.def = Math.max(0, Math.floor(stats.def * mult));
   hero.spd = Math.max(1, Math.floor(stats.spd * mult));
-  if (hero.critRate == null) hero.critRate = DEFAULT_CRIT_RATE;
-  if (hero.critDmg == null) hero.critDmg = DEFAULT_CRIT_DMG;
+  hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
+  hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
   if (hero.hp == null) hero.hp = hero.maxHp;
   else hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
 }
