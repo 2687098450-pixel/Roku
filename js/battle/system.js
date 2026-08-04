@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=62";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=62";
+import { $, clamp, irand } from "../core/utils.js?v=63";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=63";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=62";
+} from "../characters/omni/index.js?v=63";
 import {
   gainExp,
   splitExp,
@@ -25,22 +25,22 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=62";
+} from "../characters/progression.js?v=63";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=62";
-import { buildEncounter } from "../monsters/roster.js?v=62";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=62";
-import { rollBattleLoot } from "../loot/drops.js?v=62";
+} from "../characters/skills.js?v=63";
+import { buildEncounter } from "../monsters/roster.js?v=63";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=63";
+import { rollBattleLoot } from "../loot/drops.js?v=63";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=62";
-import { createTicker } from "../core/time.js?v=62";
+} from "../characters/stats.js?v=63";
+import { createTicker } from "../core/time.js?v=63";
 
 export function createBattleApi(ctx) {
   const {
@@ -368,6 +368,7 @@ export function createBattleApi(ctx) {
       } else if (allyRatio < 0) {
         const healAmt = Math.max(1, Math.floor(enemyDmg * Math.abs(allyRatio)));
         applyHeal(u, healAmt);
+        applyMendPulse(b, victim, u, healAmt);
         dealDamage(u, 1, {
           fromReflect: true,
           trueDamage: true,
@@ -443,7 +444,7 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 治愈戒：治疗后 2 秒脉动（行动条走 10 掉血 / 走 20 回 2.5 倍） */
+  /** 治愈戒：任意治疗后 2 秒脉动（不限治愈之触 / 不限小绿） */
   function applyMendPulse(b, healer, target, healedAmount) {
     const hero = actingHero(healer);
     if (!heroHasUnique(hero, "green_mend_pulse") || !target) return;
@@ -700,13 +701,16 @@ export function createBattleApi(ctx) {
         const list = livingAllies(b);
         const primary = pickLowestAlly(b) || list[0];
         await playSkillAnim(style, ally.id, primary.id, fxMeta);
-        for (const t of list) applyHeal(t, amount);
+        for (const t of list) {
+          const healed = applyHeal(t, amount);
+          applyMendPulse(b, ally, t, healed || amount);
+        }
       } else {
         const t = pickLowestAlly(b);
         if (!t) return false;
         await playSkillAnim(style, ally.id, t.id, fxMeta);
         const healed = applyHeal(t, amount);
-        if (used === "green_mend") applyMendPulse(b, ally, t, healed || amount);
+        applyMendPulse(b, ally, t, healed || amount);
       }
       applyLifeFlowBuff(b, ally);
       syncHeroHp(b);

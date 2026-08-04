@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=62";
+import { $, clamp, styleTag } from "../core/utils.js?v=63";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,11 +45,11 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=62";
-import { sumEquipBonus } from "../characters/omni/equipment.js?v=62";
-import { setSavedFormation } from "../characters/stats.js?v=62";
-import { resetGameLocalData } from "../core/save.js?v=62";
-import { createAllUniqueItems } from "../loot/drops.js?v=62";
+} from "../characters/omni/index.js?v=63";
+import { sumEquipBonus, UNIQUE_SKILL_IDS } from "../characters/omni/equipment.js?v=63";
+import { setSavedFormation } from "../characters/stats.js?v=63";
+import { resetGameLocalData } from "../core/save.js?v=63";
+import { createAllUniqueItems } from "../loot/drops.js?v=63";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -581,7 +581,12 @@ export function createUI(ctx) {
     const rows = list
       .map((a, i) => {
         const tag = a.type === "unique" ? "唯一" : `词条${i + 1}`;
-        return `<li><span>${tag}</span><b>${a.text || a.label || "—"}</b></li>`;
+        const uid = a.uniqueId || a.id;
+        const text =
+          a.type === "unique" && uid && UNIQUE_SKILL_IDS[uid]?.text
+            ? UNIQUE_SKILL_IDS[uid].text
+            : a.text || a.label || "—";
+        return `<li><span>${tag}</span><b>${text}</b></li>`;
       })
       .join("");
     return `${head}<ul class="${cls}">${rows}</ul>`;

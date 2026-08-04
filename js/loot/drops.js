@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=62";
-import { getFloorDef } from "../map/floors.js?v=62";
+} from "../characters/omni/equipment.js?v=63";
+import { getFloorDef } from "../map/floors.js?v=63";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -73,9 +73,9 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "green_mend_pulse",
-      skillOwner: "green",
-      uniqueText: "强化治愈之触：治疗后脉动回血",
-      desc: "十字雾林守护者掉落。唯一词条强化治愈之触；仅小绿装备时生效。",
+      skillOwner: "",
+      uniqueText: "强化治愈之触",
+      desc: "十字雾林守护者掉落。唯一词条强化治愈之触。",
     },
   ],
   6: [

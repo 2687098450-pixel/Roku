@@ -143,7 +143,7 @@ export const UNIQUE_SKILL_IDS = {
   omni_balance_spirit: { owner: "omni", skillId: "boost", text: "强化均衡：十字共享·灵体化" },
   green_life_flow: { owner: "green", skillId: "green_life", text: "强化生机流转：治疗提升友军伤害" },
   yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect", text: "强化反伤：友军比例再 -10%" },
-  green_mend_pulse: { owner: "green", skillId: "green_mend", text: "强化治愈之触：治疗后脉动回血" },
+  green_mend_pulse: { skillId: "green_mend", text: "强化治愈之触" },
 };
 
 export function isSkillStrengthenGear(item) {
@@ -165,7 +165,7 @@ export function countExtraSkillGear(equip = {}) {
 export function heroHasUnique(hero, uniqueId) {
   if (!hero?.equip || !uniqueId) return false;
   const meta = UNIQUE_SKILL_IDS[uniqueId];
-  if (meta && hero.statsId !== meta.owner) return false;
+  if (meta?.owner && hero.statsId !== meta.owner) return false;
   for (const key of SLOT_KEYS) {
     const it = hero.equip[key];
     if (it?.uniqueId === uniqueId) return true;
@@ -174,11 +174,12 @@ export function heroHasUnique(hero, uniqueId) {
 }
 
 export function makeUniqueAffix(uniqueId, text) {
+  const meta = UNIQUE_SKILL_IDS[uniqueId];
   return {
     type: "unique",
     id: uniqueId,
     uniqueId,
-    text: text || "唯一词条",
+    text: meta?.text || text || "唯一词条",
     label: "唯一",
   };
 }

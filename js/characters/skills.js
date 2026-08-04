@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=62";
-import { getCharacterStats } from "./stats.js?v=62";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=62";
-import { heroHasUnique } from "./omni/equipment.js?v=62";
+import { skillPowerText } from "../core/utils.js?v=63";
+import { getCharacterStats } from "./stats.js?v=63";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=63";
+import { heroHasUnique } from "./omni/equipment.js?v=63";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -339,7 +339,7 @@ export function buildSkillText(hero, skillId, level = 1) {
   if (skillId === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
     return {
       nums: `${nums} · 治疗后脉动`,
-      desc: `${desc}治疗后 2 秒脉动：行动条每走 10 掉血，每走 20 回复刚掉血量的 2.5 倍。`,
+      desc: `${desc}装备治愈戒时：任意治疗效果都会给目标附加 2 秒脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。`,
     };
   }
   return { nums, desc };
