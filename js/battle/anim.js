@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=58";
+import { $, wait } from "../core/utils.js?v=59";
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();

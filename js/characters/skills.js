@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=58";
-import { getCharacterStats } from "./stats.js?v=58";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=58";
-import { heroHasUnique } from "./omni/equipment.js?v=58";
+import { skillPowerText } from "../core/utils.js?v=59";
+import { getCharacterStats } from "./stats.js?v=59";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=59";
+import { heroHasUnique } from "./omni/equipment.js?v=59";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -73,8 +73,9 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.healRatio != null) out.healRatio = +(out.healRatio + lv * 0.02).toFixed(3);
   if (out.reflectMult != null) out.reflectMult = +(out.reflectMult + lv * 0.04).toFixed(3);
   if (out.reflectFlat != null) out.reflectFlat = Math.round(out.reflectFlat + lv * 1);
+  // 友军反伤是副作用：升级应减轻，不是加重
   if (out.allyRatio != null) {
-    out.allyRatio = Math.min(1, +(out.allyRatio + lv * 0.015).toFixed(3));
+    out.allyRatio = Math.max(0.2, +(out.allyRatio - lv * 0.025).toFixed(3));
   }
   return out;
 }

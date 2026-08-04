@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=58";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=58";
+import { $, clamp, irand } from "../core/utils.js?v=59";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=59";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=58";
+} from "../characters/omni/index.js?v=59";
 import {
   gainExp,
   splitExp,
@@ -25,17 +25,17 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=58";
-import { refreshSkillTexts } from "../characters/skills.js?v=58";
-import { buildEncounter } from "../monsters/roster.js?v=58";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=58";
-import { rollBattleLoot } from "../loot/drops.js?v=58";
+} from "../characters/progression.js?v=59";
+import { refreshSkillTexts } from "../characters/skills.js?v=59";
+import { buildEncounter } from "../monsters/roster.js?v=59";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=59";
+import { rollBattleLoot } from "../loot/drops.js?v=59";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=58";
-import { createTicker } from "../core/time.js?v=58";
+} from "../characters/stats.js?v=59";
+import { createTicker } from "../core/time.js?v=59";
 
 export function createBattleApi(ctx) {
   const {
