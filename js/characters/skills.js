@@ -150,12 +150,12 @@ function skillNumsAndDesc(skillId, level = 1) {
 
   if (skillId === "aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const nums = `最大生命×${pct}%`;
+    const nums = `战斗结束 · 自身×${pct}%`;
     return { nums, desc: nums };
   }
   if (skillId === "green_aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const nums = `参战全体×${pct}%`;
+    const nums = `战斗结束 · 参战全体×${pct}%`;
     return { nums, desc: nums };
   }
   if (s.style === "buff") {
@@ -175,7 +175,7 @@ function skillNumsAndDesc(skillId, level = 1) {
   }
   if (s.stunGauge || s.stunTurns) {
     const stun = s.stunGauge || s.stunTurns * 100;
-    const nums = `${skillPowerText(s.mult, s.flat)} · 眩晕${stun}`;
+    const nums = `${skillPowerText(s.mult, s.flat)} · 命中眩晕${stun}`;
     return { nums, desc: nums };
   }
   if (s.hitAllFront) {
@@ -241,22 +241,16 @@ export function refreshSkillTexts(hero) {
       continue;
     }
     if (sk.id === "yellow_reflect") {
-      const p = getReflectParams(lv);
-      const pct = Math.round(p.reflectMult * 100);
-      const allyPct = Math.round(p.allyRatio * 100);
-      const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
       const preview = previewReflectDamage(hero);
-      sk.nums = hasShield
-        ? `敌${preview.enemy} · 友${preview.ally} · 防×${pct}%+${p.reflectFlat}×(攻÷防) · 友${allyPct}%`
-        : `敌${preview.enemy} · 友${preview.ally} · 防×${pct}%+${p.reflectFlat} · 友${allyPct}%`;
+      sk.nums = `受伤时 · 对敌${preview.enemy} · 对友${preview.ally}`;
       sk.desc = sk.nums;
       continue;
     }
     const { nums } = skillNumsAndDesc(sk.id, lv);
     if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
-      sk.nums = `${nums} · 3发×50% · 击杀+1`;
+      sk.nums = `${nums} · 3发×50% · 击杀+1发`;
     } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
-      sk.nums = `${nums} · 脉动掉10/回×2.5`;
+      sk.nums = `${nums} · 治疗后脉动：掉10/回×2.5`;
     } else {
       sk.nums = nums;
     }
@@ -420,8 +414,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "防御×60%+4 · 友军70%",
-      desc: "防御×60%+4 · 友军70%",
+      nums: "受伤时 · 对敌— · 对友—",
+      desc: "受伤时 · 对敌— · 对友—",
     },
     {
       id: "yellow_armor",
