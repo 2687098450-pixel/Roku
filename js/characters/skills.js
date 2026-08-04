@@ -116,10 +116,12 @@ export function getReflectParams(skillLevel = 1) {
   const per = s.reflectPctPerLevel ?? 0.1;
   const base = s.allyRatioBase ?? 0.6;
   const step = s.allyRatioStep ?? -0.1;
+  // 用百分数取整，避免 0.6-0.6 变成 -0
+  const allyPct = Math.round((base + (rank - 1) * step) * 100);
   return {
     reflectMult: s.reflectMult ?? +(per * rank).toFixed(3),
-    /** 1 级 60%，每级 -10%；可为负（治疗模式） */
-    allyRatio: +(base + (rank - 1) * step).toFixed(3),
+    /** 1 级 60%，每级 -10%；≤ -10% 时治疗 */
+    allyRatio: allyPct / 100,
   };
 }
 
