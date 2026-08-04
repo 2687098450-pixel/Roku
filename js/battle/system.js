@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=63";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=63";
+import { $, clamp, irand } from "../core/utils.js?v=64";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=64";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=63";
+} from "../characters/omni/index.js?v=64";
 import {
   gainExp,
   splitExp,
@@ -25,22 +25,22 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=63";
+} from "../characters/progression.js?v=64";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=63";
-import { buildEncounter } from "../monsters/roster.js?v=63";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=63";
-import { rollBattleLoot } from "../loot/drops.js?v=63";
+} from "../characters/skills.js?v=64";
+import { buildEncounter } from "../monsters/roster.js?v=64";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=64";
+import { rollBattleLoot } from "../loot/drops.js?v=64";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=63";
-import { createTicker } from "../core/time.js?v=63";
+} from "../characters/stats.js?v=64";
+import { createTicker } from "../core/time.js?v=64";
 
 export function createBattleApi(ctx) {
   const {
@@ -696,11 +696,11 @@ export function createBattleApi(ctx) {
       ally.buffTurns = def.turns || 3;
       appliedBuff = true;
     } else if (isHealSkill(used)) {
-      const amount = skillHealAmount(ally, used, mods, skillLv);
       if (def.target === "all") {
         const list = livingAllies(b);
         const primary = pickLowestAlly(b) || list[0];
         await playSkillAnim(style, ally.id, primary.id, fxMeta);
+        const amount = skillHealAmount(ally, used, mods, skillLv);
         for (const t of list) {
           const healed = applyHeal(t, amount);
           applyMendPulse(b, ally, t, healed || amount);
@@ -709,6 +709,7 @@ export function createBattleApi(ctx) {
         const t = pickLowestAlly(b);
         if (!t) return false;
         await playSkillAnim(style, ally.id, t.id, fxMeta);
+        const amount = skillHealAmount(ally, used, mods, skillLv, t);
         const healed = applyHeal(t, amount);
         applyMendPulse(b, ally, t, healed || amount);
       }

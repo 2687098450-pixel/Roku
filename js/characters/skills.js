@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=63";
-import { getCharacterStats } from "./stats.js?v=63";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=63";
-import { heroHasUnique } from "./omni/equipment.js?v=63";
+import { skillPowerText } from "../core/utils.js?v=64";
+import { getCharacterStats } from "./stats.js?v=64";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=64";
+import { heroHasUnique } from "./omni/equipment.js?v=64";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -29,10 +29,21 @@ export const SKILL_POWER = {
     turns: 3,
   },
 
-  // —— 小绿：治疗 ——
+  // —— 小绿：治疗（与施法者攻击相关；单体另加目标生命%） ——
   green_bolt: { mult: 0.75, flat: 0, style: "ranged" },
-  green_mend: { healMaxHp: 0.16, healFlat: 10, style: "heal", target: "lowest" },
-  green_bloom: { healMaxHp: 0.08, healFlat: 4, style: "heal", target: "all" },
+  green_mend: {
+    healMult: 0.75,
+    healTargetMaxHp: 0.12,
+    healFlat: 8,
+    style: "heal",
+    target: "lowest",
+  },
+  green_bloom: {
+    healMult: 0.4,
+    healFlat: 8,
+    style: "heal",
+    target: "all",
+  },
 
   // —— 小黄：坦克 ——
   yellow_hit: { mult: 1.0, flat: 2, style: "melee" },
@@ -67,6 +78,10 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.mult != null) out.mult = +(out.mult + lv * 0.07).toFixed(3);
   if (out.flat != null) out.flat = Math.round(out.flat + lv * 1.5);
   if (out.healMaxHp != null) out.healMaxHp = +(out.healMaxHp + lv * 0.012).toFixed(4);
+  if (out.healTargetMaxHp != null) {
+    out.healTargetMaxHp = +(out.healTargetMaxHp + lv * 0.008).toFixed(4);
+  }
+  if (out.healMult != null) out.healMult = +(out.healMult + lv * 0.05).toFixed(3);
   if (out.healFlat != null) out.healFlat = Math.round(out.healFlat + lv * 2);
   if (out.atkMult != null) out.atkMult = +(out.atkMult + lv * 0.03).toFixed(3);
   if (out.critDmgBonus != null) out.critDmgBonus = +(out.critDmgBonus + lv * 0.05).toFixed(3);
@@ -90,19 +105,39 @@ export function skillPower(atk, skillId, mods = null, skillLevel = 1) {
   return Math.max(1, Math.floor(atk * mult) + flat);
 }
 
-export function skillHealAmount(unit, skillId, mods = null, skillLevel = 1) {
+/**
+ * 治疗量：攻击力×healMult + 目标生命×healTargetMaxHp（仅单体） + healFlat
+ * @param {object} caster 施法者（用其攻击）
+ * @param {object|null} [target] 被治疗者（单体才吃生命%）
+ */
+export function skillHealAmount(caster, skillId, mods = null, skillLevel = 1, target = null) {
   const s = scaledSkillDef(skillId, skillLevel);
   if (!s) return 0;
+  const atk = Math.max(
+    0,
+    Math.floor((caster?.atk || 0) * (1 + (caster?.atkBuff || 0)))
+  );
   let v = s.healFlat || 0;
-  if (s.healMaxHp) v += Math.floor(unit.maxHp * s.healMaxHp);
-  if (s.healMult) v += Math.floor(unit.atk * s.healMult);
+  if (s.healMult) v += Math.floor(atk * s.healMult);
+  if (s.healTargetMaxHp && target) {
+    v += Math.floor((target.maxHp || 0) * s.healTargetMaxHp);
+  } else if (s.healMaxHp) {
+    // 旧字段：按施法者生命（战后被动等若仍用）
+    v += Math.floor((caster?.maxHp || 0) * s.healMaxHp);
+  }
   v = Math.floor(v * (1 + (mods?.healMult || 0)));
   return Math.max(1, v);
 }
 
 export function isHealSkill(skillId) {
   const s = SKILL_POWER[skillId];
-  return !!(s && (s.style === "heal" || s.healMaxHp != null || s.healMult != null));
+  return !!(
+    s &&
+    (s.style === "heal" ||
+      s.healMaxHp != null ||
+      s.healTargetMaxHp != null ||
+      s.healMult != null)
+  );
 }
 
 export function isBuffSkill(skillId) {
@@ -202,7 +237,15 @@ function skillNumsAndDesc(skillId, level = 1) {
     };
   }
   if (s.style === "heal") {
-    const text = `生命×${Math.round((s.healMaxHp || 0) * 100)}%+${s.healFlat || 0}`;
+    const parts = [];
+    if (s.healMult) parts.push(`攻击力×${s.healMult}`);
+    if (s.healTargetMaxHp) {
+      parts.push(`目标生命×${Math.round(s.healTargetMaxHp * 100)}%`);
+    } else if (s.healMaxHp) {
+      parts.push(`生命×${Math.round(s.healMaxHp * 100)}%`);
+    }
+    if (s.healFlat) parts.push(`+${s.healFlat}`);
+    const text = parts.join("") || "—";
     if (s.target === "all") {
       return {
         nums: `${text} · 全体`,
