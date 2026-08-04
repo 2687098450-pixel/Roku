@@ -29,18 +29,18 @@ export const SKILL_POWER = {
     turns: 3,
   },
 
-  // —— 小绿：治疗（与施法者攻击相关；单体另加目标生命%） ——
+  // —— 小绿：治疗（与施法者攻击相关；单体另加被治疗者生命%）——
   green_bolt: { mult: 0.75, flat: 0, style: "ranged" },
   green_mend: {
-    healMult: 0.75,
-    healTargetMaxHp: 0.12,
-    healFlat: 8,
+    healAtkMult: 1.35,
+    healTargetMaxHp: 0.1,
+    healFlat: 6,
     style: "heal",
     target: "lowest",
   },
   green_bloom: {
-    healMult: 0.4,
-    healFlat: 8,
+    healAtkMult: 0.85,
+    healFlat: 4,
     style: "heal",
     target: "all",
   },
@@ -81,8 +81,9 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.healTargetMaxHp != null) {
     out.healTargetMaxHp = +(out.healTargetMaxHp + lv * 0.008).toFixed(4);
   }
-  if (out.healMult != null) out.healMult = +(out.healMult + lv * 0.05).toFixed(3);
+  if (out.healAtkMult != null) out.healAtkMult = +(out.healAtkMult + lv * 0.05).toFixed(3);
   if (out.healFlat != null) out.healFlat = Math.round(out.healFlat + lv * 2);
+  if (out.healMult != null) out.healMult = +(out.healMult + lv * 0.05).toFixed(3);
   if (out.atkMult != null) out.atkMult = +(out.atkMult + lv * 0.03).toFixed(3);
   if (out.critDmgBonus != null) out.critDmgBonus = +(out.critDmgBonus + lv * 0.05).toFixed(3);
   if (out.defMult != null) out.defMult = +(out.defMult + lv * 0.04).toFixed(3);
@@ -106,24 +107,26 @@ export function skillPower(atk, skillId, mods = null, skillLevel = 1) {
 }
 
 /**
- * 治疗量：攻击力×healMult + 目标生命×healTargetMaxHp（仅单体） + healFlat
- * @param {object} caster 施法者（用其攻击）
- * @param {object|null} [target] 被治疗者（单体才吃生命%）
+ * 治疗量：与施法者攻击相关；单体可再加被治疗者最大生命百分比（群体不加）
+ * @param {object} caster 施法者（战斗单位或英雄）
+ * @param {string} skillId
+ * @param {object|null} mods
+ * @param {number} skillLevel
+ * @param {object|null} target 被治疗者；群体可不传
  */
 export function skillHealAmount(caster, skillId, mods = null, skillLevel = 1, target = null) {
   const s = scaledSkillDef(skillId, skillLevel);
   if (!s) return 0;
-  const atk = Math.max(
-    0,
-    Math.floor((caster?.atk || 0) * (1 + (caster?.atkBuff || 0)))
-  );
   let v = s.healFlat || 0;
-  if (s.healMult) v += Math.floor(atk * s.healMult);
-  if (s.healTargetMaxHp && target) {
-    v += Math.floor((target.maxHp || 0) * s.healTargetMaxHp);
-  } else if (s.healMaxHp) {
-    // 旧字段：按施法者生命（战后被动等若仍用）
-    v += Math.floor((caster?.maxHp || 0) * s.healMaxHp);
+  const atk = Math.max(0, caster?.atk ?? 0);
+  if (s.healAtkMult) v += Math.floor(atk * s.healAtkMult);
+  else if (s.healMult) v += Math.floor(atk * s.healMult);
+  // 仅单体：加被治疗者生命百分比
+  if (s.target !== "all" && s.healTargetMaxHp && target) {
+    v += Math.floor(Math.max(0, target.maxHp || 0) * s.healTargetMaxHp);
+  } else if (s.healMaxHp && s.target !== "all" && target) {
+    // 兼容旧字段：当作目标生命%
+    v += Math.floor(Math.max(0, target.maxHp || 0) * s.healMaxHp);
   }
   v = Math.floor(v * (1 + (mods?.healMult || 0)));
   return Math.max(1, v);
@@ -136,6 +139,7 @@ export function isHealSkill(skillId) {
     (s.style === "heal" ||
       s.healMaxHp != null ||
       s.healTargetMaxHp != null ||
+      s.healAtkMult != null ||
       s.healMult != null)
   );
 }
@@ -237,21 +241,21 @@ function skillNumsAndDesc(skillId, level = 1) {
     };
   }
   if (s.style === "heal") {
-    const parts = [];
-    if (s.healMult) parts.push(`攻击力×${s.healMult}`);
-    if (s.healTargetMaxHp) {
-      parts.push(`目标生命×${Math.round(s.healTargetMaxHp * 100)}%`);
-    } else if (s.healMaxHp) {
-      parts.push(`生命×${Math.round(s.healMaxHp * 100)}%`);
-    }
-    if (s.healFlat) parts.push(`+${s.healFlat}`);
-    const text = parts.join("") || "—";
+    const atkPart = s.healAtkMult
+      ? skillPowerText(s.healAtkMult, s.healFlat || 0)
+      : s.healFlat
+        ? `+${s.healFlat}`
+        : "";
     if (s.target === "all") {
+      const nums = `${atkPart} · 全体`;
       return {
-        nums: `${text} · 全体`,
-        desc: `治疗全体友方：${text}。`,
+        nums,
+        desc: `治疗全体友方：${atkPart}。`,
       };
     }
+    const hpPct = Math.round((s.healTargetMaxHp || s.healMaxHp || 0) * 100);
+    const text =
+      hpPct > 0 ? `${atkPart}+目标生命×${hpPct}%` : atkPart;
     return {
       nums: text,
       desc: `治疗生命比例最低的友方：${text}。`,

@@ -697,10 +697,10 @@ export function createBattleApi(ctx) {
       appliedBuff = true;
     } else if (isHealSkill(used)) {
       if (def.target === "all") {
+        const amount = skillHealAmount(ally, used, mods, skillLv);
         const list = livingAllies(b);
         const primary = pickLowestAlly(b) || list[0];
         await playSkillAnim(style, ally.id, primary.id, fxMeta);
-        const amount = skillHealAmount(ally, used, mods, skillLv);
         for (const t of list) {
           const healed = applyHeal(t, amount);
           applyMendPulse(b, ally, t, healed || amount);
@@ -708,8 +708,8 @@ export function createBattleApi(ctx) {
       } else {
         const t = pickLowestAlly(b);
         if (!t) return false;
-        await playSkillAnim(style, ally.id, t.id, fxMeta);
         const amount = skillHealAmount(ally, used, mods, skillLv, t);
+        await playSkillAnim(style, ally.id, t.id, fxMeta);
         const healed = applyHeal(t, amount);
         applyMendPulse(b, ally, t, healed || amount);
       }
