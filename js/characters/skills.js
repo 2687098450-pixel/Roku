@@ -272,9 +272,15 @@ export function refreshSkillTexts(hero) {
       continue;
     }
     if (sk.id === "yellow_reflect") {
-      const preview = previewReflectDamage(hero);
-      sk.nums = `对敌${preview.enemy} · 对友${preview.ally}`;
-      sk.desc = `受伤时，对敌人造成 ${preview.enemy} 伤害，对友方造成 ${preview.ally} 伤害。`;
+      const p = getReflectParams(lv);
+      const pct = Math.round(p.reflectMult * 100);
+      const allyPct = Math.round(p.allyRatio * 100);
+      const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
+      const enemyFormula = hasShield
+        ? `防御力×${pct}%+${p.reflectFlat}×(攻击÷防御)`
+        : `防御力×${pct}%+${p.reflectFlat}`;
+      sk.nums = `敌${enemyFormula} · 友×${allyPct}%`;
+      sk.desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，对友方造成 该伤害×${allyPct}%。`;
       continue;
     }
     const { nums, desc } = skillNumsAndDesc(sk.id, lv);
@@ -447,8 +453,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "对敌— · 对友—",
-      desc: "受伤时，对敌人造成伤害，对友方造成伤害。",
+      nums: "敌防御力×60%+4 · 友×70%",
+      desc: "受伤时，对敌人造成 防御力×60%+4 伤害，对友方造成 该伤害×70%。",
     },
     {
       id: "yellow_armor",
