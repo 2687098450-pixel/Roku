@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
 import { $, clamp, irand } from "../core/utils.js";
-import { playSkillAnim } from "./anim.js";
+import { playSkillAnim, playReflectSpikes } from "./anim.js";
 import {
   refreshHeroStats,
   skillPower,
@@ -336,6 +336,7 @@ export function createBattleApi(ctx) {
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
     const enemyDmg = reflectBaseDamage(victim);
     const allyDmg = Math.max(1, Math.floor(enemyDmg * 0.7));
+    const hitIds = [];
     for (const u of battleUnits(b)) {
       if (!u || u.hp <= 0 || u.id === victim.id) continue;
       const isAlly = !!u.isHero;
@@ -343,7 +344,9 @@ export function createBattleApi(ctx) {
         fromReflect: true,
         trueDamage: true,
       });
+      hitIds.push(u.id);
     }
+    if (hitIds.length) playReflectSpikes(victim.id, hitIds);
     syncHeroHp(b);
   }
 

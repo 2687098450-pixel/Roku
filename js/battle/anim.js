@@ -70,7 +70,7 @@ export function resolveFxProfile(style, meta = {}) {
     if (skillId === "yellow_slam") {
       return { kind: "melee-slash", theme: "yellow", impact: "flash" };
     }
-    return { kind: "melee-slash", theme: "yellow" };
+    return { kind: "melee-slash", theme: "yellow", impact: "punch" };
   }
 
   if (statsId === "omni" || ["attack", "radiant", "quake"].includes(skillId)) {
@@ -80,7 +80,7 @@ export function resolveFxProfile(style, meta = {}) {
     if (style === "ranged" || skillId === "radiant") {
       return { kind: "bolt", theme: "omni", shape: "slash", impact: "flash" };
     }
-    return { kind: "melee-slash", theme: "omni" };
+    return { kind: "melee-slash", theme: "omni", impact: "punch" };
   }
 
   if (style === "heal" || style === "buff") {
@@ -89,7 +89,7 @@ export function resolveFxProfile(style, meta = {}) {
   if (style === "ranged") {
     return { kind: "bolt", theme: "enemy", shape: "orb", color };
   }
-  return { kind: "melee", theme: "enemy" };
+  return { kind: "melee-slash", theme: "enemy", impact: "punch" };
 }
 
 export async function animMelee(attackerId, targetId, profile = {}) {
@@ -104,30 +104,79 @@ export async function animMelee(attackerId, targetId, profile = {}) {
   const dx = (t.x - a.x) * 0.72;
   const dy = (t.y - a.y) * 0.72;
   const theme = profile.theme || "enemy";
+  const impactKind = profile.impact || "punch";
 
-  wrap.style.transition = "transform 0.16s ease-out";
-  wrap.style.transform = `translate(${dx}px, ${dy}px)`;
-  await wait(150);
+  wrap.style.transition = "transform 0.14s cubic-bezier(.2,.8,.2,1)";
+  wrap.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
+  await wait(130);
 
   const field = fieldRect();
-  if (field && profile.kind === "melee-slash") {
-    const mid = toField(
-      { x: a.x + dx * 0.85, y: a.y + dy * 0.85 },
-      field
-    );
+  if (field) {
+    const mid = toField({ x: a.x + dx * 0.85, y: a.y + dy * 0.85 }, field);
+    const hit = toField(t, field);
+    const rot = angleDeg(a, t);
     const slash = spawnFx(`fx-slash theme-${theme}`, mid.x, mid.y);
     if (slash) {
-      slash.style.setProperty("--rot", `${angleDeg(a, t)}deg`);
-      wait(320).then(() => slash.remove());
+      slash.style.setProperty("--rot", `${rot}deg`);
+      wait(300).then(() => slash.remove());
     }
+    const punch = spawnFx(`fx-impact impact-${impactKind} theme-${theme}`, hit.x, hit.y);
+    if (punch) wait(360).then(() => punch.remove());
+    const ring = spawnFx(`fx-hit-ring theme-${theme}`, hit.x, hit.y);
+    if (ring) wait(320).then(() => ring.remove());
+    targetEl.classList.remove("melee-punched");
+    void targetEl.offsetWidth;
+    targetEl.classList.add("melee-punched");
+    wait(280).then(() => targetEl.classList.remove("melee-punched"));
   }
 
-  await wait(30);
-  wrap.style.transition = "transform 0.18s ease-in";
-  wrap.style.transform = "translate(0, 0)";
-  await wait(180);
+  await wait(40);
+  wrap.style.transition = "transform 0.16s ease-in";
+  wrap.style.transform = "translate(0, 0) scale(1)";
+  await wait(160);
   wrap.style.transition = "";
   wrap.style.transform = "";
+}
+
+/**
+ * 小黄反伤：从自身射出半透明尖刺打到各目标（不阻塞战斗）
+ * @param {string} fromId
+ * @param {string[]} toIds
+ */
+export function playReflectSpikes(fromId, toIds) {
+  const field = fieldRect();
+  const fromEl =
+    document.querySelector(`[data-wrap="${fromId}"]`) ||
+    document.querySelector(`.battle-unit[data-id="${fromId}"]`);
+  if (!field || !fromEl || !toIds?.length) return;
+
+  const a = toField(centerOf(fromEl), field);
+  const aura = spawnFx("fx-reflect-aura theme-yellow", a.x, a.y);
+  if (aura) wait(380).then(() => aura.remove());
+
+  toIds.forEach((tid, i) => {
+    const targetEl = document.querySelector(`.battle-unit[data-id="${tid}"]`);
+    if (!targetEl) return;
+    const t = toField(centerOf(targetEl), field);
+    wait(i * 28).then(async () => {
+      const spike = spawnFx("fx-spike theme-yellow", a.x, a.y);
+      if (!spike) return;
+      const rot = angleDeg(a, t);
+      spike.style.setProperty("--rot", `${rot}deg`);
+      spike.style.transform = `rotate(${rot}deg)`;
+      await wait(16);
+      spike.style.transition =
+        "left 0.18s ease-out, top 0.18s ease-out, transform 0.18s ease-out, opacity 0.18s ease-out";
+      spike.style.left = `${t.x}px`;
+      spike.style.top = `${t.y}px`;
+      spike.style.transform = `rotate(${rot}deg) scale(1.05)`;
+      spike.style.opacity = "0.35";
+      await wait(200);
+      spike.remove();
+      const prick = spawnFx("fx-spike-hit theme-yellow", t.x, t.y);
+      if (prick) wait(260).then(() => prick.remove());
+    });
+  });
 }
 
 async function flyProjectile(fromId, toId, className, duration = 280) {

@@ -459,7 +459,11 @@ html, body {
 .fx-impact,
 .fx-shockwave,
 .fx-buff-ring,
-.fx-petal {
+.fx-petal,
+.fx-hit-ring,
+.fx-spike,
+.fx-spike-hit,
+.fx-reflect-aura {
   position: absolute;
   z-index: 9;
   pointer-events: none;
@@ -546,6 +550,11 @@ html, body {
   box-shadow: 0 0 16px rgba(232, 192, 68, 0.75);
 }
 
+.fx-slash.theme-enemy {
+  background: linear-gradient(90deg, transparent, rgba(255, 230, 200, 0.9), #ff8a3d, transparent);
+  box-shadow: 0 0 14px rgba(255, 138, 61, 0.7);
+}
+
 .fx-impact {
   width: 10px;
   height: 10px;
@@ -563,6 +572,80 @@ html, body {
   animation: fxFlashOmni 0.36s ease-out forwards;
   background: radial-gradient(circle, #fff9d0, #f0d060 55%, transparent 70%);
   box-shadow: 0 0 18px rgba(232, 192, 68, 0.9);
+}
+
+.fx-impact.impact-punch.theme-omni {
+  animation: fxPunch 0.32s ease-out forwards;
+  background: radial-gradient(circle, #fffef0 10%, #9dffb0 40%, transparent 72%);
+  box-shadow: 0 0 14px rgba(90, 220, 130, 0.85);
+}
+
+.fx-impact.impact-punch.theme-yellow {
+  animation: fxPunch 0.32s ease-out forwards;
+  background: radial-gradient(circle, #fffef0 10%, #f0d060 40%, transparent 72%);
+  box-shadow: 0 0 14px rgba(232, 192, 68, 0.85);
+}
+
+.fx-impact.impact-punch.theme-enemy {
+  animation: fxPunch 0.32s ease-out forwards;
+  background: radial-gradient(circle, #fff8e8 10%, #ff9a4a 42%, transparent 72%);
+  box-shadow: 0 0 14px rgba(255, 138, 61, 0.85);
+}
+
+.fx-hit-ring {
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 240, 180, 0.85);
+  animation: fxHitRing 0.3s ease-out forwards;
+}
+
+.fx-hit-ring.theme-omni {
+  border-color: rgba(120, 220, 140, 0.9);
+  box-shadow: 0 0 10px rgba(90, 210, 120, 0.55);
+}
+
+.fx-hit-ring.theme-yellow {
+  border-color: rgba(232, 192, 68, 0.9);
+  box-shadow: 0 0 10px rgba(232, 192, 68, 0.55);
+}
+
+.fx-hit-ring.theme-enemy {
+  border-color: rgba(255, 150, 80, 0.9);
+  box-shadow: 0 0 10px rgba(255, 138, 61, 0.5);
+}
+
+/* 小黄反伤：半透明尖刺 */
+.fx-spike {
+  width: 22px;
+  height: 8px;
+  margin: -4px 0 0 -11px;
+  opacity: 0.48;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 236, 160, 0.55) 25%, rgba(232, 180, 50, 0.7) 70%, rgba(180, 120, 20, 0.35) 100%);
+  clip-path: polygon(0 45%, 72% 0, 100% 50%, 72% 100%, 0 55%);
+  filter: drop-shadow(0 0 4px rgba(232, 192, 68, 0.35));
+}
+
+.fx-spike-hit {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  opacity: 0.55;
+  background: radial-gradient(circle, rgba(255, 245, 180, 0.7), rgba(232, 180, 50, 0.35) 50%, transparent 70%);
+  animation: fxSpikeHit 0.26s ease-out forwards;
+}
+
+.fx-reflect-aura {
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 192, 68, 0.4);
+  box-shadow: 0 0 12px rgba(232, 192, 68, 0.28), inset 0 0 10px rgba(255, 240, 180, 0.2);
+  animation: fxReflectAura 0.36s ease-out forwards;
+  opacity: 0.55;
 }
 
 .fx-impact.impact-burst.theme-pink {
@@ -633,6 +716,27 @@ html, body {
 @keyframes fxFlashOmni {
   0% { transform: scale(0.4); opacity: 1; }
   100% { transform: scale(3.2); opacity: 0; }
+}
+
+@keyframes fxPunch {
+  0% { transform: scale(0.35); opacity: 1; }
+  45% { transform: scale(2.1); opacity: 0.85; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+@keyframes fxHitRing {
+  0% { transform: scale(0.4); opacity: 0.95; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes fxSpikeHit {
+  0% { transform: scale(0.5); opacity: 0.65; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes fxReflectAura {
+  0% { transform: scale(0.5); opacity: 0.55; }
+  100% { transform: scale(1.7); opacity: 0; }
 }
 
 @keyframes fxBurstPink {
@@ -915,6 +1019,14 @@ html, body {
 .battle-unit.crit {
   animation: shake 0.28s ease;
   filter: drop-shadow(0 0 6px rgba(255, 120, 40, 0.85));
+}
+.battle-unit.melee-punched {
+  animation: meleePunch 0.26s ease;
+}
+@keyframes meleePunch {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.88); filter: brightness(1.15); }
+  100% { transform: scale(1); filter: none; }
 }
 
 .battle-unit.healed .shape-wrap {
