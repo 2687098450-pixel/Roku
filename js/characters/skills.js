@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=56";
-import { getCharacterStats } from "./stats.js?v=56";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=56";
-import { heroHasUnique } from "./omni/equipment.js?v=56";
+import { skillPowerText } from "../core/utils.js?v=57";
+import { getCharacterStats } from "./stats.js?v=57";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=57";
+import { heroHasUnique } from "./omni/equipment.js?v=57";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -252,48 +252,66 @@ function formatBoostNums(boost) {
   return parts.join(" ") || "—";
 }
 
+/**
+ * 按指定等级生成技能面板文案（nums 短 / desc 完整）
+ * @param {object} hero
+ * @param {string} skillId
+ * @param {number} level
+ */
+export function buildSkillText(hero, skillId, level = 1) {
+  const lv = Math.max(1, Math.floor(level || 1));
+  const attrId = attrPassiveSkillId(hero?.statsId);
+
+  if (attrId && skillId === attrId) {
+    const base = hero.basePassiveBoost || hero.passiveBoost || {};
+    const boosted = scaledPassiveBoost(base, lv);
+    const nums = formatBoostNums(boosted);
+    let desc = `永久属性：${nums}。`;
+    if (skillId === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
+      desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
+    } else if (skillId === "green_life" && heroHasUnique(hero, "green_life_flow")) {
+      desc += `治疗时提升友军伤害。`;
+    }
+    return { nums, desc };
+  }
+
+  if (skillId === "yellow_reflect") {
+    const p = getReflectParams(lv);
+    const pct = Math.round(p.reflectMult * 100);
+    const allyPct = Math.round(p.allyRatio * 100);
+    const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
+    const enemyFormula = hasShield
+      ? `防御力×${pct}%+${p.reflectFlat}×(攻击÷防御)`
+      : `防御力×${pct}%+${p.reflectFlat}`;
+    const nums = `敌${enemyFormula} · 友×${allyPct}%`;
+    const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，对友方造成 该伤害×${allyPct}%。`;
+    return { nums, desc };
+  }
+
+  const { nums, desc } = skillNumsAndDesc(skillId, lv);
+  if (skillId === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
+    return {
+      nums: `${nums} · 3发×50% · 击杀+1发`,
+      desc: `${desc}每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。`,
+    };
+  }
+  if (skillId === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
+    return {
+      nums: `${nums} · 治疗后脉动`,
+      desc: `${desc}治疗后 2 秒脉动：行动条每走 10 掉血，每走 20 回复刚掉血量的 2.5 倍。`,
+    };
+  }
+  return { nums, desc };
+}
+
 export function refreshSkillTexts(hero) {
   if (!hero?.skills) return;
-  const attrId = attrPassiveSkillId(hero.statsId);
   for (const sk of hero.skills) {
     const lv = getSkillLevel(hero, sk.id);
     sk.level = lv;
-    if (attrId && sk.id === attrId) {
-      const base = hero.basePassiveBoost || hero.passiveBoost || {};
-      const boosted = scaledPassiveBoost(base, lv);
-      sk.nums = formatBoostNums(boosted);
-      let desc = `永久属性：${sk.nums}。`;
-      if (sk.id === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
-        desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
-      } else if (sk.id === "green_life" && heroHasUnique(hero, "green_life_flow")) {
-        desc += `治疗时提升友军伤害。`;
-      }
-      sk.desc = desc;
-      continue;
-    }
-    if (sk.id === "yellow_reflect") {
-      const p = getReflectParams(lv);
-      const pct = Math.round(p.reflectMult * 100);
-      const allyPct = Math.round(p.allyRatio * 100);
-      const hasShield = heroHasUnique(hero, "yellow_reflect_shield");
-      const enemyFormula = hasShield
-        ? `防御力×${pct}%+${p.reflectFlat}×(攻击÷防御)`
-        : `防御力×${pct}%+${p.reflectFlat}`;
-      sk.nums = `敌${enemyFormula} · 友×${allyPct}%`;
-      sk.desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，对友方造成 该伤害×${allyPct}%。`;
-      continue;
-    }
-    const { nums, desc } = skillNumsAndDesc(sk.id, lv);
+    const { nums, desc } = buildSkillText(hero, sk.id, lv);
     sk.nums = nums;
-    if (sk.id === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
-      sk.nums = `${nums} · 3发×50% · 击杀+1发`;
-      sk.desc = `${desc}每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。`;
-    } else if (sk.id === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
-      sk.nums = `${nums} · 治疗后脉动`;
-      sk.desc = `${desc}治疗后 2 秒脉动：行动条每走 10 掉血，每走 20 回复刚掉血量的 2.5 倍。`;
-    } else {
-      sk.desc = desc;
-    }
+    sk.desc = desc;
   }
 }
 

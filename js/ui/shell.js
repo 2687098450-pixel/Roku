@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=56";
+import { $, clamp, styleTag } from "../core/utils.js?v=57";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -44,11 +44,12 @@ import {
   reviveHero,
   isHeroDead,
   refreshSkillTexts,
-} from "../characters/omni/index.js?v=56";
-import { sumEquipBonus } from "../characters/omni/equipment.js?v=56";
-import { setSavedFormation } from "../characters/stats.js?v=56";
-import { resetGameLocalData } from "../core/save.js?v=56";
-import { createAllUniqueItems } from "../loot/drops.js?v=56";
+  buildSkillText,
+} from "../characters/omni/index.js?v=57";
+import { sumEquipBonus } from "../characters/omni/equipment.js?v=57";
+import { setSavedFormation } from "../characters/stats.js?v=57";
+import { resetGameLocalData } from "../core/save.js?v=57";
+import { createAllUniqueItems } from "../loot/drops.js?v=57";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1258,6 +1259,12 @@ export function createUI(ctx) {
         : `${skillKindLabel(skill)}${skill.style ? ` · ${styleTag(skill.style)}` : ""}`;
 
     if (title) title.textContent = skill.name;
+    refreshSkillTexts(hero);
+    const cur = skill.desc || skill.nums || "";
+    const nextLv = lv + 1;
+    const showNext = lv < MAX_SKILL_LEVEL;
+    const next = showNext ? buildSkillText(hero, skill.id, nextLv) : null;
+    const nextLine = next?.desc || next?.nums || "";
     body.innerHTML = `
       <div class="skill-detail-top">
         <div class="skill-detail-ico ${skillIcoClass(skill)}">${skillFace(skill)}</div>
@@ -1267,7 +1274,12 @@ export function createUI(ctx) {
           <div class="skill-detail-lv">等级 ${lv} / ${MAX_SKILL_LEVEL}</div>
         </div>
       </div>
-      ${skill.desc || skill.nums ? `<div class="skill-detail-nums">${skill.desc || skill.nums}</div>` : ""}
+      ${cur ? `<div class="skill-detail-nums">${cur}</div>` : ""}
+      ${
+        nextLine
+          ? `<div class="skill-detail-next"><span class="skill-detail-next-lab">下一级</span>${nextLine}</div>`
+          : ""
+      }
       <div class="skill-detail-actions">
         <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
           ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}

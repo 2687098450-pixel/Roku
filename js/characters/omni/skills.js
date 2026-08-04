@@ -8,6 +8,7 @@ export {
   isBuffSkill,
   scaledSkillDef,
   refreshSkillTexts,
+  buildSkillText,
   upgradeSkill,
   createOmniSkills,
   createPinkSkills,
@@ -17,4 +18,4 @@ export {
   scaledPassiveBoost,
   getReflectParams,
   previewReflectDamage,
-} from "../skills.js?v=56";
+} from "../skills.js?v=57";

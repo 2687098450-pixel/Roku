@@ -2807,6 +2807,27 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.85);
 }
+.skill-detail-next {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8a7048;
+  line-height: 1.45;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 248, 235, 0.9);
+  border: 1px dashed rgba(224, 137, 32, 0.35);
+}
+.skill-detail-next-lab {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: #e08920;
+  vertical-align: 1px;
+}
 .skill-detail-desc {
   margin: 0;
   font-size: 14px;
