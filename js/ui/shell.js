@@ -1113,12 +1113,12 @@ export function createUI(ctx) {
     $("detailMpText").textContent = `${mp}/${maxMp}`;
 
     const shape = $("detailShape");
-    const portrait = shape?.closest(".hero-portrait");
+    const spinWrap = $("detailSpin");
     const peers = getState().party;
     shape.className = `preview-shape ${hero.shape}`;
     shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers, diamondOpts()));
-    // 转圈仅小粉；不转时内层仍用 bobDiamond，和小绿一样晃
-    portrait?.classList.toggle(
+    // 转圈仅小粉；按像素高宽比（队伍占比体型）判断纤细
+    spinWrap?.classList.toggle(
       "slender-spin",
       hero.statsId === "pink" && isSlenderFemale(hero, peers)
     );

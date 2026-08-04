@@ -1469,6 +1469,12 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   overflow: visible;
 }
 
+.hero-spin-wrap {
+  display: grid;
+  place-items: center;
+  transform-origin: center center;
+}
+
 .hero-level {
   flex: 0 0 auto;
   font-size: 12px;
@@ -2342,18 +2348,18 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   animation: bobDiamond 1.8s ease-in-out infinite;
 }
 
-/* 小粉纤细：外层转圈，内层菱形仍保留晃动（停转时和小绿一样 idle） */
-#detailModal .hero-portrait.slender-spin {
+/* 小粉纤细：自旋层转圈，内层菱形仍保留晃动 */
+#detailModal .hero-spin-wrap.slender-spin {
   perspective: 280px;
   transform-style: preserve-3d;
+  transform-origin: center center;
   animation: slenderTurn 5s ease-in-out infinite;
 }
 
-#detailModal .hero-portrait.slender-spin .preview-shape {
+#detailModal .hero-spin-wrap.slender-spin .preview-shape {
   transform-origin: center center;
   transform-style: preserve-3d;
   backface-visibility: visible;
-  /* 不要覆盖 bobDiamond */
 }
 
 @keyframes slenderTurn {
