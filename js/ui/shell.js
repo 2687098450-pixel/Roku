@@ -993,7 +993,7 @@ export function createUI(ctx) {
                 <span class="stag">${styleTag(s.style)}</span>
                 ${on ? '<span class="stag current">当前</span>' : ""}
               </div>
-              <div class="skill-pick-nums">${s.desc || s.nums || ""}</div>
+              <div class="skill-pick-nums">${s.nums || ""}</div>
             </div>
           </div>
         </button>`;
@@ -1228,8 +1228,8 @@ export function createUI(ctx) {
               </div>
             </button>
             ${
-              s.desc || s.nums
-                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.desc || s.nums}</button>`
+              s.nums
+                ? `<button type="button" class="skill-nums" data-skill="${s.id}" title="预览">${s.nums}</button>`
                 : ""
             }
           </div>
