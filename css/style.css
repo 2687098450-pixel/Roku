@@ -3618,7 +3618,7 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 18px 6px 0;
+  padding: 18px 6px 22px;
   border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   background: rgba(255, 252, 245, 0.95);
@@ -3690,12 +3690,17 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   white-space: nowrap;
 }
 
-/* 「已上阵」贴底、半透明，不抢角色 */
+/* 「已上阵」贴最外框底边，不跟角色内容缩进 */
 .form-pool-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   display: block;
-  width: 100%;
-  margin-top: auto;
-  padding: 3px 0 4px;
+  width: auto;
+  margin: 0;
+  padding: 4px 0 5px;
   text-align: center;
   font-size: 9px;
   font-weight: 700;
@@ -3706,11 +3711,11 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 }
 
 .form-pool-tag.deployed {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(95, 191, 122, 0.55);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(95, 191, 122, 0.62);
 }
 
 .form-pool-tag.dead {
   color: rgba(255, 255, 255, 0.9);
-  background: rgba(180, 70, 70, 0.55);
+  background: rgba(180, 70, 70, 0.62);
 }
