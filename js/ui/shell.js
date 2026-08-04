@@ -169,17 +169,23 @@ export function createUI(ctx) {
     bumpSave();
   }
 
+  function diamondOpts() {
+    const st = getState();
+    return { floor: st.floor || 1, floorScale: st.floorScale || 1 };
+  }
+
   function renderPartyStrip() {
     const box = $("partyStrip");
     if (!box) return;
     const party = getState().party || [];
+    const dOpts = diamondOpts();
     box.innerHTML = stripHeroes()
       .map((h) => {
         refreshHeroStats(h);
         const dead = isHeroDead(h);
         const pct = dead ? 0 : clamp((h.hp / h.maxHp) * 100, 0, 100);
         return `<button type="button" class="strip-hero${dead ? " dead" : ""}" data-id="${h.id}" title="${h.name}${dead ? " · 阵亡" : ""}">
-          <div class="strip-face ${h.shape}" style="${diamondStyleAttr(h, 0.72, party)}"></div>
+          <div class="strip-face ${h.shape}" style="${diamondStyleAttr(h, 0.72, party, dOpts)}"></div>
           <div class="strip-hp"><i style="width:${pct}%"></i></div>
         </button>`;
       })
@@ -1110,7 +1116,7 @@ export function createUI(ctx) {
     const portrait = shape?.closest(".hero-portrait");
     const peers = getState().party;
     shape.className = `preview-shape ${hero.shape}`;
-    shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers));
+    shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers, diamondOpts()));
     // 转圈仅小粉；不转时内层仍用 bobDiamond，和小绿一样晃
     portrait?.classList.toggle(
       "slender-spin",
@@ -1629,7 +1635,7 @@ export function createUI(ctx) {
       slots.push(`<div class="form-slot filled${dead ? " dead" : ""}${cap ? " captain" : ""}" data-slot="${i}" data-id="${hero.id}">
         <button type="button" class="form-x" data-undep="${hero.id}" title="下阵">×</button>
         ${cap ? '<span class="form-slot-captain" title="队长">★</span>' : ""}
-        <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party)}"></div>
+        <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party, diamondOpts())}"></div>
         <b>${hero.name}${dead ? "·亡" : ""}${cap ? "·长" : ""}</b>
         ${
           dead
@@ -1651,7 +1657,7 @@ export function createUI(ctx) {
         return `<div class="form-pool-card ${on ? "on" : ""}${dead ? " dead" : ""}${cap ? " captain" : ""}" data-pool="${h.id}">
           <button type="button" class="form-captain-btn${cap ? " on" : ""}" data-captain="${h.id}" title="${cap ? "当前队长" : "设为队长"}">★</button>
           <div class="form-pool-face">
-            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party)}"></div>
+            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party, diamondOpts())}"></div>
           </div>
           <span class="form-pool-name">${h.name}</span>
           <span class="form-pool-tag ${on ? "deployed" : ""}${dead ? " dead" : ""}">${tag}</span>

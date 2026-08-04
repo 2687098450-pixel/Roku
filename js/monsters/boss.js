@@ -75,3 +75,38 @@ export function pickBossSkill(boss) {
   if (!list.length) return "crush";
   return list[Math.floor(Math.random() * list.length)];
 }
+
+/** 本层 Boss 四角对比用属性（与 createBoss 缩放一致，不生成实体） */
+export function bossCornerScoresForFloor(floor = 1, scale = 1) {
+  const sheet = getMonsterStats("boss");
+  const s = Math.max(1, scale) * 1.55;
+  const unit = {
+    isBoss: true,
+    maxHp: Math.floor(sheet.hp * s),
+    atk: Math.floor(sheet.atk * s),
+    def: Math.floor(sheet.def * s),
+    spd: Math.max(
+      8,
+      Math.floor((sheet.spd ?? DEFAULT_MONSTER_SPEED) * (0.9 + scale * 0.05))
+    ),
+    skillIds: [...TYPE_SKILL_IDS.boss],
+    skills: TYPE_SKILL_IDS.boss.map((id) => {
+      const sk = MONSTER_SKILLS[id];
+      return { id, style: sk?.style, kind: "active", level: 1 };
+    }),
+  };
+  const atk = unit.atk;
+  const def = unit.def;
+  const hp = unit.maxHp;
+  const spd = unit.spd;
+  const status = Math.max(
+    1,
+    unit.skillIds.length * 22 + Math.floor(atk * 0.35)
+  );
+  return {
+    dps: Math.max(1, atk),
+    luck: Math.max(1, Math.floor(spd * 0.8 + atk * 0.2)),
+    status,
+    tank: Math.max(1, Math.floor(hp * 0.35 + def * 12)),
+  };
+}

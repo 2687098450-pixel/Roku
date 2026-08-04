@@ -221,7 +221,10 @@ export function createBattleApi(ctx) {
     const side = enemy ? "enemy" : "ally";
     const shapeStyle =
       u.shape === "diamond"
-        ? diamondStyleAttr(u, 1.15, peers)
+        ? diamondStyleAttr(u, 1.15, peers, {
+            floor: getState().floor || 1,
+            floorScale: getState().floorScale || 1,
+          })
         : `--c:${u.color}`;
     const bossCls = u.isBoss ? " boss-unit" : "";
     const spiritCls = u.spiritForm ? " spirit-form" : "";
