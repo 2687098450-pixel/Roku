@@ -1,6 +1,6 @@
 /** 全能：自动战斗逻辑（顺序数据在 characters/stats.js） */
 
-import { getAutoRotation, setAutoRotation } from "../stats.js?v=101";
+import { getAutoRotation, setAutoRotation } from "../stats.js?v=102";
 
 const STATS_ID = "omni";
 

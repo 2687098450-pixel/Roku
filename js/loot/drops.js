@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=101";
-import { getFloorDef } from "../map/floors.js?v=101";
+} from "../characters/omni/equipment.js?v=102";
+import { getFloorDef } from "../map/floors.js?v=102";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -434,6 +434,22 @@ function lootDecade(floor) {
   return Math.floor((Math.max(1, Math.floor(floor || 1)) - 1) / 10);
 }
 
+/**
+ * 掉落强度层：跟怪物战斗层走，但轮回增量只吃一部分（默认 55%），
+ * 装备跟不上怪物，轮回会越来越难。
+ */
+export const LOOT_LOOP_FACTOR = 0.55;
+
+export function lootPowerFloor(monster) {
+  const display = Math.max(1, Math.floor(monster?.floor || 1));
+  const combat = Math.max(display, Math.floor(monster?.combatFloor || display));
+  if (combat <= display) return display;
+  return Math.max(
+    display,
+    Math.round(display + (combat - display) * LOOT_LOOP_FACTOR)
+  );
+}
+
 function scaleLootBase(base, floor) {
   const tier = lootDecade(floor);
   if (!base || tier <= 0) return { ...(base || {}) };
@@ -444,22 +460,27 @@ function scaleLootBase(base, floor) {
   return out;
 }
 
-function bossSkillPool(floor) {
-  const key = lootThemeFloor(floor);
+function bossSkillPool(displayFloor, powerFloor) {
+  const key = lootThemeFloor(displayFloor);
   const pool = BOSS_LOOT_BY_FLOOR[key] || BOSS_LOOT_BY_FLOOR[1];
+  const power = powerFloor || displayFloor;
   return pool.map((tpl) => ({
     ...tpl,
-    base: scaleLootBase(tpl.base, floor),
-    desc: floor > 10 ? `${floorName(floor)}掉落。${tpl.desc || ""}` : tpl.desc,
+    base: scaleLootBase(tpl.base, power),
+    desc:
+      displayFloor > 10
+        ? `${floorName(displayFloor)}掉落。${tpl.desc || ""}`
+        : tpl.desc,
   }));
 }
 
-function bossNormalPool(floor) {
-  const key = lootThemeFloor(floor);
+function bossNormalPool(displayFloor, powerFloor) {
+  const key = lootThemeFloor(displayFloor);
   const pool = BOSS_NORMAL_BY_FLOOR[key] || NORMAL_POOL;
+  const power = powerFloor || displayFloor;
   return pool.map((tpl) => ({
     ...tpl,
-    base: scaleLootBase(tpl.base, floor),
+    base: scaleLootBase(tpl.base, power),
   }));
 }
 
@@ -497,10 +518,11 @@ function pick(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function rollNormalItem(floor) {
+function rollNormalItem(powerFloor, displayFloor = powerFloor) {
   const tpl = pick(NORMAL_POOL);
-  const rarity = rarityByFloor(floor, Math.random() < 0.35);
-  const level = floorItemLevel(floor);
+  const rarity = rarityByFloor(powerFloor, Math.random() < 0.35);
+  const level = floorItemLevel(powerFloor);
+  const place = floorName(displayFloor);
   return toBagEquip(
     makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
       id: `${tpl.slot}_${tpl.name}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
@@ -508,14 +530,14 @@ function rollNormalItem(floor) {
       icon: tpl.icon,
       kind: tpl.kind || "",
       level,
-      desc: `${floorName(floor)}掉落 · 装备等级 ${level}。`,
+      desc: `${place}掉落 · 装备等级 ${level}。`,
     })
   );
 }
 
-function rollUniqueBossItem(floor, tpl) {
-  const level = floorItemLevel(floor, { boss: true });
-  const place = floorName(floor);
+function rollUniqueBossItem(powerFloor, tpl, displayFloor = powerFloor) {
+  const level = floorItemLevel(powerFloor, { boss: true });
+  const place = floorName(displayFloor);
   const preferDps =
     tpl.slot === "weapon" ||
     tpl.slot === "ringL" ||
@@ -535,7 +557,7 @@ function rollUniqueBossItem(floor, tpl) {
     }),
   ];
   return toBagEquip(
-    makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
+    makeItem(tpl.name, tpl.slot, scaleLootBase(tpl.base, powerFloor), {
       id: `unique_${tpl.uniqueId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
       rarity: "red",
       icon: tpl.icon,
@@ -547,7 +569,7 @@ function rollUniqueBossItem(floor, tpl) {
       skillStrengthen: true,
       affixes,
       bossOnly: true,
-      bossFloor: floor,
+      bossFloor: displayFloor,
     })
   );
 }
@@ -559,22 +581,22 @@ export function createAllUniqueItems() {
     const floor = Number(floorKey) || 1;
     for (const tpl of [].concat(raw || []).filter(Boolean)) {
       if (!tpl.uniqueId) continue;
-      out.push(rollUniqueBossItem(floor, tpl));
+      out.push(rollUniqueBossItem(floor, tpl, floor));
     }
   }
   return out;
 }
 
-function rollBossSkillItem(floor) {
-  const tpl = pick(bossSkillPool(floor));
+function rollBossSkillItem(displayFloor, powerFloor = displayFloor) {
+  const tpl = pick(bossSkillPool(displayFloor, powerFloor));
   let rarity = ensureMinRarityForSkill(tpl.rarity || "purple");
   if (Math.random() < 0.2) rarity = bumpRarity(rarity);
-  if (floor >= 8 && Math.random() < 0.35) rarity = bumpRarity(rarity);
-  const level = floorItemLevel(floor, { boss: true });
-  const place = floorName(floor);
+  if (powerFloor >= 8 && Math.random() < 0.35) rarity = bumpRarity(rarity);
+  const level = floorItemLevel(powerFloor, { boss: true });
+  const place = floorName(displayFloor);
   return toBagEquip(
     makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
-      id: `boss_${floor}_${tpl.name}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
+      id: `boss_${displayFloor}_${tpl.name}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
       rarity,
       icon: tpl.icon,
       kind: tpl.kind || "Boss",
@@ -583,17 +605,17 @@ function rollBossSkillItem(floor) {
       skillMods: { ...tpl.skillMods },
       skillAffixText: tpl.skillAffixText,
       bossOnly: true,
-      bossFloor: floor,
+      bossFloor: displayFloor,
     })
   );
 }
 
-function rollBossNormalItem(floor) {
-  const tpl = pick(bossNormalPool(floor));
-  let rarity = rarityByFloor(floor, true);
+function rollBossNormalItem(displayFloor, powerFloor = displayFloor) {
+  const tpl = pick(bossNormalPool(displayFloor, powerFloor));
+  let rarity = rarityByFloor(powerFloor, true);
   if (Math.random() < 0.2) rarity = bumpRarity(rarity);
-  const level = floorItemLevel(floor, { boss: true });
-  const place = floorName(floor);
+  const level = floorItemLevel(powerFloor, { boss: true });
+  const place = floorName(displayFloor);
   return toBagEquip(
     makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
       id: `${tpl.slot}_${tpl.name}_b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
@@ -602,7 +624,7 @@ function rollBossNormalItem(floor) {
       kind: tpl.kind || "",
       level,
       desc: `${place} Boss 掉落 · 装备等级 ${level}。`,
-      bossFloor: floor,
+      bossFloor: displayFloor,
     })
   );
 }
@@ -610,25 +632,27 @@ function rollBossNormalItem(floor) {
 /** 小怪：10% 掉一件装备（共用普通池） */
 export function rollTrashLoot(monster) {
   if (Math.random() >= 0.1) return [];
-  const floor = monster?.floor || 1;
-  return [rollNormalItem(floor)];
+  const display = monster?.floor || 1;
+  const power = lootPowerFloor(monster);
+  return [rollNormalItem(power, display)];
 }
 
 /** Boss：必掉 2–3 件；有唯一装则全掉；其余补本层技能装/普通装 */
 export function rollBossLoot(monster) {
-  const floor = monster?.floor || 1;
+  const display = monster?.floor || 1;
+  const power = lootPowerFloor(monster);
   const drops = [];
   const uniqueTpls = []
-    .concat(UNIQUE_BOSS_BY_FLOOR[floor] || [])
+    .concat(UNIQUE_BOSS_BY_FLOOR[display] || [])
     .filter(Boolean);
   for (const tpl of uniqueTpls) {
-    drops.push(rollUniqueBossItem(floor, tpl));
+    drops.push(rollUniqueBossItem(power, tpl, display));
   }
-  if (!drops.length) drops.push(rollBossSkillItem(floor));
+  if (!drops.length) drops.push(rollBossSkillItem(display, power));
   const count = Math.max(drops.length, Math.random() < 0.5 ? 2 : 3);
   while (drops.length < count) {
-    if (Math.random() < 0.55) drops.push(rollBossSkillItem(floor));
-    else drops.push(rollBossNormalItem(floor));
+    if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
+    else drops.push(rollBossNormalItem(display, power));
   }
   return drops;
 }

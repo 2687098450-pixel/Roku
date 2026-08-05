@@ -258,13 +258,23 @@ export function mobCountForFloor(floor) {
   return Math.max(3, Math.min(MAX_MOB_COUNT, Math.round(n)));
 }
 
-/** 展示层 + 轮回 → 战斗强度层（一轮 ≈ 旧 35 层强度） */
+/** 展示层 + 轮回 → 战斗强度层（可无限轮回叠加）
+ *  第 1 轮回约 +34 层；之后每多一轮再额外抬一点，保证 2→3→4 持续变难
+ */
 export const LOOP_FLOOR_OFFSET = 34;
 
 export function effectiveCombatFloor(displayFloor, loop = 0) {
   const d = Math.max(1, Math.floor(displayFloor || 1));
   const L = Math.max(0, Math.floor(loop || 0));
-  return d + L * LOOP_FLOOR_OFFSET;
+  const ramp = L > 1 ? L * (L - 1) * 4 : 0;
+  return d + L * LOOP_FLOOR_OFFSET + ramp;
+}
+
+/** 轮回额外倍率：在 scaleForFloor 之外再乘，怪物涨得比装备快 */
+export function loopScaleBonus(loop = 0) {
+  const L = Math.max(0, Math.floor(loop || 0));
+  if (L <= 0) return 1;
+  return Math.round((1 + L * 0.06 + Math.max(0, L - 1) * 0.02) * 1000) / 1000;
 }
 
 export function scaleForFloor(floor) {
@@ -287,6 +297,7 @@ function buildFloorDef(floor, loop = 0) {
   const layout = LAYOUTS[(f - 1) % LAYOUTS.length];
   const decade = Math.floor((f - 1) / 10);
   const combatFloor = effectiveCombatFloor(f, loop);
+  const loopMult = loopScaleBonus(loop);
   return {
     floor: f,
     combatFloor,
@@ -303,7 +314,7 @@ function buildFloorDef(floor, loop = 0) {
     boss: clonePoint(layout.boss),
     walls: (layout.walls || []).map(clonePoint),
     mobCount: mobCountForFloor(combatFloor),
-    scale: scaleForFloor(combatFloor),
+    scale: Math.round(scaleForFloor(combatFloor) * loopMult * 100) / 100,
   };
 }
 

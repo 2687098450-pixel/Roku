@@ -294,9 +294,11 @@ function goNextFloor() {
   if (state.floor >= MAX_FLOOR) {
     state.loop = Math.max(0, Math.floor(state.loop || 0)) + 1;
     applyFloor(state, 1);
+    const loop = state.loop;
+    const eq = 1 + loop * 34 + (loop > 1 ? loop * (loop - 1) * 4 : 0);
     showToast(
-      `通关 50 层！进入轮回 ${state.loop}（怪物约等于旧 ${1 + state.loop * 34} 层强度）`,
-      3600
+      `通关！进入第 ${loop} 次轮回（怪物约等于旧 ${eq} 层，会持续变难）`,
+      3800
     );
     ui.refreshExploreHud();
     resize();

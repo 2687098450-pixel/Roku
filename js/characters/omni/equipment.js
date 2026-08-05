@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=101";
+import { scaleGoldGain } from "../../core/economy.js?v=102";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -490,10 +490,11 @@ export function upgradeEquip(item, state) {
   };
 }
 
-/** 第 N 层掉落 → 等级 N；Boss 战利品高 1 级 */
+/** 第 N 层掉落 → 等级 N；Boss 战利品高 1 级；封顶 MAX_EQUIP_LEVEL */
 export function floorItemLevel(floor, { boss = false } = {}) {
   const f = Math.max(1, Math.floor(floor || 1));
-  return boss ? f + 1 : f;
+  const lv = boss ? f + 1 : f;
+  return Math.min(MAX_EQUIP_LEVEL, lv);
 }
 
 export function normalizeRarity(rarity) {
