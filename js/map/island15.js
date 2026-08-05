@@ -3,7 +3,7 @@
 import {
   preloadMonsterImages,
   drawMonsterSprite,
-} from "../monsters/visuals.js?v=74";
+} from "../monsters/visuals.js?v=75";
 
 export { preloadMonsterImages };
 
@@ -562,7 +562,7 @@ export function drawMap(ctx, map, view, entities) {
   entities.monsters.forEach((m, i) => {
     if (!inView(cam, T, m.x, m.y)) return;
     const bob = Math.sin(time * 3 + i) * 2;
-    const size = m.isBoss ? T * 0.38 : T * 0.28;
+    const size = m.isBoss ? T * 0.52 : T * 0.38;
     drawMonsterSprite(ctx, m.x * T + T / 2, m.y * T + T / 2 + bob, size, m);
   });
 

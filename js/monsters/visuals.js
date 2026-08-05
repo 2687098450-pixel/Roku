@@ -1,4 +1,4 @@
-import { APP_VERSION } from "../core/version.js?v=74";
+import { APP_VERSION } from "../core/version.js?v=75";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
@@ -146,7 +146,8 @@ export function drawMonsterSprite(ctx, cx, cy, size, unit) {
 }
 
 function drawMonsterImage(ctx, cx, cy, size, img, isBoss) {
-  const s = size * (isBoss ? 1.7 : 1.55);
+  // 与旧 Boss 贴图倍率对齐；Boss 再略放大由外层 size 承担
+  const s = size * 1.7;
   ctx.save();
   ctx.translate(cx, cy);
   const x = -s / 2;
