@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=77";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=77";
+import { $, clamp, irand } from "../core/utils.js?v=78";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=78";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=77";
+} from "../characters/omni/index.js?v=78";
 import {
   gainExp,
   splitExp,
@@ -25,24 +25,24 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=77";
+} from "../characters/progression.js?v=78";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=77";
-import { buildEncounter } from "../monsters/roster.js?v=77";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=77";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=77";
-import { rollBattleLoot } from "../loot/drops.js?v=77";
+} from "../characters/skills.js?v=78";
+import { buildEncounter } from "../monsters/roster.js?v=78";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=78";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=78";
+import { rollBattleLoot } from "../loot/drops.js?v=78";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=77";
-import { createTicker } from "../core/time.js?v=77";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=77";
+} from "../characters/stats.js?v=78";
+import { createTicker } from "../core/time.js?v=78";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=78";
 
 export function createBattleApi(ctx) {
   const {
@@ -374,7 +374,7 @@ export function createBattleApi(ctx) {
       heroHasUnique(hero, "yellow_reflect_shield")
     );
     const enemyDmg = reflectBaseDamage(victim);
-    const hitIds = [];
+    const enemyHitIds = [];
     for (const u of battleUnits(b)) {
       if (!u || u.hp <= 0 || u.id === victim.id) continue;
       const isAlly = !!u.isHero;
@@ -383,7 +383,7 @@ export function createBattleApi(ctx) {
           fromReflect: true,
           trueDamage: true,
         });
-        hitIds.push(u.id);
+        enemyHitIds.push(u.id);
         continue;
       }
       if (allyRatio > 0) {
@@ -392,7 +392,6 @@ export function createBattleApi(ctx) {
           fromReflect: true,
           trueDamage: true,
         });
-        hitIds.push(u.id);
       } else if (allyRatio < 0) {
         const healAmt = Math.max(1, Math.floor(enemyDmg * Math.abs(allyRatio)));
         applyHeal(u, healAmt);
@@ -401,10 +400,9 @@ export function createBattleApi(ctx) {
           fromReflect: true,
           trueDamage: true,
         });
-        hitIds.push(u.id);
       }
     }
-    if (hitIds.length) playReflectSpikes(victim.id, hitIds);
+    if (enemyHitIds.length) playReflectSpikes(victim.id, enemyHitIds);
     syncHeroHp(b);
   }
 

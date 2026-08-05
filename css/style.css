@@ -463,6 +463,8 @@ html, body {
 .fx-hit-ring,
 .fx-spike,
 .fx-spike-hit,
+.fx-needle,
+.fx-needle-hit,
 .fx-reflect-aura {
   position: absolute;
   z-index: 9;
@@ -627,6 +629,37 @@ html, body {
   filter: drop-shadow(0 0 4px rgba(232, 192, 68, 0.35));
 }
 
+/* 小黄反伤小飞针 */
+.fx-needle {
+  width: 30px;
+  height: 5px;
+  margin: -2.5px 0 0 -15px;
+  opacity: 1;
+  border-radius: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 250, 220, 0.15) 0%,
+    #fff8d0 12%,
+    #ffe08a 40%,
+    #e8b040 72%,
+    #a87818 100%
+  );
+  clip-path: polygon(0 35%, 82% 0, 100% 50%, 82% 100%, 0 65%);
+  box-shadow:
+    -6px 0 8px rgba(255, 210, 80, 0.45),
+    0 0 6px rgba(232, 180, 50, 0.85);
+}
+
+.fx-needle-hit {
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 250, 200, 0.95) 0%, rgba(232, 180, 50, 0.55) 40%, transparent 72%);
+  box-shadow: 0 0 10px rgba(255, 200, 60, 0.75);
+  animation: fxNeedleHit 0.28s ease-out forwards;
+}
+
 .fx-spike-hit {
   width: 10px;
   height: 10px;
@@ -734,9 +767,15 @@ html, body {
   100% { transform: scale(2.2); opacity: 0; }
 }
 
+@keyframes fxNeedleHit {
+  0% { transform: scale(0.35); opacity: 1; }
+  55% { transform: scale(1.35); opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
 @keyframes fxReflectAura {
-  0% { transform: scale(0.5); opacity: 0.55; }
-  100% { transform: scale(1.7); opacity: 0; }
+  0% { transform: scale(0.5); opacity: 0.7; }
+  100% { transform: scale(1.85); opacity: 0; }
 }
 
 @keyframes fxBurstPink {

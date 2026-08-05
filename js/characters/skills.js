@@ -1,9 +1,9 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=77";
-import { getCharacterStats } from "./stats.js?v=77";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=77";
-import { heroHasUnique } from "./omni/equipment.js?v=77";
+import { skillPowerText } from "../core/utils.js?v=78";
+import { getCharacterStats } from "./stats.js?v=78";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=78";
+import { heroHasUnique } from "./omni/equipment.js?v=78";
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）

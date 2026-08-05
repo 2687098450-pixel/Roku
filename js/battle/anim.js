@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=77";
+import { $, wait } from "../core/utils.js?v=78";
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();
@@ -139,9 +139,9 @@ export async function animMelee(attackerId, targetId, profile = {}) {
 }
 
 /**
- * 小黄反伤：从自身射出半透明尖刺打到各目标（不阻塞战斗）
+ * 小黄反伤：每次对敌人造成伤害时，从自身射出小飞针打到目标（不阻塞战斗）
  * @param {string} fromId
- * @param {string[]} toIds
+ * @param {string[]} toIds 仅敌人
  */
 export function playReflectSpikes(fromId, toIds) {
   const field = fieldRect();
@@ -152,29 +152,32 @@ export function playReflectSpikes(fromId, toIds) {
 
   const a = toField(centerOf(fromEl), field);
   const aura = spawnFx("fx-reflect-aura theme-yellow", a.x, a.y);
-  if (aura) wait(380).then(() => aura.remove());
+  if (aura) wait(320).then(() => aura.remove());
 
   toIds.forEach((tid, i) => {
     const targetEl = document.querySelector(`.battle-unit[data-id="${tid}"]`);
     if (!targetEl) return;
     const t = toField(centerOf(targetEl), field);
-    wait(i * 28).then(async () => {
-      const spike = spawnFx("fx-spike theme-yellow", a.x, a.y);
-      if (!spike) return;
+    wait(i * 36).then(async () => {
+      const needle = spawnFx("fx-needle theme-yellow", a.x, a.y);
+      if (!needle) return;
       const rot = angleDeg(a, t);
-      spike.style.setProperty("--rot", `${rot}deg`);
-      spike.style.transform = `rotate(${rot}deg)`;
-      await wait(16);
-      spike.style.transition =
-        "left 0.18s ease-out, top 0.18s ease-out, transform 0.18s ease-out, opacity 0.18s ease-out";
-      spike.style.left = `${t.x}px`;
-      spike.style.top = `${t.y}px`;
-      spike.style.transform = `rotate(${rot}deg) scale(1.05)`;
-      spike.style.opacity = "0.35";
-      await wait(200);
-      spike.remove();
-      const prick = spawnFx("fx-spike-hit theme-yellow", t.x, t.y);
-      if (prick) wait(260).then(() => prick.remove());
+      needle.style.transform = `rotate(${rot}deg) scaleX(0.85)`;
+      await wait(12);
+      needle.style.transition =
+        "left 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), top 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), transform 0.22s ease-out, opacity 0.22s ease-out";
+      needle.style.left = `${t.x}px`;
+      needle.style.top = `${t.y}px`;
+      needle.style.transform = `rotate(${rot}deg) scaleX(1.15)`;
+      await wait(230);
+      needle.style.opacity = "0";
+      await wait(40);
+      needle.remove();
+      const prick = spawnFx("fx-needle-hit theme-yellow", t.x, t.y);
+      if (prick) wait(280).then(() => prick.remove());
+      targetEl.classList.remove("hit");
+      void targetEl.offsetWidth;
+      targetEl.classList.add("hit");
     });
   });
 }
