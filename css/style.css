@@ -784,78 +784,86 @@ html, body {
 }
 
 .arena-enemies,
-.arena-ally-front,
-.arena-ally-back {
+.arena-allies {
   position: absolute;
-  left: 8%;
-  right: 8%;
+  left: 6%;
+  right: 6%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  align-items: end;
+  align-items: center;
   justify-items: center;
   z-index: 2;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
-/* 敌方：后排 → 中排 → 前排（自上而下靠近我方） */
+/* 敌方 3 排：后 → 中 → 前（自上而下，互不重叠） */
 .arena-enemy-back {
-  top: 2%;
-  height: 20%;
+  top: 1%;
+  height: 14.5%;
 }
 
 .arena-enemy-mid {
-  top: 16%;
-  height: 16%;
+  top: 15.5%;
+  height: 14.5%;
 }
 
 .arena-enemy-front {
-  top: 28%;
-  height: 20%;
+  top: 30%;
+  height: 14.5%;
 }
 
 .arena-enemies.is-empty {
-  height: 0;
-  min-height: 0;
-  overflow: hidden;
+  visibility: hidden;
   pointer-events: none;
 }
 
 .arena-enemy-front.solo-row {
-  top: 10%;
-  height: 30%;
+  top: 15%;
+  height: 28%;
 }
 
-.arena-enemy-back .battle-unit {
-  width: 78px;
+.arena-enemy-back .battle-unit,
+.arena-enemy-mid .battle-unit,
+.arena-enemy-front .battle-unit {
+  width: 68px;
 }
 
 .arena-enemy-back .battle-unit .shape-wrap {
-  transform: scale(0.92);
+  transform: scale(0.88);
+}
+
+.arena-enemy-mid .battle-unit .shape-wrap {
+  transform: scale(0.94);
 }
 
 .arena-enemy-back .battle-unit.boss-unit {
-  width: 96px;
+  width: 82px;
 }
 
 .arena-enemy-back .battle-unit.boss-unit .shape-wrap {
-  transform: scale(1.12);
+  transform: scale(1.05);
 }
 
-/* 前排更靠近敌人 */
+/* 己方 3 排：前 → 中 → 后（自上而下，前排靠近敌人） */
 .arena-ally-front {
-  top: 50%;
-  height: 24%;
+  top: 48%;
+  height: 14.5%;
 }
 
-/* 后排在场地下方 */
+.arena-ally-mid {
+  top: 62.5%;
+  height: 14.5%;
+}
+
 .arena-ally-back {
-  bottom: 4%;
-  height: 24%;
+  top: 77%;
+  height: 14.5%;
 }
 
 .battle-unit {
   position: relative;
-  width: 88px;
+  width: 72px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -867,16 +875,21 @@ html, body {
   pointer-events: none;
 }
 
+.arena-ally-mid .battle-unit,
 .arena-ally-back .battle-unit {
-  width: 78px;
+  width: 66px;
+}
+
+.arena-ally-mid .battle-unit .shape-wrap {
+  transform: scale(0.92);
 }
 
 .arena-ally-back .battle-unit .shape-wrap {
-  transform: scale(0.9);
+  transform: scale(0.86);
 }
 
 .battle-unit .unit-float {
-  width: 64px;
+  width: 56px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -912,8 +925,8 @@ html, body {
 
 .battle-unit .shape-wrap {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
   will-change: transform;
@@ -1233,8 +1246,8 @@ html, body {
 
 /* 怪物贴图：无外框色块 / 白边 / 脚下阴影 */
 .battle-unit .monster-art-wrap {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
@@ -1243,8 +1256,8 @@ html, body {
 }
 
 .battle-unit.boss-unit .monster-art-wrap {
-  width: 68px;
-  height: 68px;
+  width: 58px;
+  height: 58px;
 }
 
 .battle-unit .monster-art {
@@ -3492,14 +3505,15 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
 }
 
 .form-row-tag.front { grid-row: 1; grid-column: 1; color: rgba(224, 137, 32, 0.75); }
-.form-row-tag.back { grid-row: 2; grid-column: 1; }
+.form-row-tag.mid { grid-row: 2; grid-column: 1; color: rgba(80, 140, 180, 0.75); }
+.form-row-tag.back { grid-row: 3; grid-column: 1; }
 
 .form-board {
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
   grid-column: 2;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: 8px;
   padding: 4px 0;
 }

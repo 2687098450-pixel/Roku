@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=75";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=75";
+import { $, clamp, irand } from "../core/utils.js?v=76";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=76";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=75";
+} from "../characters/omni/index.js?v=76";
 import {
   gainExp,
   splitExp,
@@ -25,23 +25,23 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=75";
+} from "../characters/progression.js?v=76";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=75";
-import { buildEncounter } from "../monsters/roster.js?v=75";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=75";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=75";
-import { rollBattleLoot } from "../loot/drops.js?v=75";
+} from "../characters/skills.js?v=76";
+import { buildEncounter } from "../monsters/roster.js?v=76";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=76";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=76";
+import { rollBattleLoot } from "../loot/drops.js?v=76";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=75";
-import { createTicker } from "../core/time.js?v=75";
+} from "../characters/stats.js?v=76";
+import { createTicker } from "../core/time.js?v=76";
 
 export function createBattleApi(ctx) {
   const {
@@ -113,10 +113,13 @@ export function createBattleApi(ctx) {
     return list[irand(0, list.length - 1)];
   }
 
-  /** 敌人优先打前排，前排清空再打后排；无视灵体 */
+  /** 敌人优先打前排 → 中排 → 后排；无视灵体 */
   function pickAllyTarget(b) {
     const front = frontAllies(b);
-    const pool = front.length ? front : targetableAllies(b);
+    if (front.length) return front[irand(0, front.length - 1)];
+    const mid = targetableAllies(b).filter((a) => a.row === "mid");
+    if (mid.length) return mid[irand(0, mid.length - 1)];
+    const pool = targetableAllies(b);
     if (!pool.length) return null;
     return pool[irand(0, pool.length - 1)];
   }
@@ -131,9 +134,13 @@ export function createBattleApi(ctx) {
 
   function isCrossNeighbor(a, b) {
     if (!a || !b) return false;
+    const rank = { front: 0, mid: 1, back: 2 };
     if (a.row === b.row) return Math.abs(a.col - b.col) === 1;
-    if (a.col === b.col) return a.row !== b.row;
-    return false;
+    if (a.col !== b.col) return false;
+    const ra = rank[a.row];
+    const rb = rank[b.row];
+    if (ra == null || rb == null) return false;
+    return Math.abs(ra - rb) === 1;
   }
 
   function renderLane(el, units, enemy, peers = null) {
@@ -297,6 +304,12 @@ export function createBattleApi(ctx) {
     renderLane(
       $("allyFront"),
       b.allies.filter((a) => a.row === "front"),
+      false,
+      allyPeers
+    );
+    renderLane(
+      $("allyMid"),
+      b.allies.filter((a) => a.row === "mid"),
       false,
       allyPeers
     );
@@ -1030,7 +1043,7 @@ export function createBattleApi(ctx) {
         onBattleEnd?.("blocked", null, null, { reason: "no_living" });
         return;
       }
-      lineup = [{ hero, row: "front", col: 1, slot: 4 }];
+      lineup = [{ hero, row: "front", col: 1, slot: 1 }];
     }
     for (const { hero } of lineup) {
       hero.isCaptain = hero.id === state.captainId;
@@ -1041,8 +1054,7 @@ export function createBattleApi(ctx) {
     hideExplore();
     $("battle").classList.remove("hidden");
 
-    // - 地图怪：只把撞到的那只挂 worldRef，打赢后只删它
-    // - 小怪战：混合类型 1～7 只；Boss：后排中央 + 前排/侧翼小怪
+    // - 小怪战：混合类型，最多 9 只铺满 3×3；Boss：后排中央 + 其余格位小怪
     const touched =
       state.monsters.find((m) => m.id === worldMonster.id) || worldMonster;
     const floor = touched.floor || state.floor || 1;

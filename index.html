@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=75" />
+  <link rel="stylesheet" href="css/style.css?v=76" />
 </head>
 <body>
   <div id="app">
@@ -52,7 +52,7 @@
         </div>
         <div class="top-place">
           <strong id="placeName">阳光海岛</strong>
-          <span id="placeFloor">1层 v0.75</span>
+          <span id="placeFloor">1层 v0.76</span>
         </div>
         <div class="top-mobs" title="剩余怪物 / 本层怪物">
           <i class="mob-ico"></i>
@@ -84,8 +84,9 @@
         <div class="arena-enemies arena-enemy-back" id="enemyBack"></div>
         <div class="arena-enemies arena-enemy-mid" id="enemyMid"></div>
         <div class="arena-enemies arena-enemy-front" id="enemyFront"></div>
-        <div class="arena-ally-front" id="allyFront"></div>
-        <div class="arena-ally-back" id="allyBack"></div>
+        <div class="arena-allies arena-ally-front" id="allyFront"></div>
+        <div class="arena-allies arena-ally-mid" id="allyMid"></div>
+        <div class="arena-allies arena-ally-back" id="allyBack"></div>
         <div id="fxLayer" class="fx-layer"></div>
       </div>
       <footer class="battle-hud" id="battleActions" aria-label="技能"></footer>
@@ -337,9 +338,10 @@
           <b>总战力 <i id="formPower">0</i></b>
           <b>总幸运 <i id="formLuck">0</i></b>
         </div>
-        <p class="form-hint">拖拽调整战斗站位 · 上排前排（靠近敌人）· 下排后排 · 点 × 下阵 · 点 ★ 指定队长（属性 +10%）</p>
+        <p class="form-hint">拖拽调整战斗站位 · 上前排（靠近敌人）· 中排 · 下后排 · 点 × 下阵 · 点 ★ 指定队长（属性 +10%）</p>
         <div class="form-board-wrap">
           <div class="form-row-tag front">前排</div>
+          <div class="form-row-tag mid">中排</div>
           <div class="form-row-tag back">后排</div>
           <div id="formBoard" class="form-board" aria-label="战斗站位"></div>
         </div>
@@ -347,6 +349,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=75"></script>
+  <script type="module" src="js/main.js?v=76"></script>
 </body>
 </html>

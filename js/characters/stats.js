@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=75";
+import { TICK_SECONDS } from "../core/time.js?v=76";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
@@ -177,11 +177,27 @@ export function loadSavedSettings() {
       }
     }
   }
-  if (Array.isArray(data.formation) && data.formation.length === 6) {
-    savedFormation = data.formation.map((id) => {
+  if (Array.isArray(data.formation) && data.formation.length >= 6) {
+    const raw = data.formation.map((id) => {
       if (!id || typeof id !== "string") return null;
       return CHARACTER_STATS[id] ? id : null;
     });
+    if (raw.length === 6) {
+      savedFormation = [
+        raw[0],
+        raw[1],
+        raw[2],
+        null,
+        null,
+        null,
+        raw[3],
+        raw[4],
+        raw[5],
+      ];
+    } else {
+      savedFormation = raw.slice(0, 9);
+      while (savedFormation.length < 9) savedFormation.push(null);
+    }
   }
 }
 
@@ -234,10 +250,28 @@ export function getSavedFormation() {
   return savedFormation ? [...savedFormation] : null;
 }
 
-/** 写入战斗阵容（statsId 或 null × 6），刷新后仍保持 */
+/** 写入战斗阵容（statsId 或 null × 9），刷新后仍保持；兼容旧 6 格 */
 export function setSavedFormation(slots) {
-  if (!Array.isArray(slots) || slots.length !== 6) return null;
-  savedFormation = slots.map((id) => {
+  if (!Array.isArray(slots)) return null;
+  let list = slots.slice();
+  if (list.length === 6) {
+    list = [
+      list[0],
+      list[1],
+      list[2],
+      null,
+      null,
+      null,
+      list[3],
+      list[4],
+      list[5],
+    ];
+  }
+  if (list.length < 9) {
+    while (list.length < 9) list.push(null);
+  }
+  list = list.slice(0, 9);
+  savedFormation = list.map((id) => {
     if (!id || typeof id !== "string") return null;
     return CHARACTER_STATS[id] ? id : null;
   });

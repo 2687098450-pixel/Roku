@@ -1,20 +1,20 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=75";
-import { calcStats } from "./omni/attributes.js?v=75";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=75";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=76";
+import { calcStats } from "./omni/attributes.js?v=76";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=76";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=75";
+} from "./skills.js?v=76";
 import {
   expToNext,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
-} from "./progression.js?v=75";
+} from "./progression.js?v=76";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
@@ -100,19 +100,46 @@ export function createYellowHero() {
   return createHero("yellow");
 }
 
-/** 战斗阵容：3 列 × 2 排（与战斗画面一致：上前排 / 下后排） */
+/** 战斗阵容：3 列 × 3 排（上前排靠近敌人 · 中排 · 下后排） */
 export const FORMATION_COLS = 3;
-export const FORMATION_SLOTS = 6;
+export const FORMATION_ROWS = 3;
+export const FORMATION_SLOTS = FORMATION_COLS * FORMATION_ROWS;
+
+const FORMATION_ROW_IDS = ["front", "mid", "back"];
 
 /**
  * 阵位 → 战斗站位（编辑器与战场同向：敌在上）
  * 0 1 2 = 前排左中右（靠近敌人）
- * 3 4 5 = 后排左中右
+ * 3 4 5 = 中排
+ * 6 7 8 = 后排
  */
 export function formationSlotPos(slot) {
   const col = slot % FORMATION_COLS;
-  const row = slot < FORMATION_COLS ? "front" : "back";
+  const rowIdx = Math.floor(slot / FORMATION_COLS);
+  const row = FORMATION_ROW_IDS[Math.min(FORMATION_ROW_IDS.length - 1, Math.max(0, rowIdx))];
   return { row, col, slot };
+}
+
+/** 旧 6 格阵容 → 9 格（原后排挪到新后排，中排留空） */
+export function migrateFormationTo9(slots) {
+  if (!Array.isArray(slots)) return Array(FORMATION_SLOTS).fill(null);
+  if (slots.length >= FORMATION_SLOTS) return slots.slice(0, FORMATION_SLOTS);
+  if (slots.length === 6) {
+    return [
+      slots[0] || null,
+      slots[1] || null,
+      slots[2] || null,
+      null,
+      null,
+      null,
+      slots[3] || null,
+      slots[4] || null,
+      slots[5] || null,
+    ];
+  }
+  const next = slots.slice();
+  while (next.length < FORMATION_SLOTS) next.push(null);
+  return next.slice(0, FORMATION_SLOTS);
 }
 
 /** 阵容里已上阵角色（按阵位顺序，跳过空位） */
@@ -140,7 +167,8 @@ export function getBattleFormation(state) {
 
 /** 保证阵容为固定长度的站位数组 */
 export function normalizeFormation(state, slots = FORMATION_SLOTS) {
-  const src = Array.isArray(state.formation) ? state.formation : [];
+  const raw = Array.isArray(state.formation) ? state.formation : [];
+  const src = migrateFormationTo9(raw);
   const next = [];
   for (let i = 0; i < slots; i++) {
     const id = src[i];

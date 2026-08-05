@@ -46,7 +46,7 @@ export {
   MAX_EQUIP_LEVEL,
   UPGRADEABLE_RARITIES,
   rebuildEquipStats,
-} from "./equipment.js?v=75";
+} from "./equipment.js?v=76";
 export {
   SKILL_POWER,
   skillPower,
@@ -62,7 +62,7 @@ export {
   createHeroSkills,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=75";
+} from "./skills.js?v=76";
 export {
   gainExp,
   splitExp,
@@ -75,7 +75,7 @@ export {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   MAX_SKILL_LEVEL,
-} from "../progression.js?v=75";
+} from "../progression.js?v=76";
 export {
   ensureRotation,
   nextAutoSkill,
@@ -84,7 +84,7 @@ export {
   basicAttackId,
   isEmptyAutoSlot,
   resolveAutoSkillId,
-} from "./autoAttack.js?v=75";
+} from "./autoAttack.js?v=76";
 export {
   refreshHeroStats,
   createOmniHero,
@@ -95,6 +95,7 @@ export {
   FORMATION_COLS,
   FORMATION_SLOTS,
   formationSlotPos,
+  migrateFormationTo9,
   getDeployedHeroes,
   getBattleFormation,
   normalizeFormation,
@@ -106,5 +107,5 @@ export {
   SLENDER_RATIO,
   diamondSlenderRatio,
   isSlenderFemale,
-} from "../createHero.js?v=75";
-export { BASE, PASSIVE_BOOST } from "./attributes.js?v=75";
+} from "../createHero.js?v=76";
+export { BASE, PASSIVE_BOOST } from "./attributes.js?v=76";

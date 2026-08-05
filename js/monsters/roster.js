@@ -1,11 +1,11 @@
 /**
  * 怪物工厂 + 遭遇编队
- * - 小怪遭遇：混合类型，1～7 只
- * - Boss：后排中央 + 前排/侧翼小怪
+ * - 小怪遭遇：混合类型，最多 9 只（3×3）
+ * - Boss：后排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=75";
-import { TYPE_SKILL_IDS } from "./skills.js?v=75";
+import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=76";
+import { TYPE_SKILL_IDS } from "./skills.js?v=76";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -81,60 +81,60 @@ export function pickTrashType(floor, rnd = Math.random) {
   return types[types.length - 1].id;
 }
 
-/** 小怪遭遇数量：随层升高，最多 7 */
+/** 小怪遭遇数量：随层升高，最多 9（铺满 3×3） */
 export function trashPackCount(floor, rnd = Math.random) {
   const f = Math.max(1, floor || 1);
-  const min = Math.min(7, 2 + Math.floor((f - 1) / 2));
-  const max = Math.min(7, 3 + Math.floor(f / 2));
+  const min = Math.min(9, 2 + Math.floor((f - 1) / 2));
+  const max = Math.min(9, 3 + Math.floor(f / 2));
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
   return lo + Math.floor(rnd() * (hi - lo + 1));
 }
 
-/**
- * 小怪站位：先填前排 0..2，再填后排 0..2，第 7 只放后排旁侧扩展用 mid 概念 → 用 col 分布
- * 前排最多 3，后排最多 3，第 7 只挤入前排中列后方用 back 溢出 → 实际用 front3 + back3 + front 再塞 1 改用 4 列：
- * 采用：front cols 0-2，back cols 0-2，第 7：back 不扩，放 mid row 记为 row:"mid" col:1
- */
+/** 小怪站位：3×3，前排 → 中排 → 后排 */
 export function assignTrashSlots(n) {
-  const slots = [];
   const order = [
     ["front", 0],
     ["front", 1],
     ["front", 2],
+    ["mid", 0],
+    ["mid", 1],
+    ["mid", 2],
     ["back", 0],
     ["back", 1],
     ["back", 2],
-    ["mid", 1],
   ];
-  for (let i = 0; i < Math.min(n, 7); i++) {
+  const slots = [];
+  for (let i = 0; i < Math.min(n, 9); i++) {
     slots.push({ row: order[i][0], col: order[i][1] });
   }
   return slots;
 }
 
 /**
- * Boss 编队：boss 后排中央；前排与后排两侧可加小怪
- * 总数（含 boss）最多 7
+ * Boss 编队：boss 后排中央；其余格位可加小怪
+ * 总数（含 boss）最多 9
  */
 export function bossAddCount(floor, rnd = Math.random) {
   const f = Math.max(1, floor || 1);
-  const maxAdds = Math.min(6, 1 + Math.floor(f / 2));
+  const maxAdds = Math.min(8, 1 + Math.floor(f / 2));
   const minAdds = Math.min(maxAdds, Math.max(1, Math.floor(f / 3)));
   return minAdds + Math.floor(rnd() * (maxAdds - minAdds + 1));
 }
 
-/** Boss 小怪站位优先级：前排满 → 后排左右 */
+/** Boss 小怪站位：前排满 → 中排 → 后排左右（中央留给 Boss） */
 export function assignBossAddSlots(n) {
   const order = [
     ["front", 0],
     ["front", 1],
     ["front", 2],
+    ["mid", 0],
+    ["mid", 1],
+    ["mid", 2],
     ["back", 0],
     ["back", 2],
-    ["mid", 1],
   ];
-  return order.slice(0, Math.min(n, 6)).map(([row, col]) => ({ row, col }));
+  return order.slice(0, Math.min(n, 8)).map(([row, col]) => ({ row, col }));
 }
 
 function battleReady(unit, extras = {}) {
