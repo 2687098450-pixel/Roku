@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=91";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=91";
+import { $, clamp, irand } from "../core/utils.js?v=94";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=94";
 import {
   refreshHeroStats,
   skillPower,
@@ -16,7 +16,7 @@ import {
   activeSkills,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=91";
+} from "../characters/omni/index.js?v=94";
 import {
   gainExp,
   splitExp,
@@ -26,32 +26,33 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=91";
+} from "../characters/progression.js?v=94";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=91";
-import { buildEncounter } from "../monsters/roster.js?v=91";
+} from "../characters/skills.js?v=94";
+import { buildEncounter } from "../monsters/roster.js?v=94";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=91";
-import { rollBattleLoot } from "../loot/drops.js?v=91";
+} from "../monsters/skills.js?v=94";
+import { rollBattleLoot } from "../loot/drops.js?v=94";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=91";
-import { createTicker } from "../core/time.js?v=91";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=91";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=91";
+} from "../characters/stats.js?v=94";
+import { createTicker } from "../core/time.js?v=94";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=94";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=94";
 import {
   applyStun as applyStunStatus,
+  applyStatus,
   isStunned,
   isSilenced,
   rollHit,
@@ -62,8 +63,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=91";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=91";
+} from "./status.js?v=94";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=94";
 
 export function createBattleApi(ctx) {
   const {
@@ -99,13 +100,18 @@ export function createBattleApi(ctx) {
   }
 
   function blankCombat() {
-    return { dmg: 0, heal: 0, tank: 0 };
+    return { dmg: 0, heal: 0, tank: 0, ctrl: 0 };
   }
 
   function ensureCombat(unit) {
     if (!unit) return blankCombat();
     if (!unit.combat) unit.combat = blankCombat();
-    return unit.combat;
+    const c = unit.combat;
+    if (c.ctrl == null) c.ctrl = 0;
+    if (c.dmg == null) c.dmg = 0;
+    if (c.heal == null) c.heal = 0;
+    if (c.tank == null) c.tank = 0;
+    return c;
   }
 
   function findUnitById(b, id) {
@@ -124,6 +130,13 @@ export function createBattleApi(ctx) {
     const n = Math.max(0, Math.floor(amount || 0));
     if (!n || !source) return;
     ensureCombat(source).heal += n;
+  }
+
+  /** 控制时长：累计施加的 debuff 行动条（眩晕/减速/禁魔/减疗） */
+  function recordControl(source, amount) {
+    const n = Math.max(0, Math.floor(amount || 0));
+    if (!n || !source) return;
+    ensureCombat(source).ctrl += n;
   }
 
   function escapeHtml(s) {
@@ -180,6 +193,7 @@ export function createBattleApi(ctx) {
       { id: "dmg", label: "伤害" },
       { id: "heal", label: "治疗" },
       { id: "tank", label: "抗伤" },
+      { id: "ctrl", label: "控制" },
     ];
     body.innerHTML = `
       <div class="bi-tabs" role="tablist">
@@ -212,7 +226,7 @@ export function createBattleApi(ctx) {
     const b = getState().battle;
     const modal = $("battleInfoModal");
     if (!b || !modal) return;
-    if (!["dmg", "heal", "tank"].includes(battleInfoTab)) battleInfoTab = "dmg";
+    if (!["dmg", "heal", "tank", "ctrl"].includes(battleInfoTab)) battleInfoTab = "dmg";
     renderBattleInfoPanel();
     modal.classList.remove("hidden");
   }
@@ -381,8 +395,9 @@ export function createBattleApi(ctx) {
 
   const SKILL_ICON = {
     attack: "斩",
-    radiant: "光",
+    radiant: "印",
     quake: "震",
+    omni_bless: "衡",
     pink_shot: "箭",
     pink_burst: "爆",
     pink_barrage: "雨",
@@ -393,6 +408,17 @@ export function createBattleApi(ctx) {
     yellow_hit: "盾",
     yellow_slam: "猛",
     yellow_fortify: "壁",
+    blue_bolt: "霜",
+    blue_nova: "环",
+    blue_freeze: "锁",
+    blue_veil: "幕",
+    orange_shot: "烬",
+    orange_wave: "浪",
+    orange_blaze: "焚",
+    orange_stoke: "薪",
+    cyan_cut: "刃",
+    cyan_tailwind: "风",
+    cyan_gust: "迅",
   };
 
   function updateBattleSkillButtons(unit) {
@@ -440,11 +466,20 @@ export function createBattleApi(ctx) {
   }
 
   function unitCritRate(unit) {
-    return unit.critRate ?? DEFAULT_CRIT_RATE;
+    const stacks = Math.max(0, Math.min(5, unit.killStacks || 0));
+    return Math.min(0.85, (unit.critRate ?? DEFAULT_CRIT_RATE) + stacks * 0.03);
   }
 
   function unitCritDmg(unit) {
-    return (unit.critDmg ?? DEFAULT_CRIT_DMG) + (unit.critDmgBonus || 0);
+    const stacks = Math.max(0, Math.min(5, unit.killStacks || 0));
+    return (unit.critDmg ?? DEFAULT_CRIT_DMG) + (unit.critDmgBonus || 0) + stacks * 0.05;
+  }
+
+  function notePinkKill(source) {
+    if (!source?.isHero) return;
+    const hero = actingHero(source);
+    if (hero?.statsId !== "pink") return;
+    source.killStacks = Math.min(5, (source.killStacks || 0) + 1);
   }
 
   function tickUnitBuffs(unit) {
@@ -578,6 +613,7 @@ export function createBattleApi(ctx) {
     }
     target.hp = Math.max(0, target.hp - raw);
     recordDamage(opts.source || null, target, raw);
+    if (target.hp <= 0 && opts.source) notePinkKill(opts.source);
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
       unit.classList.remove("hit", "crit", "miss");
@@ -649,6 +685,7 @@ export function createBattleApi(ctx) {
     if (attacker?.spiritForm) return 0;
     const hero = actingHero(attacker);
     const lv = getSkillLevel(hero, skillId);
+    const def = scaledSkillDef(skillId, lv) || SKILL_POWER[skillId];
     const scale =
       (damageScale || 1) *
       (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
@@ -662,7 +699,13 @@ export function createBattleApi(ctx) {
       critDmg: unitCritDmg(attacker),
       source: attacker,
     });
-    if (dealt > 0) tryApplySkillStatuses(attacker, target, {}, mods);
+    if (dealt > 0) {
+      recordControl(
+        attacker,
+        tryApplySkillStatuses(attacker, target, def?.apply || {}, mods)
+      );
+      if (def?.dot) applyMonsterDot(target, attacker, { dot: def.dot });
+    }
     return dealt;
   }
 
@@ -689,7 +732,11 @@ export function createBattleApi(ctx) {
         critDmg: unitCritDmg(ally),
         source: ally,
       });
-      if (dealt > 0) tryApplySkillStatuses(ally, t, {}, mods);
+      if (dealt > 0) {
+        const def = scaledSkillDef(skillId, skillLv) || SKILL_POWER[skillId];
+        recordControl(ally, tryApplySkillStatuses(ally, t, def?.apply || {}, mods));
+        if (def?.dot) applyMonsterDot(t, ally, { dot: def.dot });
+      }
       if (t.hp <= 0) remaining += 1;
       renderBattle(b);
     }
@@ -725,13 +772,14 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 治愈戒：任意治疗后 2 秒脉动（不限治愈之触 / 不限小绿） */
+  /** 治愈戒：任意治疗后附加 200 行动条脉动 */
   function applyMendPulse(b, healer, target, healedAmount) {
     const hero = actingHero(healer);
     if (!heroHasUnique(hero, "green_mend_pulse") || !target) return;
     const tickDmg = Math.max(1, Math.floor(Math.max(1, healedAmount) * 0.2));
     target.mendPulse = {
-      ticksLeft: 20, // 2s / 0.1s
+      remain: 200,
+      bar: 0,
       walk: 0,
       lostThisCycle: false,
       lastLost: 0,
@@ -742,7 +790,15 @@ export function createBattleApi(ctx) {
 
   function advanceMendPulse(b, unit, walked) {
     const p = unit?.mendPulse;
-    if (!p || unit.hp <= 0) return;
+    if (!p || unit.hp <= 0) {
+      if (unit) unit.mendPulse = null;
+      return;
+    }
+    p.bar = (p.bar || 0) + walked;
+    if (p.bar >= (p.remain || 200)) {
+      unit.mendPulse = null;
+      return;
+    }
     p.walk += walked;
     if (p.walk >= 10 && !p.lostThisCycle) {
       const lost = dealDamage(unit, p.tickDmg, {
@@ -798,10 +854,14 @@ export function createBattleApi(ctx) {
     let partyHealed = false;
 
     for (const hero of list) {
-      const hasGreen = hero.skills?.some((s) => s.id === "green_aftercare");
-      if (hasGreen && !partyHealed) {
-        const lv = getSkillLevel(hero, "green_aftercare");
-        const def = scaledSkillDef("green_aftercare", lv) || SKILL_POWER.green_aftercare;
+      const hasParty =
+        hero.skills?.some((s) => s.id === "green_aftercare" || s.id === "cyan_breeze");
+      if (hasParty && !partyHealed) {
+        const sid = hero.skills.some((s) => s.id === "green_aftercare")
+          ? "green_aftercare"
+          : "cyan_breeze";
+        const lv = getSkillLevel(hero, sid);
+        const def = scaledSkillDef(sid, lv) || SKILL_POWER[sid];
         const ratio = def.healRatio || 0.2;
         for (const h of list) {
           const heal = Math.floor(h.maxHp * ratio);
@@ -992,11 +1052,41 @@ export function createBattleApi(ctx) {
 
     let appliedBuff = false;
     if (isBuffSkill(used)) {
-      await playSkillAnim("buff", ally.id, ally.id, fxMeta);
-      if (def.atkMult) ally.atkBuff = def.atkMult || 0;
-      if (def.critDmgBonus) ally.critDmgBonus = def.critDmgBonus || 0;
-      if (def.defMult) ally.defBuff = def.defMult || 0;
-      ally.buffTurns = def.turns || 3;
+      const applyBuffTo = (unit) => {
+        if (!unit || unit.hp <= 0) return;
+        if (def.atkMult) unit.atkBuff = Math.max(unit.atkBuff || 0, def.atkMult || 0);
+        if (def.critDmgBonus) {
+          unit.critDmgBonus = Math.max(unit.critDmgBonus || 0, def.critDmgBonus || 0);
+        }
+        if (def.defMult) unit.defBuff = Math.max(unit.defBuff || 0, def.defMult || 0);
+        unit.buffTurns = Math.max(unit.buffTurns || 0, def.turns || 3);
+        if (def.hastePower) {
+          applyStatus(unit, "haste", {
+            gauge: def.hasteGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.hastePower,
+          });
+        }
+        if (def.dodgePower) {
+          applyStatus(unit, "dodgeUp", {
+            gauge: def.dodgeGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.dodgePower,
+          });
+        }
+      };
+      if (def.target === "all") {
+        const list = livingAllies(b);
+        const primary = list[0] || ally;
+        await playSkillAnim("buff", ally.id, primary.id, fxMeta);
+        for (const a of list) applyBuffTo(a);
+      } else if (def.target === "ally") {
+        const t = pickLowestAlly(b);
+        if (!t) return false;
+        await playSkillAnim("buff", ally.id, t.id, fxMeta);
+        applyBuffTo(t);
+      } else {
+        await playSkillAnim("buff", ally.id, ally.id, fxMeta);
+        applyBuffTo(ally);
+      }
       appliedBuff = true;
     } else if (isHealSkill(used)) {
       if (def.target === "all") {
@@ -1043,7 +1133,10 @@ export function createBattleApi(ctx) {
             if (t.hp <= 0) continue;
             heroStrike(ally, t, used, mods);
           }
-          if (h === 0) applyStunStatus(t, stunNeed);
+          if (h === 0) {
+            applyStunStatus(t, stunNeed);
+            recordControl(ally, stunNeed);
+          }
         }
       }
     } else if (
@@ -1105,7 +1198,7 @@ export function createBattleApi(ctx) {
     for (const t of targets) {
       const dealt = dealDamage(t, power, { source: actor });
       if (dealt > 0) {
-        tryApplySkillStatuses(actor, t, skill.apply || {}, null);
+        recordControl(actor, tryApplySkillStatuses(actor, t, skill.apply || {}, null));
         applyMonsterDot(t, actor, skill);
       }
     }
@@ -1256,16 +1349,13 @@ export function createBattleApi(ctx) {
     let ready = null;
     for (let i = 0; i < steps; i++) {
       for (const u of battleUnits(b)) {
-        if (u.mendPulse) {
-          u.mendPulse.ticksLeft -= 1;
-          if (u.mendPulse.ticksLeft <= 0) u.mendPulse = null;
-        }
         if (u.hp <= 0) continue;
         const walk = Math.max(1, u.spd || 1);
         // 眩晕：真实行动条冻结；状态条按基础速度走
         if (isStunned(u)) {
           tickStatuses(u, walk);
           advanceUnitDot(b, u, walk);
+          if (u.mendPulse) advanceMendPulse(b, u, walk);
           continue;
         }
         tickStatuses(u, walk);
@@ -1366,6 +1456,7 @@ export function createBattleApi(ctx) {
       spiritForm: false,
       mendPulse: null,
       dot: null,
+      killStacks: 0,
       combat: blankCombat(),
     }));
 

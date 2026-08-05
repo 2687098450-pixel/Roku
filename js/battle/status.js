@@ -133,33 +133,39 @@ export function healReceivedMult(target) {
   return clamp(1 - statusPower(target, "healCut"), 0, 1);
 }
 
-/** 技能 / 词条命中后尝试上状态 */
+/** 技能 / 词条命中后尝试上状态；返回本次施加的控制行动条总量 */
 export function tryApplySkillStatuses(source, target, apply = {}, mods = null) {
-  if (!target || target.hp <= 0) return;
+  if (!target || target.hp <= 0) return 0;
   const roll = (p) => p > 0 && Math.random() < p;
+  let ctrl = 0;
 
   if (apply.stun || (mods?.stunChance && roll(mods.stunChance))) {
-    applyStatus(target, "stun", {
-      gauge: apply.stunGauge ?? mods?.stunGauge ?? DEFAULT_STATUS_GAUGE,
-    });
+    const gauge = apply.stunGauge ?? mods?.stunGauge ?? DEFAULT_STATUS_GAUGE;
+    applyStatus(target, "stun", { gauge });
+    ctrl += Math.max(1, Math.floor(gauge));
   }
   if (apply.slow != null || (mods?.slowChance && roll(mods.slowChance))) {
+    const gauge = apply.slowGauge ?? mods?.slowGauge ?? DEFAULT_STATUS_GAUGE;
     applyStatus(target, "slow", {
-      gauge: apply.slowGauge ?? mods?.slowGauge ?? DEFAULT_STATUS_GAUGE,
+      gauge,
       power: apply.slow ?? mods?.slowPower ?? STATUS_META.slow.defaultPower,
     });
+    ctrl += Math.max(1, Math.floor(gauge));
   }
   if (apply.silence || (mods?.silenceChance && roll(mods.silenceChance))) {
-    applyStatus(target, "silence", {
-      gauge: apply.silenceGauge ?? mods?.silenceGauge ?? DEFAULT_STATUS_GAUGE,
-    });
+    const gauge = apply.silenceGauge ?? mods?.silenceGauge ?? DEFAULT_STATUS_GAUGE;
+    applyStatus(target, "silence", { gauge });
+    ctrl += Math.max(1, Math.floor(gauge));
   }
   if (apply.healCut != null || (mods?.healCutChance && roll(mods.healCutChance))) {
+    const gauge = apply.healCutGauge ?? mods?.healCutGauge ?? DEFAULT_STATUS_GAUGE;
     applyStatus(target, "healCut", {
-      gauge: apply.healCutGauge ?? mods?.healCutGauge ?? DEFAULT_STATUS_GAUGE,
+      gauge,
       power: apply.healCut ?? mods?.healCutPower ?? STATUS_META.healCut.defaultPower,
     });
+    ctrl += Math.max(1, Math.floor(gauge));
   }
+  return ctrl;
 }
 
 /** 施法后给自己上增益（装备词条） */

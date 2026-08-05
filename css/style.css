@@ -3194,6 +3194,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .bi-pane-dmg .bi-bar > i { background: linear-gradient(90deg, #f0a040, #e05040); }
 .bi-pane-heal .bi-bar > i { background: linear-gradient(90deg, #7ad48a, #3cb86a); }
 .bi-pane-tank .bi-bar > i { background: linear-gradient(90deg, #7ab0e8, #4a7fd4); }
+.bi-pane-ctrl .bi-bar > i { background: linear-gradient(90deg, #c9a06a, #a07840); }
 .bi-tabs:has(+ .bi-pane-heal) .bi-tab.on {
   background: linear-gradient(180deg, #5ec878, #2f9a52);
   box-shadow: 0 2px 0 rgba(30, 90, 40, 0.25);
@@ -3201,6 +3202,10 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .bi-tabs:has(+ .bi-pane-tank) .bi-tab.on {
   background: linear-gradient(180deg, #6a9ee0, #3a6fb5);
   box-shadow: 0 2px 0 rgba(30, 60, 110, 0.25);
+}
+.bi-tabs:has(+ .bi-pane-ctrl) .bi-tab.on {
+  background: linear-gradient(180deg, #d0a878, #a07840);
+  box-shadow: 0 2px 0 rgba(100, 70, 30, 0.25);
 }
 .bi-val {
   text-align: right;

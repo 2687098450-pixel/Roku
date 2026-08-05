@@ -5,16 +5,19 @@ import {
   createPinkHero,
   createGreenHero,
   createYellowHero,
+  createBlueHero,
+  createOrangeHero,
+  createCyanHero,
   refreshHeroStats,
   normalizeFormation,
   FORMATION_SLOTS,
   rebuildEquipStats,
   refreshSkillTexts,
   expToNext,
-} from "../characters/omni/index.js?v=91";
-import { createPatrolMonster } from "../monsters/slime.js?v=91";
-import { createBoss } from "../monsters/boss.js?v=91";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=91";
+} from "../characters/omni/index.js?v=94";
+import { createPatrolMonster } from "../monsters/slime.js?v=94";
+import { createBoss } from "../monsters/boss.js?v=94";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=94";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -323,6 +326,9 @@ export function loadProgressIntoState(state, applyFloorFn) {
     pink: createPinkHero,
     green: createGreenHero,
     yellow: createYellowHero,
+    blue: createBlueHero,
+    orange: createOrangeHero,
+    cyan: createCyanHero,
   };
 
   const party = [];

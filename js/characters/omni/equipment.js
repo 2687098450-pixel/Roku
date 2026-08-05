@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=91";
+import { scaleGoldGain } from "../../core/economy.js?v=94";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -68,13 +68,14 @@ const STAT_KEYS = ["hp", "atk", "def", "spd", "critRate", "critDmg", "hitRate", 
 const PCT_STAT_KEYS = new Set(["critRate", "critDmg", "hitRate", "dodgeRate"]);
 const DPS_STAT_KEYS = ["atk", "spd", "critRate", "critDmg", "hitRate"];
 const TANK_STAT_KEYS = ["hp", "def", "spd", "dodgeRate"];
+const SUPPORT_STAT_KEYS = ["spd", "hp", "hitRate", "dodgeRate"];
 
 /** 属性词条成长（随装备等级；暴击/命中/闪避为小数比例） */
 const STAT_AFFIX_GROWTH = {
   hp: { base: 4, perLevel: 2.2 },
   atk: { base: 1, perLevel: 0.42 },
   def: { base: 1, perLevel: 0.38 },
-  spd: { base: 1, perLevel: 0.18 },
+  spd: { base: 0.5, perLevel: 0.1 },
   critRate: { base: 0.012, perLevel: 0.0035 },
   critDmg: { base: 0.04, perLevel: 0.01 },
   hitRate: { base: 0.04, perLevel: 0.008 },
@@ -158,7 +159,9 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
   if (id === "omni" || id === "yellow") return true;
   const cls = weaponClass(item);
   if (id === "pink") return cls === "gun";
-  if (id === "green") return cls === "staff";
+  if (id === "green" || id === "blue") return cls === "staff";
+  if (id === "orange") return cls === "sword" || cls === "other";
+  if (id === "cyan") return true;
   return true;
 }
 
@@ -194,10 +197,9 @@ export const UNIQUE_SKILL_IDS = {
       "强化小黄「反伤」：友军溅射/治疗比例再降低 10%（更快转入治疗）。仅小黄装备时生效。",
   },
   green_mend_pulse: {
-    skillId: "green_mend",
-    name: "强化治愈之触",
+    name: "强化治疗脉动",
     detail:
-      "任意治疗效果都会给目标附加 2 秒脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。",
+      "任意治疗效果都会给目标附加 200 行动条脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。穿戴者治疗技能说明会同步标注。",
   },
 };
 
@@ -534,7 +536,7 @@ export function slotPrimaryBonus(slot, level, kind = "") {
       if (kind === "手枪") {
         return {
           atk: Math.round(2 + L * 1.15),
-          spd: Math.max(1, Math.round(0.5 + L * 0.22)),
+          spd: Math.max(1, Math.round(0.4 + L * 0.12)),
         };
       }
       if (kind === "法杖") {
@@ -554,7 +556,7 @@ export function slotPrimaryBonus(slot, level, kind = "") {
     case "armor":
       return { def: Math.round(1 + L * 0.75), hp: Math.round(8 + L * 3.5) };
     case "shoes":
-      return { spd: Math.max(1, Math.round(0.6 + L * 0.28)) };
+      return { spd: Math.max(1, Math.round(0.5 + L * 0.18)) };
     case "necklace":
       return { hp: Math.round(8 + L * 3.8) };
     case "ringL":
@@ -691,6 +693,9 @@ function pickStatForAffix(usedStats, opts, rng) {
   } else if (opts.preferTank) {
     const tank = pool.filter((k) => TANK_STAT_KEYS.includes(k));
     if (tank.length && rng() < 0.7) pool = tank;
+  } else if (opts.preferSupport) {
+    const support = pool.filter((k) => SUPPORT_STAT_KEYS.includes(k));
+    if (support.length && rng() < 0.72) pool = support;
   }
   return pool[Math.floor(rng() * pool.length)];
 }
@@ -1117,6 +1122,77 @@ export function createDefaultEquip(statsId = "omni") {
         icon: "cloth.png",
         desc: "厚实布甲。绿装带 1 条词条。",
         affixes: fixedAffixes([{ key: "hp", value: 8 }]),
+      }),
+    };
+  }
+  if (statsId === "blue") {
+    return {
+      ...gear,
+      weapon: makeItem("法杖", "weapon", { atk: 3, hp: 8 }, {
+        id: "staff_blue",
+        kind: "法杖",
+        rarity: "green",
+        level: 1,
+        icon: "staff.png",
+        desc: "霜语法杖。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "def", value: 1 }]),
+      }),
+      shield: makeItem("翠枝盾", "shield", { def: 2, hp: 4 }, {
+        id: "vine_shield_blue",
+        rarity: "white",
+        level: 1,
+        icon: "vine_shield.png",
+        desc: "轻便藤盾。",
+      }),
+    };
+  }
+  if (statsId === "orange") {
+    return {
+      ...gear,
+      weapon: makeItem("短剑", "weapon", { atk: 5 }, {
+        id: "sword_orange",
+        kind: "剑",
+        rarity: "green",
+        level: 1,
+        icon: "sword.png",
+        desc: "烬火短刃。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "atk", value: 1 }]),
+      }),
+      shield: makeItem("皮套", "shield", { def: 1 }, {
+        id: "holster_orange",
+        rarity: "white",
+        level: 1,
+        icon: "holster.png",
+        desc: "轻护腕。",
+      }),
+    };
+  }
+  if (statsId === "cyan") {
+    return {
+      ...gear,
+      weapon: makeItem("短剑", "weapon", { atk: 3, spd: 1 }, {
+        id: "sword_cyan",
+        kind: "剑",
+        rarity: "green",
+        level: 1,
+        icon: "sword.png",
+        desc: "疾风短刃。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "spd", value: 1 }]),
+      }),
+      shoes: makeItem("草鞋", "shoes", { spd: 2 }, {
+        id: "sandals_cyan",
+        rarity: "green",
+        level: 1,
+        icon: "sandals.png",
+        desc: "疾行草鞋。绿装带 1 条词条。",
+        affixes: fixedAffixes([{ key: "spd", value: 1 }]),
+      }),
+      shield: makeItem("皮套", "shield", { def: 1 }, {
+        id: "holster_cyan",
+        rarity: "white",
+        level: 1,
+        icon: "holster.png",
+        desc: "轻便护具。",
       }),
     };
   }

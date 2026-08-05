@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=91";
-import { getFloorDef } from "../map/floors.js?v=91";
+} from "../characters/omni/equipment.js?v=94";
+import { getFloorDef } from "../map/floors.js?v=94";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -67,15 +67,15 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
     },
     {
-      name: "雾林治愈戒",
+      name: "雾林脉动戒",
       slot: "ringL",
       base: { hp: 16, atk: 1 },
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "green_mend_pulse",
       skillOwner: "",
-      uniqueText: "强化治愈之触",
-      desc: "十字雾林守护者掉落。唯一词条强化治愈之触。",
+      uniqueText: "强化治疗脉动",
+      desc: "十字雾林守护者掉落。任意治疗附加 200 行动条脉动。",
     },
   ],
   6: [

@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=91";
+import { TICK_SECONDS } from "../core/time.js?v=94";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
@@ -64,7 +64,7 @@ export const CHARACTER_STATS = {
       hp: 3,
       atk: 4,
       def: 0,
-      spd: 1,
+      spd: 3,
     },
     autoRotation: ["", "", "", "", ""],
   },
@@ -107,6 +107,69 @@ export const CHARACTER_STATS = {
       atk: 0,
       def: 5,
       spd: 0,
+    },
+    autoRotation: ["", "", "", "", ""],
+  },
+  blue: {
+    id: "blue",
+    name: "小蓝",
+    className: "霜语",
+    gender: "female",
+    color: "#6eb6ff",
+    shape: "diamond",
+    base: {
+      hp: 58,
+      atk: 7,
+      def: 4,
+      spd: DEFAULT_HERO_SPEED - 1,
+    },
+    passiveBoost: {
+      hp: 8,
+      atk: 1,
+      def: 2,
+      spd: 0,
+    },
+    autoRotation: ["", "", "", "", ""],
+  },
+  orange: {
+    id: "orange",
+    name: "小橙",
+    className: "烬火",
+    gender: "male",
+    color: "#ff8a3d",
+    shape: "diamond",
+    base: {
+      hp: 60,
+      atk: 10,
+      def: 3,
+      spd: DEFAULT_HERO_SPEED,
+    },
+    passiveBoost: {
+      hp: 6,
+      atk: 3,
+      def: 0,
+      spd: 1,
+    },
+    autoRotation: ["", "", "", "", ""],
+  },
+  cyan: {
+    id: "cyan",
+    name: "小青",
+    className: "疾风",
+    gender: "female",
+    color: "#3dceb0",
+    shape: "diamond",
+    base: {
+      hp: 55,
+      atk: 8,
+      def: 3,
+      spd: DEFAULT_HERO_SPEED + 2,
+    },
+    passiveBoost: {
+      hp: 5,
+      atk: 1,
+      def: 0,
+      spd: 2,
     },
     autoRotation: ["", "", "", "", ""],
   },
@@ -157,10 +220,13 @@ export function loadSavedSettings() {
   }
   if (data.rotations && typeof data.rotations === "object") {
     const validActives = {
-      omni: new Set(["attack", "radiant", "quake"]),
+      omni: new Set(["attack", "radiant", "quake", "omni_bless"]),
       pink: new Set(["pink_shot", "pink_burst", "pink_barrage", "pink_fervor"]),
       green: new Set(["green_bolt", "green_mend", "green_bloom"]),
       yellow: new Set(["yellow_hit", "yellow_slam", "yellow_fortify"]),
+      blue: new Set(["blue_bolt", "blue_nova", "blue_freeze", "blue_veil"]),
+      orange: new Set(["orange_shot", "orange_wave", "orange_blaze", "orange_stoke"]),
+      cyan: new Set(["cyan_cut", "cyan_tailwind", "cyan_gust"]),
     };
     for (const id of Object.keys(data.rotations)) {
       const rot = data.rotations[id];

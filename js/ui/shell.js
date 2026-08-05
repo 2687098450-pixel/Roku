@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=91";
+import { $, clamp, styleTag } from "../core/utils.js?v=94";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -30,6 +30,7 @@ import {
   basicAttackId,
   isEmptyAutoSlot,
   FORMATION_SLOTS,
+  MAX_DEPLOYED,
   getDeployedHeroes,
   normalizeFormation,
   combatPower,
@@ -45,17 +46,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=91";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=91";
-import { setSavedFormation } from "../characters/stats.js?v=91";
-import { resetGameLocalData } from "../core/save.js?v=91";
-import { createAllUniqueItems } from "../loot/drops.js?v=91";
-import { APP_VERSION } from "../core/version.js?v=91";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=91";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=91";
-import { getFloorDef } from "../map/floors.js?v=91";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=91";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=91";
+} from "../characters/omni/index.js?v=94";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=94";
+import { setSavedFormation } from "../characters/stats.js?v=94";
+import { resetGameLocalData } from "../core/save.js?v=94";
+import { createAllUniqueItems } from "../loot/drops.js?v=94";
+import { APP_VERSION } from "../core/version.js?v=94";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=94";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=94";
+import { getFloorDef } from "../map/floors.js?v=94";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=94";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=94";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -234,8 +235,9 @@ export function createUI(ctx) {
 
   const SKILL_FACE = {
     attack: "斩",
-    radiant: "光",
+    radiant: "印",
     quake: "震",
+    omni_bless: "衡",
     boost: "衡",
     aftercare: "愈",
     pink_shot: "箭",
@@ -253,6 +255,21 @@ export function createUI(ctx) {
     yellow_fortify: "壁",
     yellow_reflect: "反",
     yellow_armor: "甲",
+    blue_bolt: "霜",
+    blue_nova: "环",
+    blue_freeze: "锁",
+    blue_veil: "幕",
+    blue_chill: "骨",
+    orange_shot: "烬",
+    orange_wave: "浪",
+    orange_blaze: "焚",
+    orange_stoke: "薪",
+    orange_ember: "烬",
+    cyan_cut: "刃",
+    cyan_tailwind: "风",
+    cyan_gust: "迅",
+    cyan_swift: "捷",
+    cyan_breeze: "息",
   };
 
   function skillFace(skill) {
@@ -1905,6 +1922,7 @@ export function createUI(ctx) {
     if (!hero || isHeroDead(hero)) return;
     normalizeFormation(state, FORMATION_SLOTS);
     if (state.formation.includes(heroId)) return;
+    if (deployedCount() >= MAX_DEPLOYED) return;
     const idx = state.formation.findIndex((id) => !id);
     if (idx < 0) return;
     state.formation[idx] = heroId;

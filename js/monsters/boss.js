@@ -1,12 +1,12 @@
 /** 关卡出口守护 Boss */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=91";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=94";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=91";
+} from "./skills.js?v=94";
 
 export function createBoss({
   pos = { x: 8, y: 4 },

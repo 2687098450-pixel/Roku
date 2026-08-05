@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=81";
+import { $ } from "./core/utils.js?v=94";
 import {
   canWalk,
   isExitCell,
@@ -7,14 +7,17 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=81";
-import { buildFloor } from "./map/dungeon.js?v=81";
-import { MAX_FLOOR } from "./map/floors.js?v=81";
+} from "./map/island15.js?v=94";
+import { buildFloor } from "./map/dungeon.js?v=94";
+import { MAX_FLOOR } from "./map/floors.js?v=94";
 import {
   createOmniHero,
   createPinkHero,
   createGreenHero,
   createYellowHero,
+  createBlueHero,
+  createOrangeHero,
+  createCyanHero,
   getDeployedHeroes,
   normalizeFormation,
   FORMATION_SLOTS,
@@ -22,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=81";
-import { getSavedFormation } from "./characters/stats.js?v=81";
-import { moveSlimeOnce } from "./monsters/slime.js?v=81";
-import { createBattleApi } from "./battle/system.js?v=81";
-import { createUI } from "./ui/shell.js?v=81";
+} from "./characters/omni/index.js?v=94";
+import { getSavedFormation } from "./characters/stats.js?v=94";
+import { moveSlimeOnce } from "./monsters/slime.js?v=94";
+import { createBattleApi } from "./battle/system.js?v=94";
+import { createUI } from "./ui/shell.js?v=94";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=81";
+} from "./core/save.js?v=94";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -45,6 +48,9 @@ const omni = createOmniHero();
 const pink = createPinkHero();
 const green = createGreenHero();
 const yellow = createYellowHero();
+const blue = createBlueHero();
+const orange = createOrangeHero();
+const cyan = createCyanHero();
 
 function defaultFormation() {
   return [yellow.id, omni.id, null, pink.id, green.id, null, null, null, null];
@@ -100,8 +106,8 @@ const state = {
   map: null,
   playerPos: null,
   displayPos: null,
-  party: [omni, pink, green, yellow],
-  formation: restoreFormation([omni, pink, green, yellow]),
+  party: [omni, pink, green, yellow, blue, orange, cyan],
+  formation: restoreFormation([omni, pink, green, yellow, blue, orange, cyan]),
   captainId: yellow.id,
   inventory: [
     {
@@ -136,6 +142,9 @@ const state = {
   battle: null,
   moving: false,
   step: null,
+  /** 最近一步朝向（用于逃跑后退） */
+  faceDx: 0,
+  faceDy: 1,
   /** 自动寻路剩余格子 [{x,y}, ...] */
   path: null,
   tile: 64,
@@ -195,6 +204,10 @@ function sameTile(a, b) {
   return a.x === b.x && a.y === b.y;
 }
 
+function tileHasMonster(x, y) {
+  return state.monsters.some((m) => m.x === x && m.y === y);
+}
+
 function resetMonsterAway(m) {
   m.x = m.from.x;
   m.y = m.from.y;
@@ -204,6 +217,61 @@ function resetMonsterAway(m) {
     m.y = m.to.y;
     m.dir = -1;
   }
+}
+
+/** 逃跑后玩家后退到空地；开战检测只在迈步结束时触发，瞬移不会立刻再战 */
+function retreatPlayerAfterFlee() {
+  const px = state.playerPos.x;
+  const py = state.playerPos.y;
+  let bx = -(state.faceDx || 0);
+  let by = -(state.faceDy || 0);
+  if (!bx && !by) {
+    bx = 0;
+    by = 1;
+  }
+
+  const adj = [
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ];
+  let best = null;
+  let bestScore = Infinity;
+
+  const consider = (x, y, baseScore) => {
+    if (x === px && y === py) return;
+    if (!canPlayerWalk(x, y)) return;
+    const empty = !tileHasMonster(x, y);
+    // 无空地时才接受有怪格（任意走一格）
+    const score = empty ? baseScore : baseScore + 100;
+    if (score < bestScore) {
+      bestScore = score;
+      best = { x, y };
+    }
+  };
+
+  const backX = px + bx;
+  const backY = py + by;
+  // 优先：正后方一格
+  consider(backX, backY, 0);
+  // 其次：正后方周围一圈
+  for (const [dx, dy] of adj) consider(backX + dx, backY + dy, 1);
+  // 再次：脚下相邻空地
+  for (const [dx, dy] of adj) consider(px + dx, py + dy, 2);
+
+  if (!best) return false;
+  state.playerPos.x = best.x;
+  state.playerPos.y = best.y;
+  state.displayPos.x = best.x;
+  state.displayPos.y = best.y;
+  // 朝向改为实际撤退方向
+  state.faceDx = Math.sign(best.x - px);
+  state.faceDy = Math.sign(best.y - py);
+  clearPath();
+  state.moving = false;
+  state.step = null;
+  return true;
 }
 
 function easeOutCubic(t) {
@@ -286,6 +354,10 @@ const battle = createBattleApi({
         } else {
           resetMonsterAway(monster);
         }
+      }
+      if (result === "flee") {
+        retreatPlayerAfterFlee();
+        showToast("已逃离战斗", 1600);
       }
       flushSave(state);
     }
@@ -438,6 +510,10 @@ function clearPath() {
 }
 
 function startStepTo(nx, ny) {
+  const ox = state.playerPos.x;
+  const oy = state.playerPos.y;
+  state.faceDx = Math.sign(nx - ox);
+  state.faceDy = Math.sign(ny - oy);
   state.moving = true;
   state.step = {
     fromX: state.displayPos.x,

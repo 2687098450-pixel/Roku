@@ -1,14 +1,14 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=91";
-import { calcStats } from "./omni/attributes.js?v=91";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=91";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=94";
+import { calcStats } from "./omni/attributes.js?v=94";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=94";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=91";
+} from "./skills.js?v=94";
 import {
   expToNext,
   getSkillLevel,
@@ -16,7 +16,7 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=91";
+} from "./progression.js?v=94";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
@@ -106,10 +106,23 @@ export function createYellowHero() {
   return createHero("yellow");
 }
 
-/** 战斗阵容：3 列 × 3 排（上前排靠近敌人 · 中排 · 下后排） */
+export function createBlueHero() {
+  return createHero("blue");
+}
+
+export function createOrangeHero() {
+  return createHero("orange");
+}
+
+export function createCyanHero() {
+  return createHero("cyan");
+}
+
+/** 战斗阵容：3 列 × 3 排（上前排靠近敌人 · 中排 · 下后排）；上场最多 5 人 */
 export const FORMATION_COLS = 3;
 export const FORMATION_ROWS = 3;
 export const FORMATION_SLOTS = FORMATION_COLS * FORMATION_ROWS;
+export const MAX_DEPLOYED = 5;
 
 const FORMATION_ROW_IDS = ["front", "mid", "back"];
 
@@ -202,6 +215,9 @@ export const DIAMOND_MID_COLOR = {
   pink: "#ff7eb3",
   green: "#8fdf8a",
   yellow: "#e8c044",
+  blue: "#6eb6ff",
+  orange: "#ff8a3d",
+  cyan: "#3dceb0",
 };
 
 export function diamondMidColor(unit) {

@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=91";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=91";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=91";
+import { getCharacterStats } from "./stats.js?v=94";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=94";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=94";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -37,9 +37,16 @@ function hitDamageScale(mods) {
 export const SKILL_POWER = {
   // —— 全能 ——
   attack: { mult: 1.0, flat: 0, style: "melee" },
-  radiant: { mult: 1.7, flat: 4, style: "ranged" },
+  radiant: { mult: 1.2, flat: 2, style: "ranged", apply: { slow: 0.25 } },
   /** stunGauge：眩晕隐形行动条目标值（默认 50） */
   quake: { mult: 1.15, flat: 0, stunGauge: 50, style: "melee" },
+  omni_bless: {
+    style: "buff",
+    target: "all",
+    atkMult: 0.12,
+    defMult: 0.12,
+    turns: 2,
+  },
 
   // —— 小粉：远程爆发 ——
   pink_shot: { mult: 1.15, flat: 3, style: "ranged" },
@@ -72,7 +79,7 @@ export const SKILL_POWER = {
 
   // —— 小黄：坦克 ——
   yellow_hit: { mult: 1.0, flat: 2, style: "melee" },
-  yellow_slam: { mult: 1.65, flat: 6, style: "melee" },
+  yellow_slam: { mult: 1.65, flat: 6, style: "melee", apply: { slow: 0.2 } },
   yellow_fortify: {
     style: "buff",
     target: "self",
@@ -88,10 +95,69 @@ export const SKILL_POWER = {
     allyRatioStep: -0.1,
   },
 
+  // —— 小蓝：霜语 ——
+  blue_bolt: { mult: 1.0, flat: 2, style: "ranged", apply: { slow: 0.3 } },
+  blue_nova: {
+    mult: 0.65,
+    flat: 1,
+    style: "ranged",
+    hitAllFront: true,
+    apply: { slow: 0.25 },
+  },
+  blue_freeze: { mult: 0.9, flat: 2, style: "ranged", apply: { stun: true } },
+  blue_veil: {
+    style: "buff",
+    target: "all",
+    dodgePower: 0.12,
+    dodgeGauge: 50,
+    turns: 2,
+  },
+
+  // —— 小橙：烬火 ——
+  orange_shot: {
+    mult: 0.95,
+    flat: 2,
+    style: "ranged",
+    dot: { type: "onAct", mult: 0.16, flat: 0, gauge: 50 },
+  },
+  orange_wave: {
+    mult: 0.55,
+    flat: 1,
+    style: "ranged",
+    hitAllFront: true,
+    dot: { type: "onAct", mult: 0.12, flat: 0, gauge: 50 },
+  },
+  orange_blaze: {
+    mult: 1.8,
+    flat: 6,
+    style: "ranged",
+    dot: { type: "onAct", mult: 0.2, flat: 1, gauge: 50 },
+  },
+  orange_stoke: { style: "buff", target: "self", atkMult: 0.22, turns: 3 },
+
+  // —— 小青：疾风 ——
+  cyan_cut: { mult: 1.05, flat: 2, style: "melee" },
+  cyan_tailwind: {
+    style: "buff",
+    target: "all",
+    hastePower: 0.18,
+    hasteGauge: 50,
+    turns: 2,
+  },
+  cyan_gust: {
+    style: "buff",
+    target: "ally",
+    hastePower: 0.25,
+    hasteGauge: 50,
+    turns: 2,
+  },
+
   // —— 被动：战后 ——
   aftercare: { healRatio: 0.25, healParty: false },
   /** 小绿：战后为所有参战人员恢复 */
   green_aftercare: { healRatio: 0.2, healParty: true },
+  /** 小青：战后为所有参战人员恢复 */
+  cyan_breeze: { healRatio: 0.12, healParty: true },
 };
 
 /** 按技能等级缩放战斗数值 */
@@ -112,6 +178,8 @@ export function scaledSkillDef(skillId, skillLevel = 1) {
   if (out.atkMult != null) out.atkMult = +(out.atkMult + lv * 0.03).toFixed(3);
   if (out.critDmgBonus != null) out.critDmgBonus = +(out.critDmgBonus + lv * 0.05).toFixed(3);
   if (out.defMult != null) out.defMult = +(out.defMult + lv * 0.04).toFixed(3);
+  if (out.hastePower != null) out.hastePower = +(out.hastePower + lv * 0.01).toFixed(3);
+  if (out.dodgePower != null) out.dodgePower = +(out.dodgePower + lv * 0.008).toFixed(3);
   if (out.turns != null) out.turns = out.turns + Math.floor(lv / 3);
   if (out.healRatio != null) out.healRatio = +(out.healRatio + lv * 0.02).toFixed(3);
   // 反伤：系数 = 等级 × 10%（不走通用 +flat 成长）
@@ -236,6 +304,19 @@ function passiveNums(sheet) {
   return parts.join(" ") || "—";
 }
 
+function statusEffectNotes(s, scale = 1) {
+  const parts = [];
+  if (s.apply?.slow != null) {
+    parts.push(`命中减速${skVal(Math.round(s.apply.slow * 100) + "%")}`);
+  }
+  if (s.apply?.stun) parts.push("命中眩晕");
+  if (s.dot) {
+    const dotDmg = skillPowerMarked(s.dot.mult || 0, s.dot.flat || 0, scale);
+    parts.push(`行动时持续伤害 ${dotDmg}`);
+  }
+  return parts;
+}
+
 function skillNumsAndDesc(skillId, level = 1, opts = {}) {
   const s = scaledSkillDef(skillId, level);
   if (!s) return { nums: "—", desc: "" };
@@ -253,17 +334,58 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
     const desc = `战斗结束时，参战全体各恢复最大生命×${skVal(pct + "%")}。`;
     return { nums: `战斗结束 · 全体×${skVal(pct + "%")}`, desc };
   }
+  if (skillId === "cyan_breeze") {
+    const pct = Math.round(s.healRatio * 100);
+    const desc = `战斗结束时，参战全体各恢复最大生命×${skVal(pct + "%")}。`;
+    return { nums: `战斗结束 · 全体×${skVal(pct + "%")}`, desc };
+  }
   if (s.style === "buff") {
     const atkPct = Math.round((s.atkMult || 0) * 100);
     const critPct = Math.round((s.critDmgBonus || 0) * 100);
     const defPct = Math.round((s.defMult || 0) * 100);
-    if (defPct && !atkPct) {
-      const desc = `自身防御+${skVal(defPct + "%")}，持续 ${skVal(s.turns)} 回合。`;
-      return { nums: `防御+${skVal(defPct + "%")} · ${skVal(s.turns)}回合`, desc };
+    const hastePct = Math.round((s.hastePower || 0) * 100);
+    const dodgePct = Math.round((s.dodgePower || 0) * 100);
+    const turns = skVal(s.turns);
+
+    if (s.target === "all" && atkPct && defPct) {
+      const desc = `全体攻击+${skVal(atkPct + "%")}、防御+${skVal(defPct + "%")}，持续 ${turns} 回合。`;
+      return {
+        nums: `全体攻击+${skVal(atkPct + "%")} · 防御+${skVal(defPct + "%")} · ${turns}回合`,
+        desc,
+      };
     }
-    const desc = `自身攻击+${skVal(atkPct + "%")}、暴伤+${skVal(critPct + "%")}，持续 ${skVal(s.turns)} 回合。`;
+    if (hastePct && s.target === "all") {
+      const desc = `全体增速+${skVal(hastePct + "%")}，持续 ${turns} 回合。`;
+      return {
+        nums: `全体增速+${skVal(hastePct + "%")} · ${turns}回合`,
+        desc,
+      };
+    }
+    if (dodgePct && s.target === "all") {
+      const desc = `全体闪避+${skVal(dodgePct + "%")}，持续 ${turns} 回合。`;
+      return {
+        nums: `全体闪避+${skVal(dodgePct + "%")} · ${turns}回合`,
+        desc,
+      };
+    }
+    if (hastePct && s.target === "ally") {
+      const desc = `生命比例最低的友方增速+${skVal(hastePct + "%")}，持续 ${turns} 回合。`;
+      return {
+        nums: `友方增速+${skVal(hastePct + "%")} · ${turns}回合`,
+        desc,
+      };
+    }
+    if (defPct && !atkPct && !hastePct && !dodgePct) {
+      const desc = `自身防御+${skVal(defPct + "%")}，持续 ${turns} 回合。`;
+      return { nums: `防御+${skVal(defPct + "%")} · ${turns}回合`, desc };
+    }
+    if (atkPct && !critPct && !defPct && !hastePct) {
+      const desc = `自身攻击+${skVal(atkPct + "%")}，持续 ${turns} 回合。`;
+      return { nums: `攻击+${skVal(atkPct + "%")} · ${turns}回合`, desc };
+    }
+    const desc = `自身攻击+${skVal(atkPct + "%")}、暴伤+${skVal(critPct + "%")}，持续 ${turns} 回合。`;
     return {
-      nums: `攻击+${skVal(atkPct + "%")} · 暴伤+${skVal(critPct + "%")} · ${skVal(s.turns)}回合`,
+      nums: `攻击+${skVal(atkPct + "%")} · 暴伤+${skVal(critPct + "%")} · ${turns}回合`,
       desc,
     };
   }
@@ -302,9 +424,16 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
   }
   if (s.hitAllFront) {
     const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
+    const effects = statusEffectNotes(s, scale);
+    const effectStr = effects.length ? ` · ${effects.join(" · ")}` : "";
+    const scope = "对前排全体";
+    const descEffects = effects.length ? `，${effects.join("，")}` : "";
     return {
-      nums: casts > 1 ? `${dmg} · 前排全体 · ${skVal(casts)}次` : `${dmg} · 前排全体`,
-      desc: `对前排全体造成 ${dmg} 伤害。${castNote}`,
+      nums:
+        casts > 1
+          ? `${dmg} · 前排全体${effectStr} · ${skVal(casts)}次`
+          : `${dmg} · 前排全体${effectStr}`,
+      desc: `${scope}造成 ${dmg} 伤害${descEffects}。${castNote}`,
     };
   }
   if (skillId === "pink_burst") {
@@ -322,9 +451,12 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
     };
   }
   const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
+  const effects = statusEffectNotes(s, scale);
+  const effectStr = effects.length ? ` · ${effects.join(" · ")}` : "";
+  const descEffects = effects.length ? `，${effects.join("，")}` : "";
   return {
-    nums: casts > 1 ? `${dmg} · ${skVal(casts)}次` : dmg,
-    desc: `对单体造成 ${dmg} 伤害。${castNote}`,
+    nums: casts > 1 ? `${dmg}${effectStr} · ${skVal(casts)}次` : `${dmg}${effectStr}`,
+    desc: `对单体造成 ${dmg} 伤害${descEffects}。${castNote}`,
   };
 }
 
@@ -345,6 +477,9 @@ export function attrPassiveSkillId(statsId) {
   if (statsId === "green") return "green_life";
   if (statsId === "omni") return "boost";
   if (statsId === "yellow") return "yellow_armor";
+  if (statsId === "blue") return "blue_chill";
+  if (statsId === "orange") return "orange_ember";
+  if (statsId === "cyan") return "cyan_swift";
   return null;
 }
 
@@ -388,6 +523,8 @@ export function buildSkillText(hero, skillId, level = 1) {
       desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
     } else if (skillId === "green_life" && heroHasUnique(hero, "green_life_flow")) {
       desc += `治疗时提升友军伤害。`;
+    } else if (skillId === "pink_focus") {
+      desc += `本场击杀叠层（每层暴击率+3%、暴伤+5%，最多5层）。`;
     }
     return { nums, desc };
   }
@@ -438,10 +575,10 @@ export function buildSkillText(hero, skillId, level = 1) {
     casts,
     pinkEcho,
   });
-  if (skillId === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
+  if (isHealSkill(skillId) && heroHasUnique(hero, "green_mend_pulse")) {
     return {
       nums: `${nums} · 治疗后脉动`,
-      desc: `${desc}装备治愈戒时：任意治疗效果都会给目标附加 ${skVal(2)} 秒脉动——行动条每累计走 ${skVal(10)}，流失约等于本次治疗量 ${skVal("20%")} 的血；再累计走到 ${skVal(20)}，按刚流失量的 ${skVal("2.5")} 倍回血。`,
+      desc: `${desc}装备脉动戒：治疗附加 200 行动条脉动（走10流失约治疗量20%真伤，走20按流失×2.5回血）。`,
     };
   }
   return { nums, desc };
@@ -487,7 +624,7 @@ export function createOmniSkills() {
     }),
     makeSkill({
       id: "radiant",
-      name: "飞镖投掷",
+      name: "衡印弹",
       kind: "active",
       style: "ranged",
     }),
@@ -506,9 +643,10 @@ export function createOmniSkills() {
       desc: `永久属性：${passiveNums(sheet)}。`,
     },
     makeSkill({
-      id: "aftercare",
-      name: "战后恢复",
-      kind: "passive",
+      id: "omni_bless",
+      name: "均衡祝福",
+      kind: "active",
+      style: "buff",
     }),
   ];
 }
@@ -546,7 +684,7 @@ export function createPinkSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `永久属性：${passiveNums(sheet)}。`,
+      desc: `永久属性：${passiveNums(sheet)}。本场击杀叠层（每层暴击率+3%、暴伤+5%，最多5层）。`,
     },
   ];
 }
@@ -628,11 +766,127 @@ export function createYellowSkills() {
   ];
 }
 
+export function createBlueSkills() {
+  const sheet = getCharacterStats("blue");
+  return [
+    makeSkill({
+      id: "blue_bolt",
+      name: "霜箭",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "blue_nova",
+      name: "寒霜环",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "blue_freeze",
+      name: "极寒锁",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "blue_veil",
+      name: "霜幕",
+      kind: "active",
+      style: "buff",
+    }),
+    {
+      id: "blue_chill",
+      name: "霜骨",
+      kind: "passive",
+      level: 1,
+      nums: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
+    },
+  ];
+}
+
+export function createOrangeSkills() {
+  const sheet = getCharacterStats("orange");
+  return [
+    makeSkill({
+      id: "orange_shot",
+      name: "烬矢",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "orange_wave",
+      name: "灼浪",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "orange_blaze",
+      name: "焚焰",
+      kind: "active",
+      style: "ranged",
+    }),
+    makeSkill({
+      id: "orange_stoke",
+      name: "添薪",
+      kind: "active",
+      style: "buff",
+    }),
+    {
+      id: "orange_ember",
+      name: "余烬",
+      kind: "passive",
+      level: 1,
+      nums: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
+    },
+  ];
+}
+
+export function createCyanSkills() {
+  const sheet = getCharacterStats("cyan");
+  return [
+    makeSkill({
+      id: "cyan_cut",
+      name: "风刃",
+      kind: "active",
+      style: "melee",
+    }),
+    makeSkill({
+      id: "cyan_tailwind",
+      name: "顺风",
+      kind: "active",
+      style: "buff",
+    }),
+    makeSkill({
+      id: "cyan_gust",
+      name: "援风",
+      kind: "active",
+      style: "buff",
+    }),
+    {
+      id: "cyan_swift",
+      name: "迅捷",
+      kind: "passive",
+      level: 1,
+      nums: passiveNums(sheet),
+      desc: `永久属性：${passiveNums(sheet)}。`,
+    },
+    makeSkill({
+      id: "cyan_breeze",
+      name: "微风",
+      kind: "passive",
+    }),
+  ];
+}
+
 const KIT = {
   omni: createOmniSkills,
   pink: createPinkSkills,
   green: createGreenSkills,
   yellow: createYellowSkills,
+  blue: createBlueSkills,
+  orange: createOrangeSkills,
+  cyan: createCyanSkills,
 };
 
 export function createHeroSkills(statsId) {

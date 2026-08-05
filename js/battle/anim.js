@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=91";
+import { $, wait } from "../core/utils.js?v=94";
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();
@@ -73,14 +73,33 @@ export function resolveFxProfile(style, meta = {}) {
     return { kind: "melee-slash", theme: "yellow", impact: "punch" };
   }
 
-  if (statsId === "omni" || ["attack", "radiant", "quake"].includes(skillId)) {
-    if (skillId === "quake" || (style === "melee" && skillId === "quake")) {
+  if (statsId === "omni" || ["attack", "radiant", "quake", "omni_bless"].includes(skillId)) {
+    if (skillId === "quake") {
       return { kind: "quake", theme: "omni" };
+    }
+    if (skillId === "omni_bless" || style === "buff") {
+      return { kind: "buff-ring", theme: "omni", bursts: 1 };
     }
     if (style === "ranged" || skillId === "radiant") {
       return { kind: "bolt", theme: "omni", shape: "slash", impact: "flash" };
     }
     return { kind: "melee-slash", theme: "omni", impact: "punch" };
+  }
+
+  if (statsId === "blue" || skillId.startsWith("blue_")) {
+    if (style === "buff") return { kind: "buff-ring", theme: "omni", bursts: 1 };
+    return { kind: "bolt", theme: "omni", shape: "slash", impact: "flash" };
+  }
+
+  if (statsId === "orange" || skillId.startsWith("orange_")) {
+    if (style === "buff") return { kind: "buff-ring", theme: "pink", bursts: 1 };
+    return { kind: "bolt", theme: "pink", shape: "star", impact: "burst" };
+  }
+
+  if (statsId === "cyan" || skillId.startsWith("cyan_")) {
+    if (style === "buff") return { kind: "buff-ring", theme: "green", bursts: 1 };
+    if (style === "melee") return { kind: "melee-slash", theme: "green", impact: "flash" };
+    return { kind: "bolt", theme: "green", shape: "leaf" };
   }
 
   if (style === "heal" || style === "buff") {
