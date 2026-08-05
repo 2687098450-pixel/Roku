@@ -1,12 +1,40 @@
 /** 经验、升级、技能点（无循环依赖） */
 
-import { scaleExpGain } from "../core/economy.js?v=109";
+import { scaleExpGain } from "../core/economy.js?v=110";
 
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%
 export const DEFAULT_HIT_RATE = 1;
 export const DEFAULT_DODGE_RATE = 0.05;
 export const MAX_SKILL_LEVEL = 10;
+
+/** 装备「技能等级」词条提供的额外等级（全技能生效） */
+export function equipSkillLevelBonus(hero) {
+  let n = 0;
+  const eq = hero?.equip;
+  if (!eq || typeof eq !== "object") return 0;
+  for (const item of Object.values(eq)) {
+    if (!item) continue;
+    n += Math.max(0, Math.floor(Number(item.skillMods?.skillLevel) || 0));
+  }
+  return n;
+}
+
+/** 技能点升级用的基础等级（不含装备加成） */
+export function getBaseSkillLevel(hero, skillId) {
+  if (!hero || !skillId) return 1;
+  const fromMap = hero.skillLevels?.[skillId];
+  if (fromMap != null) return Math.max(1, Math.floor(fromMap));
+  const sk = hero.skills?.find((s) => s.id === skillId);
+  return Math.max(1, Math.floor(sk?.level || 1));
+}
+
+export function getSkillLevel(hero, skillId) {
+  if (!hero || !skillId) return 1;
+  const base = getBaseSkillLevel(hero, skillId);
+  const bonus = equipSkillLevelBonus(hero);
+  return Math.min(MAX_SKILL_LEVEL, Math.max(1, base + bonus));
+}
 
 /** 升到下一级所需经验 */
 export function expToNext(level) {
@@ -58,14 +86,6 @@ export function splitExp(total, heroCount) {
   const t = Math.max(0, Math.floor(total || 0));
   if (!t) return 0;
   return Math.max(1, Math.ceil(t / n));
-}
-
-export function getSkillLevel(hero, skillId) {
-  if (!hero || !skillId) return 1;
-  const fromMap = hero.skillLevels?.[skillId];
-  if (fromMap != null) return Math.max(1, Math.floor(fromMap));
-  const sk = hero.skills?.find((s) => s.id === skillId);
-  return Math.max(1, Math.floor(sk?.level || 1));
 }
 
 /** 复活费用：随英雄等级提升 */

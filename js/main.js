@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=109";
+import { $ } from "./core/utils.js?v=110";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=109";
-import { buildFloor } from "./map/dungeon.js?v=109";
-import { MAX_FLOOR } from "./map/floors.js?v=109";
+} from "./map/island15.js?v=110";
+import { buildFloor } from "./map/dungeon.js?v=110";
+import { MAX_FLOOR } from "./map/floors.js?v=110";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=109";
-import { getSavedFormation } from "./characters/stats.js?v=109";
-import { moveSlimeOnce } from "./monsters/slime.js?v=109";
-import { createBattleApi } from "./battle/system.js?v=109";
-import { createUI } from "./ui/shell.js?v=109";
+} from "./characters/omni/index.js?v=110";
+import { getSavedFormation } from "./characters/stats.js?v=110";
+import { moveSlimeOnce } from "./monsters/slime.js?v=110";
+import { createBattleApi } from "./battle/system.js?v=110";
+import { createUI } from "./ui/shell.js?v=110";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=109";
+} from "./core/save.js?v=110";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -134,7 +134,7 @@ function applyFloor(state, floorNum) {
       desc: "传送到已到过的任意楼层，并刷新该层全部怪物。从高层回到低层后，仍可再传回高层。",
     },
     toBagEquip(makeItem("短剑", "weapon", { atk: 4 }, { id: "sword_bag", rarity: "blue", icon: "sword.png", kind: "剑", level: 10 })),
-    toBagEquip(makeItem("木戒", "ringL", { atk: 1 }, { id: "ring_bag", rarity: "purple", icon: "ring.png", level: 5 })),
+    toBagEquip(makeItem("木戒", "ringL", {}, { id: "ring_bag", rarity: "purple", icon: "ring.png", level: 5 })),
     toBagEquip(makeItem("木盾", "shield", { def: 2 }, { id: "wood_shield_bag", rarity: "orange", icon: "wood_shield.png", level: 8 })),
   ],
   visitedFloors: [1],

@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=109";
+import { $, clamp, styleTag } from "../core/utils.js?v=110";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -47,17 +47,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=109";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=109";
-import { setSavedFormation } from "../characters/stats.js?v=109";
-import { resetGameLocalData } from "../core/save.js?v=109";
-import { createAllUniqueItems } from "../loot/drops.js?v=109";
-import { APP_VERSION } from "../core/version.js?v=109";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=109";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=109";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=109";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=109";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=109";
+} from "../characters/omni/index.js?v=110";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=110";
+import { setSavedFormation } from "../characters/stats.js?v=110";
+import { resetGameLocalData } from "../core/save.js?v=110";
+import { createAllUniqueItems } from "../loot/drops.js?v=110";
+import { APP_VERSION } from "../core/version.js?v=110";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=110";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=110";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=110";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=110";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=110";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -726,14 +726,19 @@ export function createUI(ctx) {
 
   function formatPrimaryHtml(item, compact = false) {
     const primary = item.primary || {};
-    const has = Object.values(primary).some((v) => v);
+    const has = Object.values(primary).some((v) => Number(v) > 0);
     const head = `<div class="equip-section-label">主属性 · 等级 ${itemLevel(item)}</div>`;
-    return `${head}${formatBonusRows(has ? primary : getItemBonus(item), compact, "无")}`;
+    if (!has) {
+      const tip =
+        item.slot === "ringL" || item.slot === "ringR" ? "戒指无主属性" : "无";
+      return `${head}${formatBonusRows({}, compact, tip)}`;
+    }
+    return `${head}${formatBonusRows(primary, compact, "无")}`;
   }
 
   function formatAffixesHtml(item, compact = false) {
     const list = item.affixes || [];
-    const max = affixCountForRarity(item.rarity);
+    const max = affixCountForRarity(item.rarity, item.slot);
     const info = rarityInfo(item.rarity);
     const head = `<div class="equip-section-label">词条 · ${info.label}装 ${list.length}/${max}</div>`;
     const cls = compact
@@ -764,6 +769,15 @@ export function createUI(ctx) {
             <span>${tag}</span><b>${name}</b><i class="affix-tap-hint">详情</i>
           </li>`;
         }
+        if (a.id === "skill_level") {
+          const name = a.text || SKILL_LEVEL_AFFIX.text;
+          if (compact) {
+            return `<li class="affix-unique"><span>${tag}</span><b>${name}</b></li>`;
+          }
+          return `<li class="affix-unique affix-unique-tap" data-special-affix="skill_level" role="button" tabindex="0">
+            <span>${tag}</span><b>${name}</b><i class="affix-tap-hint">详情</i>
+          </li>`;
+        }
         const text = a.text || a.label || "—";
         return `<li><span>${tag}</span><b>${text}</b></li>`;
       })
@@ -785,14 +799,25 @@ export function createUI(ctx) {
   }
 
   function openSpecialAffixPreview(id) {
-    if (id !== "cast_echo") return;
-    hideSkillHoldPreview();
-    showEquipAffixDetail({
-      title: CAST_ECHO_AFFIX.text,
-      type: "特殊词条 · 仅红装戒指/项链",
-      detail: CAST_ECHO_AFFIX.detail,
-      ico: "特",
-    });
+    if (id === "cast_echo") {
+      hideSkillHoldPreview();
+      showEquipAffixDetail({
+        title: CAST_ECHO_AFFIX.text,
+        type: "特殊词条 · 仅红装戒指/项链",
+        detail: CAST_ECHO_AFFIX.detail,
+        ico: "特",
+      });
+      return;
+    }
+    if (id === "skill_level") {
+      hideSkillHoldPreview();
+      showEquipAffixDetail({
+        title: SKILL_LEVEL_AFFIX.text,
+        type: "特殊词条 · 仅橙/红装",
+        detail: SKILL_LEVEL_AFFIX.detail,
+        ico: "特",
+      });
+    }
   }
 
   function bindUniqueAffixTaps(root) {
@@ -829,7 +854,7 @@ export function createUI(ctx) {
     const info = rarityInfo(item.rarity);
     const lv = itemLevel(item);
     const affixN = (item.affixes || []).length;
-    const affixMax = affixCountForRarity(item.rarity);
+    const affixMax = affixCountForRarity(item.rarity, item.slot);
     const icon = itemIconUrl(item);
     const iconHtml = icon
       ? `<img src="${icon}" alt="${item.name}" decoding="async" loading="eager" />`
@@ -1052,7 +1077,7 @@ export function createUI(ctx) {
                   <span class="equip-preview-name">${it.name}</span>
                   <span class="stag rarity-tag rarity-${info.id}">${info.label}装</span>
                 </div>
-                <div class="equip-preview-rarity">等级 ${itemLevel(it)} · ${info.label}装 · 词条 ${(it.affixes || []).length}/${affixCountForRarity(it.rarity)}</div>
+                <div class="equip-preview-rarity">等级 ${itemLevel(it)} · ${info.label}装 · 词条 ${(it.affixes || []).length}/${affixCountForRarity(it.rarity, it.slot)}</div>
               </div>
             </div>
             ${formatPrimaryHtml(it, true)}

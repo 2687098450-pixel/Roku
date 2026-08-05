@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=109";
+import { scaleGoldGain } from "../../core/economy.js?v=110";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -113,8 +113,24 @@ export const CAST_ECHO_AFFIX = {
   detail: "技能多释放 1 次，每次伤害变为原来的 60%。",
 };
 
+/** 橙/红装特殊词条：全技能等级 +1 */
+export const SKILL_LEVEL_AFFIX = {
+  type: "skill",
+  id: "skill_level",
+  skillMods: { skillLevel: 1 },
+  text: "技能等级 +1",
+  label: "特殊",
+  detail: "穿戴时全部技能等级 +1（与技能点升级叠加，上限仍为 10）。",
+};
+
 const CAST_ECHO_SLOTS = new Set(["necklace", "ringL", "ringR"]);
 const CAST_ECHO_CHANCE = 0.05;
+const SKILL_LEVEL_CHANCE = 0.05;
+const RING_EXTRA_AFFIXES = 2;
+
+export function isRingSlot(slot) {
+  return slot === "ringL" || slot === "ringR";
+}
 
 /** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
 export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
@@ -351,6 +367,10 @@ function refreshAffixText(a) {
       a.text = CAST_ECHO_AFFIX.text;
       a.label = CAST_ECHO_AFFIX.label;
       a.detail = CAST_ECHO_AFFIX.detail;
+    } else if (a.id === "skill_level") {
+      a.text = SKILL_LEVEL_AFFIX.text;
+      a.label = SKILL_LEVEL_AFFIX.label;
+      a.detail = SKILL_LEVEL_AFFIX.detail;
     } else {
       a.text = formatSkillModsText(a.skillMods);
     }
@@ -362,11 +382,16 @@ export function rebuildEquipStats(item) {
   if (!item) return item;
   const level = itemLevel(item);
   const kind = item.kind && item.kind !== "equip" ? item.kind : "";
-  let primary =
-    item.baseBonus && Object.keys(item.baseBonus).length
-      ? primaryFromTemplate(item.baseBonus, level)
-      : slotPrimaryBonus(item.slot, level, kind);
-  primary = applyMilestoneToPrimary(primary, level);
+  let primary = {};
+  if (!isRingSlot(item.slot)) {
+    primary =
+      item.baseBonus && Object.keys(item.baseBonus).length
+        ? primaryFromTemplate(item.baseBonus, level)
+        : slotPrimaryBonus(item.slot, level, kind);
+    primary = applyMilestoneToPrimary(primary, level);
+  } else {
+    item.baseBonus = {};
+  }
   item.level = level;
   item.primary = primary;
   fillUniqueAffixSlots(item);
@@ -388,7 +413,7 @@ function fillUniqueAffixSlots(item) {
       }
     }
   }
-  const max = affixCountForRarity(item.rarity || "red");
+  const max = affixCountForRarity(item.rarity || "red", item.slot);
   if (!Array.isArray(item.affixes)) item.affixes = [];
   if (item.affixes.length >= max) return;
   const used = new Set(
@@ -508,27 +533,37 @@ export function rarityLabel(rarity) {
   return rarityInfo(rarity).label;
 }
 
-export function affixRangeForRarity(rarity) {
+export function affixRangeForRarity(rarity, slot = null) {
   const id = normalizeRarity(rarity);
   const raw = AFFIX_COUNT[id];
+  let min;
+  let max;
   if (raw == null) {
     const n = rarityInfo(id).affixes ?? 0;
-    return { min: n, max: n };
+    min = n;
+    max = n;
+  } else if (typeof raw === "number") {
+    min = raw;
+    max = raw;
+  } else {
+    min = Math.max(0, Math.floor(raw.min ?? 0));
+    max = Math.max(min, Math.floor(raw.max ?? min));
   }
-  if (typeof raw === "number") return { min: raw, max: raw };
-  const min = Math.max(0, Math.floor(raw.min ?? 0));
-  const max = Math.max(min, Math.floor(raw.max ?? min));
+  if (isRingSlot(slot)) {
+    min += RING_EXTRA_AFFIXES;
+    max += RING_EXTRA_AFFIXES;
+  }
   return { min, max };
 }
 
-/** 展示用：该品质词条上限 */
-export function affixCountForRarity(rarity) {
-  return affixRangeForRarity(rarity).max;
+/** 展示用：该品质词条上限（戒指额外 +2） */
+export function affixCountForRarity(rarity, slot = null) {
+  return affixRangeForRarity(rarity, slot).max;
 }
 
 /** 生成装备时：在品质区间内随机词条数 */
-export function rollAffixCountForRarity(rarity, rng = Math.random) {
-  const { min, max } = affixRangeForRarity(rarity);
+export function rollAffixCountForRarity(rarity, rng = Math.random, slot = null) {
+  const { min, max } = affixRangeForRarity(rarity, slot);
   if (max <= min) return min;
   const roll = typeof rng === "function" ? rng() : Math.random();
   return min + Math.floor(roll * (max - min + 1));
@@ -591,7 +626,7 @@ export function slotPrimaryBonus(slot, level, kind = "") {
       return { hp: Math.round(8 + L * 3.8) };
     case "ringL":
     case "ringR":
-      return { atk: Math.round(1 + L * 0.5) };
+      return {};
     default:
       return { hp: Math.round(4 + L * 1.5) };
   }
@@ -655,6 +690,7 @@ function formatSkillModsText(m = {}) {
   if (m.hitBonus && m.hitDamageMult) {
     parts.push(`技能回响：多释放 ${m.hitBonus} 次，伤害×${Math.round(m.hitDamageMult * 100)}%`);
   } else {
+    if (m.skillLevel) parts.push(`技能等级 +${m.skillLevel}`);
     if (m.powerMult) parts.push(`技能伤害 +${Math.round(m.powerMult * 100)}%`);
     if (m.powerFlat) parts.push(`技能伤害 +${m.powerFlat}`);
     if (m.hitBonus) parts.push(`技能多释放 +${m.hitBonus}`);
@@ -684,6 +720,34 @@ export function makeCastEchoAffix() {
   };
 }
 
+export function makeSkillLevelAffix() {
+  return {
+    type: SKILL_LEVEL_AFFIX.type,
+    id: SKILL_LEVEL_AFFIX.id,
+    skillMods: { ...SKILL_LEVEL_AFFIX.skillMods },
+    text: SKILL_LEVEL_AFFIX.text,
+    label: SKILL_LEVEL_AFFIX.label,
+    detail: SKILL_LEVEL_AFFIX.detail,
+  };
+}
+
+function replaceNonUniqueAffix(list, affix) {
+  if (!list.length) return [affix];
+  let idx = list.findIndex(
+    (a) => a?.type === "skill" && a?.id !== "cast_echo" && a?.id !== "skill_level" && !a?.uniqueId
+  );
+  if (idx < 0) {
+    idx = list
+      .map((a, i) => (!a?.uniqueId && a?.type !== "unique" ? i : -1))
+      .filter((i) => i >= 0)
+      .pop();
+  }
+  if (idx == null || idx < 0) idx = list.length - 1;
+  const next = list.slice();
+  next[idx] = affix;
+  return next;
+}
+
 /** 红装戒指/项链：5% 概率替换一条词条为技能回响（每件最多 1） */
 export function maybeApplyCastEchoAffix(affixes, { rarity, slot, rng = Math.random } = {}) {
   const list = Array.isArray(affixes) ? affixes.slice() : [];
@@ -691,16 +755,17 @@ export function maybeApplyCastEchoAffix(affixes, { rarity, slot, rng = Math.rand
   if (!CAST_ECHO_SLOTS.has(slot)) return list;
   if (list.some((a) => a?.id === "cast_echo" || a?.skillMods?.hitDamageMult)) return list;
   if (rng() >= CAST_ECHO_CHANCE) return list;
-  const echo = makeCastEchoAffix();
-  if (!list.length) return [echo];
-  // 优先替换普通技能词条，否则替换最后一条非唯一
-  let idx = list.findIndex((a) => a?.type === "skill" && a?.id !== "cast_echo" && !a?.uniqueId);
-  if (idx < 0) {
-    idx = list.map((a, i) => (!a?.uniqueId && a?.type !== "unique" ? i : -1)).filter((i) => i >= 0).pop();
-  }
-  if (idx == null || idx < 0) idx = list.length - 1;
-  list[idx] = echo;
-  return list;
+  return replaceNonUniqueAffix(list, makeCastEchoAffix());
+}
+
+/** 橙/红装：5% 概率替换一条词条为技能等级 +1（每件最多 1） */
+export function maybeApplySkillLevelAffix(affixes, { rarity, rng = Math.random } = {}) {
+  const list = Array.isArray(affixes) ? affixes.slice() : [];
+  const r = normalizeRarity(rarity);
+  if (r !== "orange" && r !== "red") return list;
+  if (list.some((a) => a?.id === "skill_level" || a?.skillMods?.skillLevel)) return list;
+  if (rng() >= SKILL_LEVEL_CHANCE) return list;
+  return replaceNonUniqueAffix(list, makeSkillLevelAffix());
 }
 
 function makeStatAffix(stat, value) {
@@ -770,11 +835,14 @@ export function rollAffixes(count, level, opts = {}) {
     affixes.push(makeStatAffix(key, rollStatValue(key, L, rng)));
   }
 
-  return maybeApplyCastEchoAffix(affixes.slice(0, n), {
-    rarity: opts.rarity,
-    slot: opts.slot,
-    rng,
-  });
+  return maybeApplySkillLevelAffix(
+    maybeApplyCastEchoAffix(affixes.slice(0, n), {
+      rarity: opts.rarity,
+      slot: opts.slot,
+      rng,
+    }),
+    { rarity: opts.rarity, rng }
+  );
 }
 
 export function skillModsFromAffixes(affixes = []) {
@@ -799,6 +867,7 @@ function blankSkillModsSum() {
     hitBonus: 0,
     healMult: 0,
     hitDamageMult: 1,
+    skillLevel: 0,
     stunChance: 0,
     stunGauge: 0,
     slowChance: 0,
@@ -817,6 +886,7 @@ function mergeSkillModsInto(sum, m) {
   sum.powerFlat += m.powerFlat || 0;
   sum.hitBonus += m.hitBonus || 0;
   sum.healMult += m.healMult || 0;
+  sum.skillLevel += m.skillLevel || 0;
   if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
     sum.hitDamageMult *= m.hitDamageMult;
   }
@@ -866,7 +936,7 @@ export function itemPrice(item) {
     (bonus.critDmg || 0) * 80 +
     (bonus.hitRate || 0) * 180 +
     (bonus.dodgeRate || 0) * 220;
-  const affixN = (item.affixes || []).length || affixCountForRarity(item.rarity);
+  const affixN = (item.affixes || []).length || affixCountForRarity(item.rarity, item.slot);
   const raw = Math.max(
     1,
     Math.round((12 + power * 5 + level * 6 + affixN * 14) * (1 + info.rank * 0.25))
@@ -895,20 +965,25 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
   const rarity = normalizeRarity(extra.rarity || "white");
   const level = extra.level != null ? itemLevel({ level: extra.level }) : 1;
   const kind = extra.kind || "";
+  const ring = isRingSlot(slot);
+  const templateBonus = ring ? {} : baseBonus || {};
 
-  let primary =
-    extra.primary ||
-    (baseBonus && Object.keys(baseBonus).length
-      ? primaryFromTemplate(baseBonus, level)
-      : slotPrimaryBonus(slot, level, kind));
-  primary = applyMilestoneToPrimary(primary, level);
+  let primary = {};
+  if (!ring) {
+    primary =
+      extra.primary ||
+      (templateBonus && Object.keys(templateBonus).length
+        ? primaryFromTemplate(templateBonus, level)
+        : slotPrimaryBonus(slot, level, kind));
+    primary = applyMilestoneToPrimary(primary, level);
+  }
 
-  const maxAffix = affixCountForRarity(rarity);
+  const maxAffix = affixCountForRarity(rarity, slot);
   let affixes = Array.isArray(extra.affixes)
     ? extra.affixes.slice(0, maxAffix)
     : null;
   if (!affixes) {
-    const need = rollAffixCountForRarity(rarity, extra.rng);
+    const need = rollAffixCountForRarity(rarity, extra.rng, slot);
     const preferDps =
       slot === "weapon" || slot === "ringL" || slot === "ringR";
     const preferTank =
@@ -924,11 +999,14 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
       slot,
     });
   } else if (extra.affixes) {
-    affixes = maybeApplyCastEchoAffix(affixes, {
-      rarity,
-      slot,
-      rng: extra.rng || Math.random,
-    }).slice(0, maxAffix);
+    affixes = maybeApplySkillLevelAffix(
+      maybeApplyCastEchoAffix(affixes, {
+        rarity,
+        slot,
+        rng: extra.rng || Math.random,
+      }),
+      { rarity, rng: extra.rng || Math.random }
+    ).slice(0, maxAffix);
   }
 
   // 若强制技能词条但品质词条数为 0，仍保留在 skillMods（极少见）
@@ -945,7 +1023,7 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
     rarity,
     level,
     enhanceCount: Math.max(0, Math.floor(Number(extra.enhanceCount) || 0)),
-    baseBonus: { ...(baseBonus || {}) },
+    baseBonus: { ...templateBonus },
     primary: { ...primary },
     affixes,
     bonus,
@@ -1067,13 +1145,16 @@ function baseGear() {
       icon: "sandals.png",
       desc: "轻便草鞋。主属性随等级成长。",
     }),
-    ringL: makeItem("木戒", "ringL", { atk: 1 }, {
+    ringL: makeItem("木戒", "ringL", {}, {
       id: "ring",
       rarity: "green",
       level: 1,
       icon: "ring.png",
-      desc: "木制戒指。绿装带 1 条词条。",
-      affixes: fixedAffixes([{ key: "hp", value: 5 }]),
+      desc: "木制戒指。无主属性，绿戒额外词条。",
+      affixes: fixedAffixes([
+        { key: "hp", value: 5 },
+        { key: "atk", value: 1 },
+      ]),
     }),
     ringR: null,
   };

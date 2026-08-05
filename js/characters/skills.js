@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=109";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=109";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=109";
+import { getCharacterStats } from "./stats.js?v=110";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=110";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=110";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -664,7 +664,11 @@ export function buildSkillText(hero, skillId, level = 1) {
 
 export function refreshSkillTexts(hero) {
   if (!hero?.skills) return;
+  if (!hero.skillLevels) hero.skillLevels = {};
   for (const sk of hero.skills) {
+    if (hero.skillLevels[sk.id] == null) {
+      hero.skillLevels[sk.id] = Math.max(1, Math.floor(sk.level || 1));
+    }
     const lv = getSkillLevel(hero, sk.id);
     sk.level = lv;
     const { nums, desc } = buildSkillText(hero, sk.id, lv);
@@ -679,12 +683,11 @@ export function upgradeSkill(hero, skillId) {
   if ((hero.skillPoints || 0) < 1) return false;
   const sk = hero.skills?.find((s) => s.id === skillId);
   if (!sk) return false;
-  const lv = getSkillLevel(hero, skillId);
+  const lv = getBaseSkillLevel(hero, skillId);
   if (lv >= MAX_SKILL_LEVEL) return false;
 
   hero.skillPoints -= 1;
   const next = lv + 1;
-  sk.level = next;
   if (!hero.skillLevels) hero.skillLevels = {};
   hero.skillLevels[skillId] = next;
   refreshSkillTexts(hero);

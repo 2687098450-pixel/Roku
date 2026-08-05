@@ -9,15 +9,15 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=109";
-import { getFloorDef } from "../map/floors.js?v=109";
+} from "../characters/omni/equipment.js?v=110";
+import { getFloorDef } from "../map/floors.js?v=110";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
   { name: "铜坠", slot: "necklace", base: { hp: 8 }, icon: "pendant.png" },
   { name: "布衣", slot: "armor", base: { def: 2, hp: 10 }, icon: "cloth.png" },
   { name: "草鞋", slot: "shoes", base: { spd: 1 }, icon: "sandals.png" },
-  { name: "木戒", slot: "ringL", base: { atk: 1 }, icon: "ring.png" },
+  { name: "木戒", slot: "ringL", base: {}, icon: "ring.png" },
   { name: "短剑", slot: "weapon", base: { atk: 4 }, icon: "sword.png", kind: "剑" },
   { name: "木盾", slot: "shield", base: { def: 2 }, icon: "wood_shield.png" },
   { name: "手枪", slot: "weapon", base: { atk: 5, spd: 1 }, icon: "pistol.png", kind: "手枪" },
@@ -384,7 +384,7 @@ const BOSS_NORMAL_BY_FLOOR = {
   ],
   3: [
     { name: "潮木盾", slot: "shield", base: { def: 3 }, icon: "wood_shield.png" },
-    { name: "海藻戒", slot: "ringL", base: { atk: 2 }, icon: "ring.png" },
+    { name: "海藻戒", slot: "ringL", base: {}, icon: "ring.png" },
   ],
   4: [
     { name: "锚链坠", slot: "necklace", base: { hp: 16 }, icon: "pendant.png" },
@@ -392,7 +392,7 @@ const BOSS_NORMAL_BY_FLOOR = {
   ],
   5: [
     { name: "雾丝衣", slot: "armor", base: { def: 3, hp: 18 }, icon: "cloth.png" },
-    { name: "苔环", slot: "ringL", base: { atk: 2, hp: 6 }, icon: "ring.png" },
+    { name: "苔环", slot: "ringL", base: {}, icon: "ring.png" },
   ],
   6: [
     { name: "礁石盔", slot: "helmet", base: { def: 3, hp: 10 }, icon: "hat.png" },
@@ -408,7 +408,7 @@ const BOSS_NORMAL_BY_FLOOR = {
   ],
   9: [
     { name: "海湾枪套", slot: "shield", base: { def: 3, spd: 1 }, icon: "holster.png" },
-    { name: "浪刃戒", slot: "ringR", base: { atk: 3 }, icon: "ring.png" },
+    { name: "浪刃戒", slot: "ringR", base: {}, icon: "ring.png" },
   ],
   10: [
     { name: "终焉披风", slot: "armor", base: { def: 5, hp: 26 }, icon: "cloth.png" },
@@ -547,17 +547,21 @@ function rollUniqueBossItem(powerFloor, tpl, displayFloor = powerFloor) {
     tpl.slot === "shield" ||
     tpl.slot === "armor" ||
     tpl.skillOwner === "yellow";
-  // 红装 3 词条：1 唯一 + 2 属性（输出装偏向暴击/攻击）
+  // 红装词条：1 唯一 + 其余属性/技能位（戒指额外 +2）
+  const extra = Math.max(0, affixCountForRarity("red", tpl.slot) - 1);
   const affixes = [
     makeUniqueAffix(tpl.uniqueId, tpl.uniqueText),
-    ...rollAffixes(2, level, {
+    ...rollAffixes(extra, level, {
       allowSkill: false,
       preferDps,
       preferTank: !preferDps && preferTank,
+      rarity: "red",
+      slot: tpl.slot,
     }),
   ];
+  const ringBase = tpl.slot === "ringL" || tpl.slot === "ringR" ? {} : scaleLootBase(tpl.base, powerFloor);
   return toBagEquip(
-    makeItem(tpl.name, tpl.slot, scaleLootBase(tpl.base, powerFloor), {
+    makeItem(tpl.name, tpl.slot, ringBase, {
       id: `unique_${tpl.uniqueId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
       rarity: "red",
       icon: tpl.icon,
