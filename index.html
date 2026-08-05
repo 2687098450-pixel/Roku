@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=81" />
+  <link rel="stylesheet" href="css/style.css?v=84" />
 </head>
 <body>
   <div id="app">
@@ -52,12 +52,12 @@
         </div>
         <div class="top-place">
           <strong id="placeName">阳光海岛</strong>
-          <span id="placeFloor">1层 v0.81</span>
+          <span id="placeFloor">1层 v0.84</span>
         </div>
-        <div class="top-mobs" title="剩余怪物 / 本层怪物">
-          <i class="mob-ico"></i>
+        <button type="button" class="top-mobs" id="btnFloorMobs" title="本层怪物信息" aria-label="本层怪物信息">
+          <i class="mob-ico" aria-hidden="true"></i>
           <b id="mobCount">0/0</b>
-        </div>
+        </button>
       </header>
 
       <aside id="partyStrip" class="party-strip" aria-label="队伍状态"></aside>
@@ -270,6 +270,18 @@
       </div>
     </div>
 
+    <!-- 本层怪物信息 -->
+    <div id="floorMobsModal" class="modal nested hidden">
+      <div class="modal-card floor-mobs-card">
+        <div class="modal-head">
+          <h2 id="floorMobsTitle">本层怪物</h2>
+          <button type="button" class="icon-close" id="closeFloorMobs">×</button>
+        </div>
+        <p class="floor-mobs-hint">剩余 / 本层总数。数值为当前地图上的实际属性。</p>
+        <div id="floorMobsBody" class="floor-mobs-body"></div>
+      </div>
+    </div>
+
     <!-- 传送刷新球：选择已访问楼层 -->
     <div id="warpModal" class="modal nested hidden">
       <div class="modal-card warp-card">
@@ -361,6 +373,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=81"></script>
+  <script type="module" src="js/main.js?v=84"></script>
 </body>
 </html>

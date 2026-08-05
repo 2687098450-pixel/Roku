@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=81";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=81";
+import { $, clamp, irand } from "../core/utils.js?v=84";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=84";
 import {
   refreshHeroStats,
   skillPower,
@@ -14,10 +14,9 @@ import {
   getBattleFormation,
   FORMATION_COLS,
   activeSkills,
-  diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=81";
+} from "../characters/omni/index.js?v=84";
 import {
   gainExp,
   splitExp,
@@ -25,24 +24,24 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=81";
+} from "../characters/progression.js?v=84";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=81";
-import { buildEncounter } from "../monsters/roster.js?v=81";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=81";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=81";
-import { rollBattleLoot } from "../loot/drops.js?v=81";
+} from "../characters/skills.js?v=84";
+import { buildEncounter } from "../monsters/roster.js?v=84";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=84";
+import { rollBattleLoot } from "../loot/drops.js?v=84";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=81";
-import { createTicker } from "../core/time.js?v=81";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=81";
+} from "../characters/stats.js?v=84";
+import { createTicker } from "../core/time.js?v=84";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=84";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=84";
 
 export function createBattleApi(ctx) {
   const {
@@ -118,41 +117,28 @@ export function createBattleApi(ctx) {
     return Math.max(4, Math.min(100, Math.round((val / max) * 100)));
   }
 
-  function renderBattleInfoRows(units, maxDmg, maxHeal, maxTank) {
-    if (!units.length) {
-      return `<div class="bi-empty">暂无单位</div>`;
-    }
-    const rows = units
+  function renderBattleInfoCategory(title, metricKey, units, maxVal, allyPeers) {
+    const sorted = units
       .slice()
-      .sort((a, b) => (b.combat?.dmg || 0) - (a.combat?.dmg || 0))
+      .sort((a, b) => (b.combat?.[metricKey] || 0) - (a.combat?.[metricKey] || 0));
+    const rows = sorted
       .map((u) => {
-        const c = ensureCombat(u);
+        const val = ensureCombat(u)[metricKey] || 0;
         const dead = u.hp <= 0;
-        const color = u.color || (u.isBoss ? "#6b7280" : "#8a9aaa");
-        return `<li class="bi-row${dead ? " is-dead" : ""}" style="--bi-c:${color}">
-          <div class="bi-dot" aria-hidden="true"></div>
-          <div class="bi-main">
-            <div class="bi-name">${escapeHtml(u.name || "？")}${dead ? " · 倒下" : ""}</div>
-            <div class="bi-metric dmg">
-              <span class="bi-metric-lab">伤害</span>
-              <div class="bi-bar"><i style="width:${biBarPct(c.dmg, maxDmg)}%"></i></div>
-              <span class="bi-metric-val">${c.dmg}</span>
-            </div>
-            <div class="bi-metric heal">
-              <span class="bi-metric-lab">治疗</span>
-              <div class="bi-bar"><i style="width:${biBarPct(c.heal, maxHeal)}%"></i></div>
-              <span class="bi-metric-val">${c.heal}</span>
-            </div>
-            <div class="bi-metric tank">
-              <span class="bi-metric-lab">抗伤</span>
-              <div class="bi-bar"><i style="width:${biBarPct(c.tank, maxTank)}%"></i></div>
-              <span class="bi-metric-val">${c.tank}</span>
-            </div>
-          </div>
+        const enemy = !u.isHero;
+        const peers = enemy ? null : allyPeers;
+        return `<li class="bi-row${dead ? " is-dead" : ""}">
+          ${unitIconHtml(u, "xs", { enemy, peers })}
+          <div class="bi-name">${escapeHtml(u.name || "？")}${dead ? " · 倒下" : ""}</div>
+          <div class="bi-bar"><i style="width:${biBarPct(val, maxVal)}%"></i></div>
+          <span class="bi-val">${val}</span>
         </li>`;
       })
       .join("");
-    return `<ul class="bi-list">${rows}</ul>`;
+    return `<section class="bi-cat bi-cat-${metricKey}">
+      <h3 class="bi-cat-title">${title}</h3>
+      <ul class="bi-list">${rows || `<li class="bi-empty-row">暂无</li>`}</ul>
+    </section>`;
   }
 
   function openBattleInfo() {
@@ -165,15 +151,12 @@ export function createBattleApi(ctx) {
     const maxDmg = units.reduce((m, u) => Math.max(m, u.combat.dmg), 0);
     const maxHeal = units.reduce((m, u) => Math.max(m, u.combat.heal), 0);
     const maxTank = units.reduce((m, u) => Math.max(m, u.combat.tank), 0);
-    body.innerHTML = `
-      <div>
-        <div class="bi-section-title">己方</div>
-        ${renderBattleInfoRows(b.allies || [], maxDmg, maxHeal, maxTank)}
-      </div>
-      <div>
-        <div class="bi-section-title">敌方</div>
-        ${renderBattleInfoRows(b.enemies || [], maxDmg, maxHeal, maxTank)}
-      </div>`;
+    const peers = b.allies || [];
+    body.innerHTML = [
+      renderBattleInfoCategory("伤害", "dmg", units, maxDmg, peers),
+      renderBattleInfoCategory("治疗", "heal", units, maxHeal, peers),
+      renderBattleInfoCategory("抗伤", "tank", units, maxTank, peers),
+    ].join("");
     modal.classList.remove("hidden");
   }
 
@@ -345,19 +328,10 @@ export function createBattleApi(ctx) {
     let artCls = "";
     let shapeHtml;
     if (enemy) {
-      const props = monsterShapeDomProps(u);
-      const styleAttr = props.style ? ` style="${props.style}"` : "";
-      artCls = props.inner ? " has-monster-art" : "";
-      shapeHtml = props.inner
-        ? `<div class="shape ${props.className}"${styleAttr}>${props.inner}</div>`
-        : `<div class="shape ${props.className}"${styleAttr}></div>`;
+      shapeHtml = unitShapeHtml(u, "md", { enemy: true });
+      if (shapeHtml.includes("monster-art")) artCls = " has-monster-art";
     } else {
-      const shapeClass = u.shape || "square";
-      const shapeStyle =
-        u.shape === "diamond"
-          ? diamondStyleAttr(u, 1.15, peers)
-          : `--c:${u.color}`;
-      shapeHtml = `<div class="shape ${shapeClass}" style="${shapeStyle}"></div>`;
+      shapeHtml = unitShapeHtml(u, "md", { peers });
     }
 
     return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}${spiritCls}${artCls}" data-id="${u.id}" data-col="${u.col ?? 1}" data-kind="${kind}">

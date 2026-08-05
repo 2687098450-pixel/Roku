@@ -580,6 +580,11 @@ function bindExplore() {
         warp.querySelector("#closeWarp")?.click();
         return;
       }
+      const floorMobs = $("floorMobsModal");
+      if (floorMobs && !floorMobs.classList.contains("hidden")) {
+        floorMobs.querySelector("#closeFloorMobs")?.click();
+        return;
+      }
       const bagSell = $("bagSellModal");
       if (bagSell && !bagSell.classList.contains("hidden")) {
         bagSell.querySelector("#closeBagSell")?.click();

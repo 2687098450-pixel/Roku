@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=81";
+import { $, clamp, styleTag, skillPowerText } from "../core/utils.js?v=84";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,12 +45,15 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=81";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=81";
-import { setSavedFormation } from "../characters/stats.js?v=81";
-import { resetGameLocalData } from "../core/save.js?v=81";
-import { createAllUniqueItems } from "../loot/drops.js?v=81";
-import { APP_VERSION } from "../core/version.js?v=81";
+} from "../characters/omni/index.js?v=84";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=84";
+import { setSavedFormation } from "../characters/stats.js?v=84";
+import { resetGameLocalData } from "../core/save.js?v=84";
+import { createAllUniqueItems } from "../loot/drops.js?v=84";
+import { APP_VERSION } from "../core/version.js?v=84";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "../monsters/skills.js?v=84";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=84";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=84";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -181,7 +184,7 @@ export function createUI(ctx) {
         const dead = isHeroDead(h);
         const pct = dead ? 0 : clamp((h.hp / h.maxHp) * 100, 0, 100);
         return `<button type="button" class="strip-hero${dead ? " dead" : ""}" data-id="${h.id}" title="${h.name}${dead ? " · 阵亡" : ""}">
-          <div class="strip-face ${h.shape}" style="${diamondStyleAttr(h, 0.72, party)}"></div>
+          ${unitIconHtml(h, "sm", { peers: party })}
           <div class="strip-hp"><i style="width:${pct}%"></i></div>
         </button>`;
       })
@@ -284,6 +287,86 @@ export function createUI(ctx) {
 
   function closeWarp() {
     $("warpModal")?.classList.add("hidden");
+  }
+
+  function closeFloorMobs() {
+    $("floorMobsModal")?.classList.add("hidden");
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function monsterSkillText(monster) {
+    let ids = monster?.skillIds;
+    if (!ids?.length) {
+      ids = (monster?.skills || []).map((s) => s.id).filter(Boolean);
+    }
+    if (!ids?.length) {
+      ids = TYPE_SKILL_IDS[monster?.kind] || ["gnaw"];
+    }
+    const parts = [];
+    for (const id of ids) {
+      const sk = MONSTER_SKILLS[id];
+      if (!sk) continue;
+      const range = sk.hitAll ? "全体" : sk.hitFront ? "前排" : "";
+      const power = skillPowerText(sk.mult ?? 1, sk.flat ?? 0);
+      parts.push(range ? `${sk.name}（${power} · ${range}）` : `${sk.name}（${power}）`);
+    }
+    return parts.join("、") || "—";
+  }
+
+  function monsterIconHtml(monster) {
+    return unitIconHtml(monster, "sm", { enemy: true });
+  }
+
+  function openFloorMobs() {
+    if (getState().mode === "battle") return;
+    const state = getState();
+    const list = [...(state.monsters || [])].sort((a, b) => {
+      if (!!b.isBoss !== !!a.isBoss) return a.isBoss ? -1 : 1;
+      return String(a.name || "").localeCompare(String(b.name || ""), "zh");
+    });
+    const alive = list.length;
+    const total = state.monsterTotal ?? alive;
+    const title = $("floorMobsTitle");
+    const body = $("floorMobsBody");
+    const modal = $("floorMobsModal");
+    if (!body || !modal) return;
+    if (title) title.textContent = `本层怪物 ${alive}/${total}`;
+    if (!list.length) {
+      body.innerHTML = `<div class="fm-empty">本层已无怪物</div>`;
+    } else {
+      body.innerHTML = list
+        .map((m) => {
+          const hp = Math.max(0, Math.ceil(m.hp ?? m.maxHp ?? 0));
+          const maxHp = Math.max(hp, Math.ceil(m.maxHp ?? hp));
+          const atk = Math.max(0, Math.floor(m.atk ?? 0));
+          const def = Math.max(0, Math.floor(m.def ?? 0));
+          const gold = scaleGoldGain(m.gold || Math.max(1, Math.round((m.exp || 10) * 0.45)));
+          const exp = scaleExpGain(m.exp || 0);
+          const skills = monsterSkillText(m);
+          const bossTag = m.isBoss ? `<span class="fm-tag">Boss</span>` : "";
+          return `<article class="fm-row${m.isBoss ? " is-boss" : ""}">
+            ${monsterIconHtml(m)}
+            <div class="fm-main">
+              <div class="fm-name">${escapeHtml(m.name || "怪物")}${bossTag}</div>
+              <div class="fm-stats">
+                <div>生命 <b>${hp}</b> / ${maxHp}</div>
+                <div>攻击 <b>${atk}</b> · 防御 <b>${def}</b></div>
+                <div>技能 ${escapeHtml(skills)}</div>
+                <div>价值 金币 <b>${gold}</b> · 经验 <b>${exp}</b></div>
+              </div>
+            </div>
+          </article>`;
+        })
+        .join("");
+    }
+    modal.classList.remove("hidden");
   }
 
   function closePhone() {
@@ -401,6 +484,7 @@ export function createUI(ctx) {
     closeEquipPreview();
     closeBagSell();
     closeWarp();
+    closeFloorMobs();
     closePhone();
     closeResetConfirm();
     $("detailModal")?.classList.add("hidden");
@@ -1192,7 +1276,7 @@ export function createUI(ctx) {
     const spinWrap = $("detailSpin");
     const peers = getState().party;
     shape.className = `preview-shape ${hero.shape}`;
-    shape.setAttribute("style", diamondStyleAttr(hero, 2.2, peers));
+    shape.setAttribute("style", diamondStyleAttr(hero, unitDiamondScale("lg"), peers));
     // 转圈仅小粉；按像素高宽比（队伍占比体型）判断纤细
     spinWrap?.classList.toggle(
       "slender-spin",
@@ -1668,7 +1752,7 @@ export function createUI(ctx) {
 
         const ghost = document.createElement("div");
         ghost.className = "form-drag-ghost";
-        ghost.innerHTML = slot.querySelector(".form-face")?.outerHTML || "";
+        ghost.innerHTML = slot.querySelector(".unit-ico")?.outerHTML || "";
         document.body.appendChild(ghost);
         const half = 22;
         ghost.style.left = `${e.clientX - half}px`;
@@ -1736,7 +1820,7 @@ export function createUI(ctx) {
       slots.push(`<div class="form-slot filled${dead ? " dead" : ""}${cap ? " captain" : ""}" data-slot="${i}" data-id="${hero.id}">
         <button type="button" class="form-x" data-undep="${hero.id}" title="下阵">×</button>
         ${cap ? '<span class="form-slot-captain" title="队长">★</span>' : ""}
-        <div class="form-face ${hero.shape}" style="${diamondStyleAttr(hero, 0.95, state.party)}"></div>
+        <div class="form-face-wrap">${unitIconHtml(hero, "sm", { peers: state.party })}</div>
         <b>${hero.name}${dead ? "·亡" : ""}${cap ? "·长" : ""}</b>
         ${
           dead
@@ -1758,7 +1842,7 @@ export function createUI(ctx) {
         return `<div class="form-pool-card ${on ? "on" : ""}${dead ? " dead" : ""}${cap ? " captain" : ""}" data-pool="${h.id}">
           <button type="button" class="form-captain-btn${cap ? " on" : ""}" data-captain="${h.id}" title="${cap ? "当前队长" : "设为队长"}">★</button>
           <div class="form-pool-face">
-            <div class="form-face ${h.shape}" style="${diamondStyleAttr(h, 0.95, state.party)}"></div>
+            ${unitIconHtml(h, "sm", { peers: state.party })}
           </div>
           <span class="form-pool-name">${h.name}</span>
           <span class="form-pool-tag ${on ? "deployed" : ""}${dead ? " dead" : ""}">${tag}</span>
@@ -1848,6 +1932,11 @@ export function createUI(ctx) {
     $("closeEquipPick")?.addEventListener("click", closeEquipPick);
     $("closeBagSell")?.addEventListener("click", closeBagSell);
     $("closeWarp")?.addEventListener("click", closeWarp);
+    $("closeFloorMobs")?.addEventListener("click", closeFloorMobs);
+    $("btnFloorMobs")?.addEventListener("click", openFloorMobs);
+    $("floorMobsModal")?.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeFloorMobs();
+    });
     $("closePhone")?.addEventListener("click", closePhone);
     $("closeResetConfirm")?.addEventListener("click", () => {
       closeResetConfirm();
