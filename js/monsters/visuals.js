@@ -1,3 +1,5 @@
+import { APP_VERSION } from "../core/version.js?v=74";
+
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
  *
@@ -56,7 +58,9 @@ export function monsterKindOf(unit) {
 export function monsterImageUrl(kind) {
   const file = MONSTER_IMAGE_FILES[kind];
   if (!file) return null;
-  return new URL(file, IMAGE_BASE).href;
+  const url = new URL(file, IMAGE_BASE);
+  url.searchParams.set("v", APP_VERSION);
+  return url.href;
 }
 
 /** 当前是否应对该种类画图（开关开且有登记文件） */
