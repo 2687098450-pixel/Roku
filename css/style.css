@@ -525,15 +525,15 @@ html, body {
   border: 3px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
   overflow: hidden;
-  /* 上蓝（怪区）→ 中过渡（按钮带）→ 下绿（英雄区，偏下） */
+  /* 上蓝（怪区）→ 中轴（按钮带 50%）→ 下绿（英雄区）对称 */
   background:
     radial-gradient(ellipse 95% 42% at 50% 12%, rgba(255, 255, 255, 0.5), transparent 58%),
     linear-gradient(
       180deg,
       #a8eaff 0%,
-      #7ed4f5 34%,
-      #c5ec9a 48%,
-      #8ed46e 72%,
+      #7ed4f5 36%,
+      #c5ec9a 50%,
+      #8ed46e 74%,
       #6fc45a 100%
     );
 }
@@ -955,19 +955,19 @@ html, body {
   box-sizing: border-box;
 }
 
-/* 敌方 3 排：与己方同级行高，避免挤在上半 */
+/* 敌方 3 排：关于中轴 50% 与己方对称（中轴上下各留约 6% 给按钮带） */
 .arena-enemy-back {
-  top: 2%;
+  top: 2.5%;
   height: 13.5%;
 }
 
 .arena-enemy-mid {
-  top: 16%;
+  top: 16.5%;
   height: 13.5%;
 }
 
 .arena-enemy-front {
-  top: 30%;
+  top: 30.5%;
   height: 13.5%;
 }
 
@@ -977,8 +977,8 @@ html, body {
 }
 
 .arena-enemy-front.solo-row {
-  top: 12%;
-  height: 26%;
+  top: 10%;
+  height: 32%;
 }
 
 /* 敌我站位盒宽一致；远排仅轻微透视缩放 */
@@ -1008,19 +1008,19 @@ html, body {
   transform: scale(1.08);
 }
 
-/* 己方 3 排：行高与敌方对等 */
+/* 己方 3 排：相对中轴镜像下移（前排顶 = 100% − 敌前排底） */
 .arena-ally-front {
-  top: 54%;
+  top: 56%;
   height: 13.5%;
 }
 
 .arena-ally-mid {
-  top: 67.5%;
+  top: 70%;
   height: 13.5%;
 }
 
 .arena-ally-back {
-  top: 81%;
+  top: 84%;
   height: 13.5%;
 }
 
@@ -1196,6 +1196,9 @@ html, body {
   animation: shake 0.28s ease;
   filter: drop-shadow(0 0 6px rgba(255, 120, 40, 0.85));
 }
+.battle-unit.miss {
+  animation: missFlash 0.45s ease;
+}
 .battle-unit.melee-punched {
   animation: meleePunch 0.26s ease;
 }
@@ -1216,14 +1219,22 @@ html, body {
 
 .arena-fab {
   position: absolute;
-  top: 46%;
+  top: 50%;
   z-index: 6;
   width: 68px;
   height: 68px;
   border: none;
   border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
   font-family: "ZCOOL KuaiLe", cursive;
   font-size: 15px;
+  line-height: 1;
+  text-align: center;
   color: var(--ink);
   background: rgba(255, 250, 242, 0.95);
   box-shadow: 0 6px 0 rgba(58, 42, 26, 0.1), 0 8px 18px rgba(40, 80, 40, 0.12);
@@ -1234,8 +1245,8 @@ html, body {
 .arena-fab.right { right: 10px; }
 .arena-fab.info {
   left: 50%;
-  top: 46%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 62px;
   height: 62px;
   font-size: 14px;
@@ -1243,7 +1254,7 @@ html, body {
   box-shadow: 0 5px 0 rgba(200, 130, 40, 0.22), 0 8px 16px rgba(40, 80, 40, 0.1);
 }
 .arena-fab.info:active:not(:disabled) {
-  transform: translateX(-50%) translateY(3px);
+  transform: translate(-50%, calc(-50% + 3px));
   box-shadow: 0 2px 0 rgba(200, 130, 40, 0.22);
 }
 .arena-fab.on {
@@ -1255,8 +1266,8 @@ html, body {
   opacity: 0.45;
   cursor: default;
 }
-.arena-fab:active:not(:disabled) {
-  transform: translateY(3px);
+.arena-fab:active:not(:disabled):not(.info) {
+  transform: translateY(calc(-50% + 3px));
   box-shadow: 0 2px 0 rgba(58, 42, 26, 0.1);
 }
 
@@ -3093,18 +3104,50 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   padding: 4px 2px 10px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+.bi-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 2px 4px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #f7efe3 70%, rgba(247, 239, 227, 0));
+}
+.bi-tab {
+  flex: 1;
+  border: 2px solid rgba(90, 60, 30, 0.18);
+  border-radius: 12px;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #7a5a40;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.bi-tab:hover {
+  transform: translateY(-1px);
+}
+.bi-tab.on {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(180deg, #f0a040, #d06028);
+  box-shadow: 0 2px 0 rgba(120, 50, 20, 0.25);
+}
+.bi-pane {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
-.bi-cat-title {
+.bi-side-title {
   margin: 0 4px 6px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 900;
   color: #4a3828;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
-.bi-cat-dmg .bi-cat-title { color: #c45a12; }
-.bi-cat-heal .bi-cat-title { color: #2f8a4e; }
-.bi-cat-tank .bi-cat-title { color: #3a6fb5; }
 .bi-list {
   list-style: none;
   margin: 0;
@@ -3148,9 +3191,17 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   width: 0;
   border-radius: inherit;
 }
-.bi-cat-dmg .bi-bar > i { background: linear-gradient(90deg, #f0a040, #e05040); }
-.bi-cat-heal .bi-bar > i { background: linear-gradient(90deg, #7ad48a, #3cb86a); }
-.bi-cat-tank .bi-bar > i { background: linear-gradient(90deg, #7ab0e8, #4a7fd4); }
+.bi-pane-dmg .bi-bar > i { background: linear-gradient(90deg, #f0a040, #e05040); }
+.bi-pane-heal .bi-bar > i { background: linear-gradient(90deg, #7ad48a, #3cb86a); }
+.bi-pane-tank .bi-bar > i { background: linear-gradient(90deg, #7ab0e8, #4a7fd4); }
+.bi-tabs:has(+ .bi-pane-heal) .bi-tab.on {
+  background: linear-gradient(180deg, #5ec878, #2f9a52);
+  box-shadow: 0 2px 0 rgba(30, 90, 40, 0.25);
+}
+.bi-tabs:has(+ .bi-pane-tank) .bi-tab.on {
+  background: linear-gradient(180deg, #6a9ee0, #3a6fb5);
+  box-shadow: 0 2px 0 rgba(30, 60, 110, 0.25);
+}
 .bi-val {
   text-align: right;
   font-size: 12px;
@@ -3272,6 +3323,43 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
+}
+
+@keyframes missFlash {
+  0%, 100% { filter: none; opacity: 1; }
+  35% { filter: brightness(1.4); opacity: 0.55; }
+  70% { opacity: 0.85; }
+}
+
+.status-badges {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 2px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  z-index: 6;
+  pointer-events: none;
+}
+.st-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+}
+.st-badge.debuff { background: rgba(200, 60, 50, 0.92); }
+.st-badge.buff { background: rgba(50, 140, 90, 0.92); }
+
+.skill-btn.silenced {
+  opacity: 0.42;
+  filter: grayscale(0.35);
 }
 
 @keyframes readyPulse {

@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=84";
+import { scaleGoldGain } from "../../core/economy.js?v=91";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -35,6 +35,8 @@ export const BONUS_LABEL = {
   spd: "速度",
   critRate: "暴击率",
   critDmg: "暴击伤害",
+  hitRate: "命中",
+  dodgeRate: "闪避",
 };
 
 /** 品质：白 < 绿 < 蓝 < 紫 < 橙 < 红 */
@@ -62,12 +64,12 @@ export const RARITY = {
 /** 主属性键（整数成长） */
 const PRIMARY_STAT_KEYS = ["hp", "atk", "def", "spd"];
 /** 全部可加成属性（含百分比暴击） */
-const STAT_KEYS = ["hp", "atk", "def", "spd", "critRate", "critDmg"];
-const PCT_STAT_KEYS = new Set(["critRate", "critDmg"]);
-const DPS_STAT_KEYS = ["atk", "spd", "critRate", "critDmg"];
-const TANK_STAT_KEYS = ["hp", "def", "spd"];
+const STAT_KEYS = ["hp", "atk", "def", "spd", "critRate", "critDmg", "hitRate", "dodgeRate"];
+const PCT_STAT_KEYS = new Set(["critRate", "critDmg", "hitRate", "dodgeRate"]);
+const DPS_STAT_KEYS = ["atk", "spd", "critRate", "critDmg", "hitRate"];
+const TANK_STAT_KEYS = ["hp", "def", "spd", "dodgeRate"];
 
-/** 属性词条成长（随装备等级；暴击为小数比例） */
+/** 属性词条成长（随装备等级；暴击/命中/闪避为小数比例） */
 const STAT_AFFIX_GROWTH = {
   hp: { base: 4, perLevel: 2.2 },
   atk: { base: 1, perLevel: 0.42 },
@@ -75,6 +77,8 @@ const STAT_AFFIX_GROWTH = {
   spd: { base: 1, perLevel: 0.18 },
   critRate: { base: 0.012, perLevel: 0.0035 },
   critDmg: { base: 0.04, perLevel: 0.01 },
+  hitRate: { base: 0.04, perLevel: 0.008 },
+  dodgeRate: { base: 0.02, perLevel: 0.005 },
 };
 
 /** 技能词条池（高品质 / Boss）；不含「技能回响」（红装饰品特殊） */
@@ -85,6 +89,17 @@ const SKILL_AFFIX_POOL = [
   { id: "pwr_flat2", skillMods: { powerFlat: 8 }, text: "技能伤害 +8" },
   { id: "heal", skillMods: { healMult: 0.15 }, text: "治疗效果 +15%" },
   { id: "heal2", skillMods: { healMult: 0.25 }, text: "治疗效果 +25%" },
+  { id: "stun_hit", skillMods: { stunChance: 0.18 }, text: "攻击附带眩晕 18%" },
+  { id: "slow_hit", skillMods: { slowChance: 0.22, slowPower: 0.25 }, text: "攻击附带减速 22%" },
+  { id: "silence_hit", skillMods: { silenceChance: 0.12 }, text: "攻击附带禁魔 12%" },
+  {
+    id: "healcut_hit",
+    skillMods: { healCutChance: 0.2, healCutPower: 0.4 },
+    text: "攻击附带减疗 20%",
+  },
+  { id: "self_haste", skillMods: { selfHaste: 0.2 }, text: "施法后增速 20%" },
+  { id: "self_dodge", skillMods: { selfDodge: 0.12 }, text: "施法后闪避 +12%" },
+  { id: "self_hit", skillMods: { selfHit: 0.1 }, text: "施法后命中 +10%" },
 ];
 
 /** 红装戒指/项链特殊词条：多释放 1 次，伤害 ×60% */
@@ -551,7 +566,16 @@ export function slotPrimaryBonus(slot, level, kind = "") {
 }
 
 function emptyBonus() {
-  return { hp: 0, atk: 0, def: 0, spd: 0, critRate: 0, critDmg: 0 };
+  return {
+    hp: 0,
+    atk: 0,
+    def: 0,
+    spd: 0,
+    critRate: 0,
+    critDmg: 0,
+    hitRate: 0,
+    dodgeRate: 0,
+  };
 }
 
 function mergeBonus(...parts) {
@@ -606,6 +630,13 @@ function formatSkillModsText(m = {}) {
       parts.push(`技能伤害×${Math.round(m.hitDamageMult * 100)}%`);
     }
     if (m.healMult) parts.push(`治疗效果 +${Math.round(m.healMult * 100)}%`);
+    if (m.stunChance) parts.push(`攻击附带眩晕 ${Math.round(m.stunChance * 100)}%`);
+    if (m.slowChance) parts.push(`攻击附带减速 ${Math.round(m.slowChance * 100)}%`);
+    if (m.silenceChance) parts.push(`攻击附带禁魔 ${Math.round(m.silenceChance * 100)}%`);
+    if (m.healCutChance) parts.push(`攻击附带减疗 ${Math.round(m.healCutChance * 100)}%`);
+    if (m.selfHaste) parts.push(`施法后增速 ${Math.round(m.selfHaste * 100)}%`);
+    if (m.selfDodge) parts.push(`施法后闪避 +${Math.round(m.selfDodge * 100)}%`);
+    if (m.selfHit) parts.push(`施法后命中 +${Math.round(m.selfHit * 100)}%`);
   }
   return parts.join("，") || "技能强化";
 }
@@ -712,30 +743,58 @@ export function rollAffixes(count, level, opts = {}) {
 }
 
 export function skillModsFromAffixes(affixes = []) {
-  const sum = {
-    powerMult: 0,
-    powerFlat: 0,
-    hitBonus: 0,
-    healMult: 0,
-    hitDamageMult: 1,
-  };
+  const sum = blankSkillModsSum();
   let any = false;
   let hasHitScale = false;
   for (const a of affixes) {
     const m = a?.skillMods;
     if (!m) continue;
     any = true;
-    sum.powerMult += m.powerMult || 0;
-    sum.powerFlat += m.powerFlat || 0;
-    sum.hitBonus += m.hitBonus || 0;
-    sum.healMult += m.healMult || 0;
-    if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
-      sum.hitDamageMult *= m.hitDamageMult;
-      hasHitScale = true;
-    }
+    mergeSkillModsInto(sum, m);
+    if (m.hitDamageMult != null && m.hitDamageMult !== 1) hasHitScale = true;
   }
   if (!hasHitScale) delete sum.hitDamageMult;
   return any ? sum : null;
+}
+
+function blankSkillModsSum() {
+  return {
+    powerMult: 0,
+    powerFlat: 0,
+    hitBonus: 0,
+    healMult: 0,
+    hitDamageMult: 1,
+    stunChance: 0,
+    stunGauge: 0,
+    slowChance: 0,
+    slowPower: 0,
+    silenceChance: 0,
+    healCutChance: 0,
+    healCutPower: 0,
+    selfHaste: 0,
+    selfDodge: 0,
+    selfHit: 0,
+  };
+}
+
+function mergeSkillModsInto(sum, m) {
+  sum.powerMult += m.powerMult || 0;
+  sum.powerFlat += m.powerFlat || 0;
+  sum.hitBonus += m.hitBonus || 0;
+  sum.healMult += m.healMult || 0;
+  if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
+    sum.hitDamageMult *= m.hitDamageMult;
+  }
+  sum.stunChance += m.stunChance || 0;
+  sum.stunGauge = Math.max(sum.stunGauge || 0, m.stunGauge || 0);
+  sum.slowChance += m.slowChance || 0;
+  sum.slowPower = Math.max(sum.slowPower || 0, m.slowPower || 0);
+  sum.silenceChance += m.silenceChance || 0;
+  sum.healCutChance += m.healCutChance || 0;
+  sum.healCutPower = Math.max(sum.healCutPower || 0, m.healCutPower || 0);
+  sum.selfHaste = Math.max(sum.selfHaste || 0, m.selfHaste || 0);
+  sum.selfDodge = Math.max(sum.selfDodge || 0, m.selfDodge || 0);
+  sum.selfHit = Math.max(sum.selfHit || 0, m.selfHit || 0);
 }
 
 export function bonusFromParts(primary = {}, affixes = []) {
@@ -769,7 +828,9 @@ export function itemPrice(item) {
     (bonus.def || 0) * 4 +
     (bonus.spd || 0) * 4 +
     (bonus.critRate || 0) * 220 +
-    (bonus.critDmg || 0) * 80;
+    (bonus.critDmg || 0) * 80 +
+    (bonus.hitRate || 0) * 180 +
+    (bonus.dodgeRate || 0) * 220;
   const affixN = (item.affixes || []).length || affixCountForRarity(item.rarity);
   const raw = Math.max(
     1,
@@ -871,25 +932,13 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
 }
 
 export function sumSkillMods(equip = {}) {
-  const sum = {
-    powerMult: 0,
-    powerFlat: 0,
-    hitBonus: 0,
-    healMult: 0,
-    hitDamageMult: 1,
-  };
+  const sum = blankSkillModsSum();
   let hasHitScale = false;
   for (const key of SLOT_KEYS) {
     const m = equip[key]?.skillMods;
     if (!m) continue;
-    sum.powerMult += m.powerMult || 0;
-    sum.powerFlat += m.powerFlat || 0;
-    sum.hitBonus += m.hitBonus || 0;
-    sum.healMult += m.healMult || 0;
-    if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
-      sum.hitDamageMult *= m.hitDamageMult;
-      hasHitScale = true;
-    }
+    mergeSkillModsInto(sum, m);
+    if (m.hitDamageMult != null && m.hitDamageMult !== 1) hasHitScale = true;
   }
   if (!hasHitScale) delete sum.hitDamageMult;
   return sum;

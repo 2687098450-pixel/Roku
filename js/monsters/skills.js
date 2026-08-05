@@ -1,6 +1,19 @@
 /**
  * 怪物技能（小怪强度弱于 Boss；后期种类技能倍率更高）
+ *
+ * 玩家可见文案只写范围 / 控制 / 持续类型，不写伤害公式。
+ * 范围：单体 | 前排 | 全体 | 目标十字 | 目标一行 | 目标一列
+ * 持续伤害两种：
+ * - onAct：目标行动时跳一次（常用）
+ * - pulse：每走 10 行动点跳一次（少用，单跳有倍率上限）
  */
+
+/** 脉动 DoT：每走多少行动点跳一次 */
+export const PULSE_DOT_INTERVAL = 10;
+/** 脉动单跳相对施法者攻击力的硬顶（防超模） */
+export const PULSE_DOT_TICK_CAP_MULT = 0.12;
+/** 脉动 DoT 最长行动条（约 ≤4 跳） */
+export const PULSE_DOT_MAX_GAUGE = 40;
 
 export const MONSTER_SKILLS = {
   // —— 史莱姆 ——
@@ -52,9 +65,11 @@ export const MONSTER_SKILLS = {
     id: "spore",
     name: "孢子",
     style: "ranged",
-    mult: 0.9,
+    mult: 0.7,
     flat: 0,
     weight: 0.5,
+    // 行动时持续伤害（常用型）
+    dot: { type: "onAct", mult: 0.18, flat: 0, gauge: 50 },
   },
   puff: {
     id: "puff",
@@ -78,9 +93,9 @@ export const MONSTER_SKILLS = {
     id: "quake",
     name: "震地",
     style: "melee",
-    mult: 0.6,
+    mult: 0.55,
     flat: 0,
-    hitFront: true,
+    hitCross: true,
     weight: 0.35,
   },
   // —— 幽光萤 ——
@@ -123,18 +138,22 @@ export const MONSTER_SKILLS = {
     id: "venom_bite",
     name: "毒咬",
     style: "melee",
-    mult: 1.2,
-    flat: 2,
+    mult: 0.95,
+    flat: 1,
     weight: 0.55,
+    // 行动时持续伤害
+    dot: { type: "onAct", mult: 0.22, flat: 1, gauge: 50 },
   },
   web_spray: {
     id: "web_spray",
     name: "蛛网",
     style: "ranged",
-    mult: 0.55,
+    mult: 0.4,
     flat: 0,
     hitFront: true,
     weight: 0.45,
+    // 脉动持续：少用；单跳受 PULSE_DOT_TICK_CAP_MULT 限制
+    dot: { type: "pulse", mult: 0.1, flat: 0, gauge: 40, interval: PULSE_DOT_INTERVAL },
   },
   // —— 暗影狼 ——
   rend: {
@@ -167,8 +186,9 @@ export const MONSTER_SKILLS = {
     id: "wind_slash",
     name: "风刃",
     style: "ranged",
-    mult: 0.95,
-    flat: 2,
+    mult: 0.7,
+    flat: 1,
+    hitRow: true,
     weight: 0.45,
   },
   // —— 堕落骑士 ——
@@ -220,9 +240,9 @@ export const MONSTER_SKILLS = {
     id: "stomp",
     name: "践踏",
     style: "melee",
-    mult: 0.7,
+    mult: 0.65,
     flat: 2,
-    hitFront: true,
+    hitCross: true,
     weight: 0.35,
   },
   // —— 影魔 ——
@@ -247,8 +267,9 @@ export const MONSTER_SKILLS = {
     id: "ice_lance",
     name: "冰枪",
     style: "ranged",
-    mult: 1.3,
-    flat: 5,
+    mult: 0.8,
+    flat: 2,
+    hitCol: true,
     weight: 0.55,
   },
   blizzard: {
@@ -303,6 +324,7 @@ export const MONSTER_SKILLS = {
     mult: 1.35,
     flat: 4,
     weight: 0.4,
+    apply: { stun: true },
   },
   quake_roar: {
     id: "quake_roar",
@@ -312,6 +334,7 @@ export const MONSTER_SKILLS = {
     flat: 2,
     hitFront: true,
     weight: 0.35,
+    apply: { slow: 0.3 },
   },
   soul_drain: {
     id: "soul_drain",
@@ -320,6 +343,7 @@ export const MONSTER_SKILLS = {
     mult: 1.1,
     flat: 2,
     weight: 0.25,
+    apply: { healCut: 0.35 },
   },
   boss_cleave: {
     id: "boss_cleave",
@@ -355,7 +379,85 @@ export const MONSTER_SKILLS = {
     hitFront: true,
     weight: 0.22,
   },
+
+  // —— 控制类（随层解锁挂到小怪 / Boss）——
+  slow_strike: {
+    id: "slow_strike",
+    name: "绊击",
+    style: "melee",
+    mult: 0.9,
+    flat: 0,
+    weight: 0.4,
+    apply: { slow: 0.25 },
+  },
+  healcut_spit: {
+    id: "healcut_spit",
+    name: "蚀疗",
+    style: "ranged",
+    mult: 0.75,
+    flat: 1,
+    weight: 0.35,
+    apply: { healCut: 0.4 },
+  },
+  mute_hex: {
+    id: "mute_hex",
+    name: "禁咒",
+    style: "ranged",
+    mult: 0.65,
+    flat: 0,
+    weight: 0.3,
+    apply: { silence: true },
+  },
+  bash_stun: {
+    id: "bash_stun",
+    name: "晕击",
+    style: "melee",
+    mult: 0.85,
+    flat: 2,
+    weight: 0.28,
+    apply: { stun: true },
+  },
+  boss_slow: {
+    id: "boss_slow",
+    name: "重压迟滞",
+    style: "melee",
+    mult: 1.05,
+    flat: 4,
+    hitFront: true,
+    weight: 0.28,
+    apply: { slow: 0.35 },
+  },
+  boss_silence: {
+    id: "boss_silence",
+    name: "封印之吼",
+    style: "ranged",
+    mult: 0.8,
+    flat: 3,
+    hitAll: true,
+    weight: 0.24,
+    apply: { silence: true },
+  },
+  boss_healcut: {
+    id: "boss_healcut",
+    name: "血咒",
+    style: "ranged",
+    mult: 1.0,
+    flat: 5,
+    weight: 0.26,
+    apply: { healCut: 0.5 },
+  },
 };
+
+/** 小怪按层解锁的控制技能（程度越深层数越高） */
+export function trashControlSkillIdsForFloor(floor) {
+  const f = Math.max(1, floor || 1);
+  const ids = [];
+  if (f >= 6) ids.push("slow_strike");
+  if (f >= 10) ids.push("healcut_spit");
+  if (f >= 14) ids.push("mute_hex");
+  if (f >= 18) ids.push("bash_stun");
+  return ids;
+}
 
 export const TYPE_SKILL_IDS = {
   slime: ["gnaw"],
@@ -382,7 +484,11 @@ export const TYPE_SKILL_IDS = {
 export function bossSkillIdsForFloor(floor) {
   const f = Math.max(1, floor || 1);
   const ids = ["crush", "quake_roar", "soul_drain"];
+  if (f >= 5) ids.push("boss_slow");
+  if (f >= 8) ids.push("boss_healcut");
+  if (f >= 12) ids.push("boss_silence");
   if (f >= 15) ids.push("boss_cleave");
+  if (f >= 18) ids.push("bash_stun");
   if (f >= 25) ids.push("boss_meteor");
   if (f >= 35) ids.push("boss_void");
   if (f >= 45) ids.push("boss_apocalypse");
@@ -390,10 +496,19 @@ export function bossSkillIdsForFloor(floor) {
 }
 
 export function pickMonsterSkill(monster) {
-  const ids = monster.skillIds || TYPE_SKILL_IDS[monster.kind] || ["gnaw"];
-  const pool = ids
-    .map((id) => MONSTER_SKILLS[id])
-    .filter(Boolean);
+  let ids = monster.skillIds || TYPE_SKILL_IDS[monster.kind] || ["gnaw"];
+  // 禁魔：只能用单体基础技（无控制、无群体、无持续）
+  if (monster.statuses?.silence && (monster.statuses.silence.remain || 0) > (monster.statuses.silence.bar || 0)) {
+    ids = ids.filter((id) => {
+      const sk = MONSTER_SKILLS[id];
+      if (!sk) return false;
+      if (monsterSkillIsAoe(sk) || sk.dot) return false;
+      if (sk.apply && Object.keys(sk.apply).length) return false;
+      return true;
+    });
+    if (!ids.length) ids = ["gnaw"];
+  }
+  const pool = ids.map((id) => MONSTER_SKILLS[id]).filter(Boolean);
   if (!pool.length) return MONSTER_SKILLS.gnaw;
   const total = pool.reduce((s, sk) => s + (sk.weight || 1), 0);
   let r = Math.random() * total;
@@ -408,4 +523,61 @@ export function monsterSkillDamage(monster, skill) {
   const mult = skill.mult ?? 1;
   const flat = skill.flat ?? 0;
   return Math.max(1, Math.floor((monster.atk || 0) * mult) + flat);
+}
+
+/** 是否群体 / 范围技 */
+export function monsterSkillIsAoe(sk) {
+  return !!(sk?.hitAll || sk?.hitFront || sk?.hitCross || sk?.hitRow || sk?.hitCol);
+}
+
+/** 范围文案（玩家可见） */
+export function monsterSkillRangeLabel(sk) {
+  if (!sk) return "单体";
+  if (sk.hitAll) return "全体";
+  if (sk.hitFront) return "前排";
+  if (sk.hitCross) return "目标十字";
+  if (sk.hitRow) return "目标一行";
+  if (sk.hitCol) return "目标一列";
+  return "单体";
+}
+
+/** 持续伤害文案 */
+export function monsterSkillDotLabel(sk) {
+  if (!sk?.dot) return "";
+  if (sk.dot.type === "pulse") return "脉动持续伤害";
+  if (sk.dot.type === "onAct") return "行动时持续伤害";
+  return "持续伤害";
+}
+
+/** 本层怪物列表等：名称 + 范围/控制/持续，不写伤害公式 */
+export function monsterSkillBrief(sk) {
+  if (!sk) return "";
+  const tags = [monsterSkillRangeLabel(sk)];
+  if (sk.apply?.stun) tags.push("眩晕");
+  if (sk.apply?.slow != null) tags.push("减速");
+  if (sk.apply?.silence) tags.push("禁魔");
+  if (sk.apply?.healCut != null) tags.push("减疗");
+  const dot = monsterSkillDotLabel(sk);
+  if (dot) tags.push(dot);
+  return `${sk.name}（${tags.join(" · ")}）`;
+}
+
+/** 脉动/行动持续：单跳伤害；脉动型有硬顶 */
+export function monsterDotTickDamage(casterAtk, dot) {
+  const atk = Math.max(0, Number(casterAtk) || 0);
+  const mult = Number(dot?.mult) || 0;
+  const flat = Number(dot?.flat) || 0;
+  let dmg = Math.max(1, Math.floor(atk * mult) + flat);
+  if (dot?.type === "pulse") {
+    const cap = Math.max(1, Math.floor(atk * PULSE_DOT_TICK_CAP_MULT));
+    dmg = Math.min(dmg, cap);
+  }
+  return dmg;
+}
+
+/** 应用持续时钳制脉动时长 */
+export function clampMonsterDotGauge(dot) {
+  let gauge = Math.max(1, Math.floor(dot?.gauge ?? 50));
+  if (dot?.type === "pulse") gauge = Math.min(gauge, PULSE_DOT_MAX_GAUGE);
+  return gauge;
 }

@@ -11,10 +11,10 @@ import {
   rebuildEquipStats,
   refreshSkillTexts,
   expToNext,
-} from "../characters/omni/index.js?v=84";
-import { createPatrolMonster } from "../monsters/slime.js?v=84";
-import { createBoss } from "../monsters/boss.js?v=84";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=84";
+} from "../characters/omni/index.js?v=91";
+import { createPatrolMonster } from "../monsters/slime.js?v=91";
+import { createBoss } from "../monsters/boss.js?v=91";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=91";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -85,8 +85,16 @@ function applyHeroSave(hero, data) {
   if (!hero || !data) return hero;
   hero.level = Math.max(1, Math.floor(data.level || 1));
   hero.exp = Math.max(0, Math.floor(data.exp || 0));
-  hero.maxExp = data.maxExp || expToNext(hero.level);
+  hero.maxExp = expToNext(hero.level);
   hero.skillPoints = Math.max(0, Math.floor(data.skillPoints || 0));
+  // 经验曲线下调后，用当前经验把该升的级升完
+  let guard = 0;
+  while (hero.exp >= hero.maxExp && guard++ < 50) {
+    hero.exp -= hero.maxExp;
+    hero.level += 1;
+    hero.skillPoints += 1;
+    hero.maxExp = expToNext(hero.level);
+  }
   hero.skillLevels = { ...(data.skillLevels || {}) };
   hero.dead = !!data.dead;
   if (data.critRate != null) hero.critRate = data.critRate;

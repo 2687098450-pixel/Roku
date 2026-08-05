@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=84";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=84";
+import { $, clamp, irand } from "../core/utils.js?v=91";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=91";
 import {
   refreshHeroStats,
   skillPower,
@@ -16,32 +16,54 @@ import {
   activeSkills,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=84";
+} from "../characters/omni/index.js?v=91";
 import {
   gainExp,
   splitExp,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
+  DEFAULT_HIT_RATE,
+  DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=84";
+} from "../characters/progression.js?v=91";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=84";
-import { buildEncounter } from "../monsters/roster.js?v=84";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=84";
-import { rollBattleLoot } from "../loot/drops.js?v=84";
+} from "../characters/skills.js?v=91";
+import { buildEncounter } from "../monsters/roster.js?v=91";
+import {
+  pickMonsterSkill,
+  monsterSkillDamage,
+  monsterDotTickDamage,
+  clampMonsterDotGauge,
+  PULSE_DOT_INTERVAL,
+} from "../monsters/skills.js?v=91";
+import { rollBattleLoot } from "../loot/drops.js?v=91";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=84";
-import { createTicker } from "../core/time.js?v=84";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=84";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=84";
+} from "../characters/stats.js?v=91";
+import { createTicker } from "../core/time.js?v=91";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=91";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=91";
+import {
+  applyStun as applyStunStatus,
+  isStunned,
+  isSilenced,
+  rollHit,
+  healReceivedMult,
+  tryApplySkillStatuses,
+  tryApplySelfBuffs,
+  tickStatuses,
+  effectiveSpd,
+  statusBadgesHtml,
+  DEFAULT_STATUS_GAUGE,
+} from "./status.js?v=91";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=91";
 
 export function createBattleApi(ctx) {
   const {
@@ -64,6 +86,10 @@ export function createBattleApi(ctx) {
 
   function setBattleButtons(on) {
     document.querySelectorAll(".skill-btn").forEach((b) => {
+      if (b.dataset.silenced === "1") {
+        b.disabled = true;
+        return;
+      }
       b.disabled = !on;
     });
   }
@@ -117,11 +143,15 @@ export function createBattleApi(ctx) {
     return Math.max(4, Math.min(100, Math.round((val / max) * 100)));
   }
 
-  function renderBattleInfoCategory(title, metricKey, units, maxVal, allyPeers) {
-    const sorted = units
+  let battleInfoTab = "dmg";
+
+  function renderBattleInfoRows(units, metricKey, maxVal, allyPeers) {
+    if (!units.length) {
+      return `<li class="bi-empty-row">暂无</li>`;
+    }
+    return units
       .slice()
-      .sort((a, b) => (b.combat?.[metricKey] || 0) - (a.combat?.[metricKey] || 0));
-    const rows = sorted
+      .sort((a, b) => (b.combat?.[metricKey] || 0) - (a.combat?.[metricKey] || 0))
       .map((u) => {
         const val = ensureCombat(u)[metricKey] || 0;
         const dead = u.hp <= 0;
@@ -135,28 +165,55 @@ export function createBattleApi(ctx) {
         </li>`;
       })
       .join("");
-    return `<section class="bi-cat bi-cat-${metricKey}">
-      <h3 class="bi-cat-title">${title}</h3>
-      <ul class="bi-list">${rows || `<li class="bi-empty-row">暂无</li>`}</ul>
-    </section>`;
+  }
+
+  function renderBattleInfoPanel() {
+    const b = getState().battle;
+    const body = $("battleInfoBody");
+    if (!b || !body) return;
+    const tab = battleInfoTab;
+    const units = battleUnits(b);
+    for (const u of units) ensureCombat(u);
+    const maxVal = units.reduce((m, u) => Math.max(m, u.combat?.[tab] || 0), 0);
+    const peers = b.allies || [];
+    const tabs = [
+      { id: "dmg", label: "伤害" },
+      { id: "heal", label: "治疗" },
+      { id: "tank", label: "抗伤" },
+    ];
+    body.innerHTML = `
+      <div class="bi-tabs" role="tablist">
+        ${tabs
+          .map(
+            (t) =>
+              `<button type="button" class="bi-tab${t.id === tab ? " on" : ""}" data-bi-tab="${t.id}" role="tab" aria-selected="${t.id === tab}">${t.label}</button>`
+          )
+          .join("")}
+      </div>
+      <div class="bi-pane bi-pane-${tab}">
+        <section class="bi-side">
+          <h3 class="bi-side-title">己方</h3>
+          <ul class="bi-list">${renderBattleInfoRows(b.allies || [], tab, maxVal, peers)}</ul>
+        </section>
+        <section class="bi-side">
+          <h3 class="bi-side-title">敌方</h3>
+          <ul class="bi-list">${renderBattleInfoRows(b.enemies || [], tab, maxVal, peers)}</ul>
+        </section>
+      </div>`;
+    body.querySelectorAll("[data-bi-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        battleInfoTab = btn.dataset.biTab || "dmg";
+        renderBattleInfoPanel();
+      });
+    });
   }
 
   function openBattleInfo() {
     const b = getState().battle;
     const modal = $("battleInfoModal");
-    const body = $("battleInfoBody");
-    if (!b || !modal || !body) return;
-    const units = battleUnits(b);
-    for (const u of units) ensureCombat(u);
-    const maxDmg = units.reduce((m, u) => Math.max(m, u.combat.dmg), 0);
-    const maxHeal = units.reduce((m, u) => Math.max(m, u.combat.heal), 0);
-    const maxTank = units.reduce((m, u) => Math.max(m, u.combat.tank), 0);
-    const peers = b.allies || [];
-    body.innerHTML = [
-      renderBattleInfoCategory("伤害", "dmg", units, maxDmg, peers),
-      renderBattleInfoCategory("治疗", "heal", units, maxHeal, peers),
-      renderBattleInfoCategory("抗伤", "tank", units, maxTank, peers),
-    ].join("");
+    if (!b || !modal) return;
+    if (!["dmg", "heal", "tank"].includes(battleInfoTab)) battleInfoTab = "dmg";
+    renderBattleInfoPanel();
     modal.classList.remove("hidden");
   }
 
@@ -248,6 +305,80 @@ export function createBattleApi(ctx) {
     });
   }
 
+  /** 友军：目标十字（中心 + 正交邻格） */
+  function allyCrossTargets(b, center) {
+    if (!center) return [];
+    return targetableAllies(b).filter((a) => a.id === center.id || isCrossNeighbor(center, a));
+  }
+
+  function allyRowTargets(b, center) {
+    if (!center) return [];
+    return targetableAllies(b).filter((a) => a.row === center.row);
+  }
+
+  function allyColTargets(b, center) {
+    if (!center) return [];
+    return targetableAllies(b).filter((a) => a.col === center.col);
+  }
+
+  /** 怪物技能目标选取 */
+  function pickEnemySkillTargets(b, skill) {
+    if (skill.hitAll) return targetableAllies(b);
+    if (skill.hitFront) {
+      const front = frontAllies(b);
+      return front.length ? front : targetableAllies(b);
+    }
+    const primary = pickAllyTarget(b);
+    if (!primary) return [];
+    if (skill.hitCross) return allyCrossTargets(b, primary);
+    if (skill.hitRow) return allyRowTargets(b, primary);
+    if (skill.hitCol) return allyColTargets(b, primary);
+    return [primary];
+  }
+
+  function applyMonsterDot(target, caster, skill) {
+    const def = skill?.dot;
+    if (!def || !target || target.hp <= 0) return;
+    const type = def.type === "pulse" ? "pulse" : "onAct";
+    target.dot = {
+      type,
+      tickDmg: monsterDotTickDamage(caster?.atk || 0, { ...def, type }),
+      remain: clampMonsterDotGauge({ ...def, type }),
+      bar: 0,
+      walk: 0,
+      interval: type === "pulse" ? def.interval || PULSE_DOT_INTERVAL : 0,
+      sourceId: caster?.id || null,
+    };
+  }
+
+  function advanceUnitDot(b, unit, walked) {
+    const d = unit?.dot;
+    if (!d || unit.hp <= 0) {
+      if (unit) unit.dot = null;
+      return;
+    }
+    d.bar = (d.bar || 0) + walked;
+    if (d.type === "pulse") {
+      d.walk = (d.walk || 0) + walked;
+      const interval = d.interval || PULSE_DOT_INTERVAL;
+      while (d.walk >= interval) {
+        d.walk -= interval;
+        const src = findUnitById(b, d.sourceId);
+        dealDamage(unit, d.tickDmg, { source: src || null });
+        if (unit.hp <= 0) break;
+      }
+    }
+    if (d.bar >= d.remain) unit.dot = null;
+  }
+
+  /** 行动时持续：出手瞬间跳伤 */
+  function triggerActDot(b, unit) {
+    const d = unit?.dot;
+    if (!d || d.type !== "onAct" || unit.hp <= 0) return;
+    const src = findUnitById(b, d.sourceId);
+    dealDamage(unit, d.tickDmg, { source: src || null });
+  }
+
   const SKILL_ICON = {
     attack: "斩",
     radiant: "光",
@@ -269,6 +400,8 @@ export function createBattleApi(ctx) {
     const box = $("battleActions");
     if (!box || !hero) return;
     const actives = activeSkills(hero);
+    const silenced = isSilenced(unit);
+    const basicId = basicAttackId(hero);
     box.innerHTML = actives
       .map((sk) => {
         const icon = SKILL_ICON[sk.id] || "技";
@@ -278,7 +411,8 @@ export function createBattleApi(ctx) {
             : sk.style === "buff"
               ? "skill-btn skill buff"
               : "skill-btn skill";
-        return `<button type="button" class="${cls}" data-skill="${sk.id}" disabled>
+        const locked = silenced && sk.id !== basicId;
+        return `<button type="button" class="${cls}${locked ? " silenced" : ""}" data-skill="${sk.id}"${locked ? ' data-silenced="1"' : ""} disabled title="${locked ? "禁魔中：仅可普通攻击" : ""}">
           <span class="skill-icon" data-kind="${sk.id}">${icon}</span>
           <span class="skill-name">${sk.name}</span>
         </button>`;
@@ -292,6 +426,17 @@ export function createBattleApi(ctx) {
 
   function effectiveDef(unit) {
     return Math.max(0, Math.floor((unit.def || 0) * (1 + (unit.defBuff || 0))));
+  }
+
+  /**
+   * 攻防结算：伤害 = atk² / (atk + def)，至少 1
+   * （与 atk×atk/(atk+def) 相同）
+   */
+  function mitigatedDamage(power, def) {
+    const atk = Math.max(0, Number(power) || 0);
+    const d = Math.max(0, Number(def) || 0);
+    if (atk <= 0) return 1;
+    return Math.max(1, Math.floor((atk * atk) / (atk + d)));
   }
 
   function unitCritRate(unit) {
@@ -341,6 +486,7 @@ export function createBattleApi(ctx) {
       </div>
       <div class="shape-wrap" data-wrap="${u.id}">
         ${stunMark}
+        ${statusBadgesHtml(u)}
         ${shapeHtml}
         <div class="unit-shadow"></div>
       </div>
@@ -404,11 +550,22 @@ export function createBattleApi(ctx) {
   function dealDamage(target, power, opts = {}) {
     if (!target || target.hp <= 0) return 0;
     if (target.spiritForm) return 0;
+    if (!opts.trueDamage && !opts.skipHitCheck && opts.source) {
+      if (!rollHit(opts.source, target)) {
+        const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
+        if (unit) {
+          unit.classList.remove("hit", "crit", "miss");
+          void unit.offsetWidth;
+          unit.classList.add("miss");
+        }
+        return 0;
+      }
+    }
     let raw;
     if (opts.trueDamage) {
       raw = Math.max(1, Math.floor(power));
     } else {
-      raw = Math.max(1, power - effectiveDef(target) + irand(-1, 2));
+      raw = Math.max(1, mitigatedDamage(power, effectiveDef(target)) + irand(-1, 2));
     }
     let crit = false;
     if (opts.canCrit) {
@@ -423,7 +580,7 @@ export function createBattleApi(ctx) {
     recordDamage(opts.source || null, target, raw);
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
-      unit.classList.remove("hit", "crit");
+      unit.classList.remove("hit", "crit", "miss");
       void unit.offsetWidth;
       unit.classList.add(crit ? "crit" : "hit");
     }
@@ -499,12 +656,14 @@ export function createBattleApi(ctx) {
       1,
       Math.floor(skillPower(effectiveAtk(attacker), skillId, mods, lv) * scale)
     );
-    return dealDamage(target, power, {
+    const dealt = dealDamage(target, power, {
       canCrit: true,
       critRate: unitCritRate(attacker),
       critDmg: unitCritDmg(attacker),
       source: attacker,
     });
+    if (dealt > 0) tryApplySkillStatuses(attacker, target, {}, mods);
+    return dealt;
   }
 
   /** 强化爆裂矢：3+回响 段，每段写入倍率的半伤（再乘回响 60%），击杀额外 +1 段 */
@@ -524,12 +683,13 @@ export function createBattleApi(ctx) {
         ...fxMeta,
         shotDuration: 160,
       });
-      dealDamage(t, shotPower, {
+      const dealt = dealDamage(t, shotPower, {
         canCrit: true,
         critRate: unitCritRate(ally),
         critDmg: unitCritDmg(ally),
         source: ally,
       });
+      if (dealt > 0) tryApplySkillStatuses(ally, t, {}, mods);
       if (t.hp <= 0) remaining += 1;
       renderBattle(b);
     }
@@ -537,7 +697,8 @@ export function createBattleApi(ctx) {
 
   function applyHeal(target, amount, opts = {}) {
     const before = target.hp;
-    target.hp = Math.min(target.maxHp, target.hp + amount);
+    const scaled = Math.max(0, Math.floor(amount * healReceivedMult(target)));
+    target.hp = Math.min(target.maxHp, target.hp + scaled);
     const healed = target.hp - before;
     if (healed > 0) recordHeal(opts.source || null, healed);
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
@@ -740,6 +901,11 @@ export function createBattleApi(ctx) {
   }
 
   function firstUsableSkill(b, hero) {
+    const ally = b.allies?.find((a) => a.id === hero?.id);
+    if (ally && isSilenced(ally)) {
+      const basic = basicAttackId(hero);
+      if (canUseSkill(b, basic)) return basic;
+    }
     const actives = activeSkills(hero);
     for (const sk of actives) {
       if (canUseSkill(b, sk.id)) return sk.id;
@@ -800,7 +966,14 @@ export function createBattleApi(ctx) {
   async function resolveHeroSkill(b, ally, skillId, opts = {}) {
     const hero = actingHero(ally);
     let used = skillId;
+    if (isSilenced(ally) && used !== basicAttackId(hero)) {
+      used = basicAttackId(hero);
+    }
     if (!canUseSkill(b, used)) used = firstUsableSkill(b, hero);
+    if (isSilenced(ally)) {
+      const basic = basicAttackId(hero);
+      if (canUseSkill(b, basic)) used = basic;
+    }
     if (!used || !canUseSkill(b, used)) return false;
 
     const skillLv = getSkillLevel(hero, used);
@@ -814,6 +987,8 @@ export function createBattleApi(ctx) {
       statsId: hero?.statsId || "",
       color: hero?.color || ally.color || "",
     };
+
+    tryApplySelfBuffs(ally, mods);
 
     let appliedBuff = false;
     if (isBuffSkill(used)) {
@@ -868,7 +1043,7 @@ export function createBattleApi(ctx) {
             if (t.hp <= 0) continue;
             heroStrike(ally, t, used, mods);
           }
-          if (h === 0) applyStun(t, stunNeed);
+          if (h === 0) applyStunStatus(t, stunNeed);
         }
       }
     } else if (
@@ -901,17 +1076,9 @@ export function createBattleApi(ctx) {
     return true;
   }
 
-  /** 施加眩晕：stun = 隐形行动条目标值；期间真实行动条冻结 */
+  /** 施加眩晕：默认行动条 50 */
   function applyStun(unit, amount) {
-    if (!unit || !(amount > 0)) return;
-    const need = Math.max(1, Math.floor(amount));
-    // 重复上晕：取更高目标并重置隐形条
-    unit.stun = Math.max(unit.stun || 0, need);
-    unit.stunBar = 0;
-  }
-
-  function isStunned(unit) {
-    return !!(unit && unit.stun > 0);
+    applyStunStatus(unit, amount != null ? amount : DEFAULT_STATUS_GAUGE);
   }
 
   async function resolveEnemySkill(b, actor) {
@@ -923,17 +1090,7 @@ export function createBattleApi(ctx) {
 
     const skill = pickMonsterSkill(actor);
     const power = monsterSkillDamage(actor, skill);
-    let targets = [];
-
-    if (skill.hitAll) {
-      targets = targetableAllies(b);
-    } else if (skill.hitFront) {
-      const front = frontAllies(b);
-      targets = front.length ? front : targetableAllies(b);
-    } else {
-      const t = pickAllyTarget(b);
-      if (t) targets = [t];
-    }
+    const targets = pickEnemySkillTargets(b, skill);
 
     // 无目标时也算消耗回合，避免行动条顶满却卡住
     if (!targets.length) {
@@ -945,7 +1102,13 @@ export function createBattleApi(ctx) {
       statsId: "enemy",
       color: actor.color || "",
     });
-    for (const t of targets) dealDamage(t, power, { source: actor });
+    for (const t of targets) {
+      const dealt = dealDamage(t, power, { source: actor });
+      if (dealt > 0) {
+        tryApplySkillStatuses(actor, t, skill.apply || {}, null);
+        applyMonsterDot(t, actor, skill);
+      }
+    }
     syncHeroHp(b);
     renderBattle(b);
   }
@@ -963,7 +1126,7 @@ export function createBattleApi(ctx) {
     for (const u of battleUnits(b)) {
       if (u.hp <= 0 || isStunned(u)) continue;
       if (u.gauge < GAUGE_MAX) continue;
-      if (!ready || u.spd > ready.spd) ready = u;
+      if (!ready || effectiveSpd(u) > effectiveSpd(ready)) ready = u;
     }
     return ready;
   }
@@ -1003,8 +1166,16 @@ export function createBattleApi(ctx) {
     b.waitingPlayer = false;
     setBattleButtons(false);
 
+    triggerActDot(b, unit);
+    syncHeroHp(b);
+    if (unit.hp <= 0) {
+      await finishUnitAction(b);
+      return;
+    }
+
     const hero = actingHero(unit);
-    const { skillId, nextIndex } = nextAutoSkill(hero, unit.rotIndex || 0);
+    let { skillId, nextIndex } = nextAutoSkill(hero, unit.rotIndex || 0);
+    if (isSilenced(unit)) skillId = basicAttackId(hero);
     unit.rotIndex = nextIndex;
     try {
       await resolveHeroSkill(b, unit, skillId);
@@ -1037,6 +1208,9 @@ export function createBattleApi(ctx) {
     }
 
     try {
+      triggerActDot(b, unit);
+      syncHeroHp(b);
+      if (unit.hp <= 0) return;
       await resolveEnemySkill(b, unit);
     } finally {
       await finishUnitAction(b);
@@ -1052,6 +1226,9 @@ export function createBattleApi(ctx) {
     b.busy = true;
     setBattleButtons(false);
     try {
+      triggerActDot(b, unit);
+      syncHeroHp(b);
+      if (unit.hp <= 0) return;
       await resolveHeroSkill(b, unit, skillId);
     } finally {
       await finishUnitAction(b);
@@ -1084,20 +1261,21 @@ export function createBattleApi(ctx) {
           if (u.mendPulse.ticksLeft <= 0) u.mendPulse = null;
         }
         if (u.hp <= 0) continue;
-        // 眩晕：真实行动条冻结；隐形条按速度走，攒满 stun（如 100）后解除
+        const walk = Math.max(1, u.spd || 1);
+        // 眩晕：真实行动条冻结；状态条按基础速度走
         if (isStunned(u)) {
-          u.stunBar = (u.stunBar || 0) + u.spd;
-          if (u.stunBar >= u.stun) {
-            u.stun = 0;
-            u.stunBar = 0;
-          }
+          tickStatuses(u, walk);
+          advanceUnitDot(b, u, walk);
           continue;
         }
-        u.gauge += u.spd;
-        if (u.mendPulse) advanceMendPulse(b, u, u.spd);
+        tickStatuses(u, walk);
+        const spd = effectiveSpd(u);
+        u.gauge += spd;
+        if (u.mendPulse) advanceMendPulse(b, u, spd);
+        advanceUnitDot(b, u, spd);
         if (u.gauge >= GAUGE_MAX) {
           u.gauge = GAUGE_MAX;
-          if (!ready || u.spd > ready.spd) ready = u;
+          if (!ready || spd > effectiveSpd(ready)) ready = u;
         }
       }
       if (ready) break;
@@ -1170,6 +1348,8 @@ export function createBattleApi(ctx) {
       spd: hero.spd,
       critRate: hero.critRate ?? DEFAULT_CRIT_RATE,
       critDmg: hero.critDmg ?? DEFAULT_CRIT_DMG,
+      hitRate: hero.hitRate ?? DEFAULT_HIT_RATE,
+      dodgeRate: hero.dodgeRate ?? DEFAULT_DODGE_RATE,
       atkBuff: 0,
       defBuff: 0,
       critDmgBonus: 0,
@@ -1179,11 +1359,13 @@ export function createBattleApi(ctx) {
       slot,
       stun: 0,
       stunBar: 0,
+      statuses: {},
       gauge: irand(10, 45),
       isHero: true,
       rotIndex: 0,
       spiritForm: false,
       mendPulse: null,
+      dot: null,
       combat: blankCombat(),
     }));
 

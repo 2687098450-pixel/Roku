@@ -1,14 +1,22 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { skillPowerText } from "../core/utils.js?v=84";
-import { OX, OY, canWalk } from "../map/island15.js?v=84";
-import { createMonster } from "./roster.js?v=84";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "./skills.js?v=84";
+import { OX, OY, canWalk } from "../map/island15.js?v=91";
+import { createMonster } from "./roster.js?v=91";
+import {
+  MONSTER_SKILLS,
+  TYPE_SKILL_IDS,
+  trashControlSkillIdsForFloor,
+  monsterSkillBrief,
+  monsterSkillRangeLabel,
+} from "./skills.js?v=91";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 
-function skillListFor(kind) {
-  const ids = TYPE_SKILL_IDS[kind] || ["gnaw"];
+function skillListFor(kind, floor = 1) {
+  const ids = [...(TYPE_SKILL_IDS[kind] || ["gnaw"])];
+  for (const id of trashControlSkillIdsForFloor(floor)) {
+    if (!ids.includes(id)) ids.push(id);
+  }
   return ids.map((id) => {
     const sk = MONSTER_SKILLS[id];
     return {
@@ -16,8 +24,8 @@ function skillListFor(kind) {
       name: sk?.name || id,
       kind: "active",
       style: sk?.style || "melee",
-      nums: skillPowerText(sk?.mult ?? 1, sk?.flat ?? 0),
-      desc: `${sk?.name || id}。伤害：${skillPowerText(sk?.mult ?? 1, sk?.flat ?? 0)}。`,
+      nums: monsterSkillRangeLabel(sk),
+      desc: monsterSkillBrief(sk) || `${sk?.name || id}`,
     };
   });
 }
@@ -41,6 +49,7 @@ export function createPatrolMonster(
     y: absFrom.y,
     scale,
     role: "trash",
+    floor,
   });
   return {
     ...base,
@@ -51,8 +60,8 @@ export function createPatrolMonster(
     dir: 1,
     floor,
     isBoss: false,
-    skills: skillListFor(kind),
-    skillIds: [...(TYPE_SKILL_IDS[kind] || ["gnaw"])],
+    skills: skillListFor(kind, floor),
+    skillIds: [...(base.skillIds || TYPE_SKILL_IDS[kind] || ["gnaw"])],
   };
 }
 

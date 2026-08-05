@@ -1,20 +1,22 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=84";
-import { calcStats } from "./omni/attributes.js?v=84";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=84";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=91";
+import { calcStats } from "./omni/attributes.js?v=91";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=91";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=84";
+} from "./skills.js?v=91";
 import {
   expToNext,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
-} from "./progression.js?v=84";
+  DEFAULT_HIT_RATE,
+  DEFAULT_DODGE_RATE,
+} from "./progression.js?v=91";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
@@ -36,6 +38,8 @@ export function refreshHeroStats(hero) {
   hero.spd = Math.max(1, Math.floor(stats.spd * mult));
   hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
   hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
+  hero.hitRate = Math.min(1.6, DEFAULT_HIT_RATE + (eq.hitRate || 0));
+  hero.dodgeRate = Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
   if (hero.hp == null) hero.hp = hero.maxHp;
   else hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
 }
@@ -63,6 +67,8 @@ export function createHero(statsId) {
     dead: false,
     critRate: DEFAULT_CRIT_RATE,
     critDmg: DEFAULT_CRIT_DMG,
+    hitRate: DEFAULT_HIT_RATE,
+    dodgeRate: DEFAULT_DODGE_RATE,
     mp: 30,
     maxMp: 30,
     desc: DESC[statsId] || "",

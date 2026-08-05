@@ -1,15 +1,17 @@
 /** 经验、升级、技能点（无循环依赖） */
 
-import { scaleExpGain } from "../core/economy.js?v=84";
+import { scaleExpGain } from "../core/economy.js?v=91";
 
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%
+export const DEFAULT_HIT_RATE = 1;
+export const DEFAULT_DODGE_RATE = 0.05;
 export const MAX_SKILL_LEVEL = 10;
 
 /** 升到下一级所需经验 */
 export function expToNext(level) {
   const lv = Math.max(1, Math.floor(level || 1));
-  return Math.floor(60 + lv * 35 + lv * lv * 6);
+  return Math.max(1, Math.floor(6 + lv * 3.5 + lv * lv * 0.6));
 }
 
 export function levelStatBonus(level) {

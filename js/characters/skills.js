@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=84";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=84";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=84";
+import { getCharacterStats } from "./stats.js?v=91";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=91";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=91";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -38,8 +38,8 @@ export const SKILL_POWER = {
   // —— 全能 ——
   attack: { mult: 1.0, flat: 0, style: "melee" },
   radiant: { mult: 1.7, flat: 4, style: "ranged" },
-  /** stunGauge：眩晕隐形行动条目标值（按敌人速度攒满后解除） */
-  quake: { mult: 1.15, flat: 0, stunGauge: 100, style: "melee" },
+  /** stunGauge：眩晕隐形行动条目标值（默认 50） */
+  quake: { mult: 1.15, flat: 0, stunGauge: 50, style: "melee" },
 
   // —— 小粉：远程爆发 ——
   pink_shot: { mult: 1.15, flat: 3, style: "ranged" },

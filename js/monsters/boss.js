@@ -1,8 +1,12 @@
 /** 关卡出口守护 Boss */
 
-import { skillPowerText } from "../core/utils.js?v=84";
-import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=84";
-import { MONSTER_SKILLS, bossSkillIdsForFloor } from "./skills.js?v=84";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=91";
+import {
+  MONSTER_SKILLS,
+  bossSkillIdsForFloor,
+  monsterSkillBrief,
+  monsterSkillRangeLabel,
+} from "./skills.js?v=91";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -41,7 +45,7 @@ export function createBoss({
     atk,
     def,
     spd,
-    exp: Math.max(1, Math.round((sheet.exp || 120) * (0.9 + scale * 0.45))),
+    exp: Math.max(1, Math.round((sheet.exp || 12) * (0.9 + scale * 0.45))),
     gold: Math.max(1, Math.round((sheet.gold || 80) * (0.9 + scale * 0.5))),
     floor,
     row: "back",
@@ -54,8 +58,8 @@ export function createBoss({
         name: sk.name,
         kind: "active",
         style: sk.style,
-        nums: skillPowerText(sk.mult, sk.flat),
-        desc: `Boss：${sk.name}。伤害：${skillPowerText(sk.mult, sk.flat)}。`,
+        nums: monsterSkillRangeLabel(sk),
+        desc: monsterSkillBrief(sk),
       };
     }),
   };

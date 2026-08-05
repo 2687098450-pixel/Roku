@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag, skillPowerText } from "../core/utils.js?v=84";
+import { $, clamp, styleTag } from "../core/utils.js?v=91";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,15 +45,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=84";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=84";
-import { setSavedFormation } from "../characters/stats.js?v=84";
-import { resetGameLocalData } from "../core/save.js?v=84";
-import { createAllUniqueItems } from "../loot/drops.js?v=84";
-import { APP_VERSION } from "../core/version.js?v=84";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "../monsters/skills.js?v=84";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=84";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=84";
+} from "../characters/omni/index.js?v=91";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=91";
+import { setSavedFormation } from "../characters/stats.js?v=91";
+import { resetGameLocalData } from "../core/save.js?v=91";
+import { createAllUniqueItems } from "../loot/drops.js?v=91";
+import { APP_VERSION } from "../core/version.js?v=91";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=91";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=91";
+import { getFloorDef } from "../map/floors.js?v=91";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=91";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=91";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -313,9 +315,7 @@ export function createUI(ctx) {
     for (const id of ids) {
       const sk = MONSTER_SKILLS[id];
       if (!sk) continue;
-      const range = sk.hitAll ? "全体" : sk.hitFront ? "前排" : "";
-      const power = skillPowerText(sk.mult ?? 1, sk.flat ?? 0);
-      parts.push(range ? `${sk.name}（${power} · ${range}）` : `${sk.name}（${power}）`);
+      parts.push(monsterSkillBrief(sk));
     }
     return parts.join("、") || "—";
   }
@@ -327,26 +327,25 @@ export function createUI(ctx) {
   function openFloorMobs() {
     if (getState().mode === "battle") return;
     const state = getState();
-    const list = [...(state.monsters || [])].sort((a, b) => {
-      if (!!b.isBoss !== !!a.isBoss) return a.isBoss ? -1 : 1;
-      return String(a.name || "").localeCompare(String(b.name || ""), "zh");
-    });
-    const alive = list.length;
+    const floor = Math.max(1, Math.floor(state.floor || 1));
+    const def = getFloorDef(floor);
+    const list = buildFloorMonsterCatalog(floor, def?.scale ?? 1);
+    const alive = state.monsters ? state.monsters.length : 0;
     const total = state.monsterTotal ?? alive;
     const title = $("floorMobsTitle");
     const body = $("floorMobsBody");
     const modal = $("floorMobsModal");
     if (!body || !modal) return;
-    if (title) title.textContent = `本层怪物 ${alive}/${total}`;
+    if (title) title.textContent = `本层可遇 ${list.length}种（残留 ${alive}/${total}）`;
     if (!list.length) {
-      body.innerHTML = `<div class="fm-empty">本层已无怪物</div>`;
+      body.innerHTML = `<div class="fm-empty">本层暂无怪物资料</div>`;
     } else {
       body.innerHTML = list
         .map((m) => {
           const hp = Math.max(0, Math.ceil(m.hp ?? m.maxHp ?? 0));
           const maxHp = Math.max(hp, Math.ceil(m.maxHp ?? hp));
           const atk = Math.max(0, Math.floor(m.atk ?? 0));
-          const def = Math.max(0, Math.floor(m.def ?? 0));
+          const defStat = Math.max(0, Math.floor(m.def ?? 0));
           const gold = scaleGoldGain(m.gold || Math.max(1, Math.round((m.exp || 10) * 0.45)));
           const exp = scaleExpGain(m.exp || 0);
           const skills = monsterSkillText(m);
@@ -356,8 +355,8 @@ export function createUI(ctx) {
             <div class="fm-main">
               <div class="fm-name">${escapeHtml(m.name || "怪物")}${bossTag}</div>
               <div class="fm-stats">
-                <div>生命 <b>${hp}</b> / ${maxHp}</div>
-                <div>攻击 <b>${atk}</b> · 防御 <b>${def}</b></div>
+                <div>生命 <b>${maxHp}</b></div>
+                <div>攻击 <b>${atk}</b> · 防御 <b>${defStat}</b></div>
                 <div>技能 ${escapeHtml(skills)}</div>
                 <div>价值 金币 <b>${gold}</b> · 经验 <b>${exp}</b></div>
               </div>
@@ -617,11 +616,11 @@ export function createUI(ctx) {
   }
 
   function formatBonusRows(bonus, compact = false, emptyText = "无加成") {
-    const rows = ["hp", "atk", "def", "spd", "critRate", "critDmg"]
+    const rows = ["hp", "atk", "def", "spd", "critRate", "critDmg", "hitRate", "dodgeRate"]
       .map((k) => {
         const v = bonus?.[k] || 0;
         if (!v) return "";
-        if (k === "critRate" || k === "critDmg") {
+        if (k === "critRate" || k === "critDmg" || k === "hitRate" || k === "dodgeRate") {
           const pct = Math.round(v * 1000) / 10;
           return `<li><span>${BONUS_LABEL[k]}</span><b>+${pct}%</b></li>`;
         }
@@ -1354,6 +1353,8 @@ export function createUI(ctx) {
     const eq = sumEquipBonus(hero.equip);
     const critRate = Math.round((hero.critRate ?? DEFAULT_CRIT_RATE) * 100);
     const critDmg = Math.round((hero.critDmg ?? DEFAULT_CRIT_DMG) * 100);
+    const hitRate = Math.round((hero.hitRate ?? 1) * 1000) / 10;
+    const dodgeRate = Math.round((hero.dodgeRate ?? 0.05) * 1000) / 10;
     const capNote = hero.isCaptain ? " · 队长+10%" : "";
     $("statList").innerHTML = [
       ["生命", `${Math.ceil(hero.hp)} / ${hero.maxHp}`, `基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}`],
@@ -1362,6 +1363,8 @@ export function createUI(ctx) {
       ["速度", String(hero.spd), `基础${hero.base.spd} + 装备${eq.spd}${capNote}`],
       ["暴击率", `${critRate}%`, `默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%`],
       ["暴击伤害", `${critDmg}%`, `默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%`],
+      ["命中", `${hitRate}%`, `默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%`],
+      ["闪避", `${dodgeRate}%`, `默认 5% + 装备 ${Math.round((eq.dodgeRate || 0) * 1000) / 10}%`],
     ]
       .map(([label, val, tip]) => `<li title="${tip}"><span>${label}</span><b>${val}</b></li>`)
       .join("");

@@ -4,8 +4,17 @@
  * - Boss：后排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=84";
-import { TYPE_SKILL_IDS } from "./skills.js?v=84";
+import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=91";
+import {
+  TYPE_SKILL_IDS,
+  trashControlSkillIdsForFloor,
+  bossSkillIdsForFloor,
+} from "./skills.js?v=91";
+import {
+  DEFAULT_HIT_RATE,
+  DEFAULT_DODGE_RATE,
+} from "../characters/progression.js?v=91";
+import { createBoss } from "./boss.js?v=91";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -17,14 +26,27 @@ export function scaleStat(base, scale) {
   return Math.max(1, Math.round(base * s));
 }
 
+function skillIdsForTrash(kind, floor) {
+  const base = [...(TYPE_SKILL_IDS[kind] || ["gnaw"])];
+  const ctrl = trashControlSkillIdsForFloor(floor);
+  // 按层数概率挂上已解锁的控制技（层越高越多）
+  const f = Math.max(1, floor || 1);
+  for (const id of ctrl) {
+    const chance = Math.min(0.85, 0.35 + f * 0.02);
+    if (Math.random() < chance && !base.includes(id)) base.push(id);
+  }
+  return base;
+}
+
 /**
  * @param {string} kind
- * @param {{ x?: number, y?: number, scale?: number, role?: string, isBoss?: boolean }} opts
+ * @param {{ x?: number, y?: number, scale?: number, role?: string, isBoss?: boolean, floor?: number }} opts
  */
 export function createMonster(kind, opts = {}) {
   const base = getMonsterStats(kind);
   const scale = opts.scale ?? 1;
   const isBoss = Boolean(opts.isBoss || kind === "boss");
+  const floor = opts.floor || 1;
   return {
     id: nextId(kind),
     kind,
@@ -38,14 +60,19 @@ export function createMonster(kind, opts = {}) {
     atk: scaleStat(base.atk, scale),
     def: scaleStat(base.def, scale),
     spd: Math.max(4, Math.round(base.spd + (scale - 1) * 2)),
-    exp: Math.max(1, Math.round((base.exp || 10) * (0.9 + scale * 0.35))),
+    exp: Math.max(1, Math.round((base.exp || 1) * (0.9 + scale * 0.35))),
     gold: Math.max(1, Math.round((base.gold || 6) * (0.9 + scale * 0.4))),
     gauge: 0,
-    skillIds: [...(TYPE_SKILL_IDS[kind] || ["gnaw"])],
+    skillIds: isBoss
+      ? [...(TYPE_SKILL_IDS.boss || [])]
+      : skillIdsForTrash(kind, floor),
+    hitRate: DEFAULT_HIT_RATE,
+    dodgeRate: DEFAULT_DODGE_RATE,
     isBoss,
     role: opts.role || (isBoss ? "boss" : "trash"),
     /** 地图实体引用（仅主怪保留，战斗生成的小怪为 null） */
     worldRef: opts.worldRef ?? null,
+    floor,
   };
 }
 
@@ -142,6 +169,10 @@ function battleReady(unit, extras = {}) {
     ...unit,
     stun: 0,
     stunBar: 0,
+    statuses: {},
+    dot: null,
+    hitRate: unit.hitRate ?? DEFAULT_HIT_RATE,
+    dodgeRate: unit.dodgeRate ?? DEFAULT_DODGE_RATE,
     gauge: Math.floor(Math.random() * 41),
     skillIds: unit.skillIds || TYPE_SKILL_IDS[unit.kind] || ["gnaw"],
     shape: unit.shape || "square",
@@ -175,7 +206,7 @@ export function buildEncounter(touched, floor, scale) {
     const slots = assignBossAddSlots(adds);
     const extras = slots.map((slot) => {
       const kind = pickTrashType(floor);
-      const m = createMonster(kind, { scale: s * 0.85, role: "trash" });
+      const m = createMonster(kind, { scale: s * 0.85, role: "trash", floor });
       return battleReady(cloneForBattle(m, { ...slot, worldRef: null, isBoss: false }));
     });
     return { enemies: [boss, ...extras], primary: boss };
@@ -201,7 +232,7 @@ export function buildEncounter(touched, floor, scale) {
         })
       );
     }
-    const m = createMonster(kinds[i], { scale: s, role: "trash" });
+    const m = createMonster(kinds[i], { scale: s, role: "trash", floor });
     return battleReady(cloneForBattle(m, { ...slot, worldRef: null, isBoss: false }));
   });
   return { enemies, primary: enemies[0] };
@@ -210,5 +241,35 @@ export function buildEncounter(touched, floor, scale) {
 /** 地图刷怪：按层权重选类型 */
 export function spawnTrashOnMap(x, y, floor, scale) {
   const kind = pickTrashType(floor);
-  return createMonster(kind, { x, y, scale, role: "trash", worldRef: null });
+  return createMonster(kind, { x, y, scale, role: "trash", worldRef: null, floor });
+}
+
+/** 图鉴用：该种类在本层可能带的技能（含已解锁控制技，非随机） */
+export function floorMonsterSkillIds(kind, floor) {
+  const f = Math.max(1, floor || 1);
+  if (kind === "boss") return bossSkillIdsForFloor(f);
+  const ids = [...(TYPE_SKILL_IDS[kind] || ["gnaw"])];
+  for (const id of trashControlSkillIdsForFloor(f)) {
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * 本层战斗可能出现的怪物种类（每种一次）：解锁小怪 + Boss
+ * 数值按本层 scale 取满血样例
+ */
+export function buildFloorMonsterCatalog(floor, scale = 1) {
+  const f = Math.max(1, floor || 1);
+  const s = Math.max(0.1, scale || 1);
+  const trash = trashTypesForFloor(f).map((sheet) => {
+    const m = createMonster(sheet.id, { scale: s, floor: f, role: "trash" });
+    m.skillIds = floorMonsterSkillIds(sheet.id, f);
+    m.hp = m.maxHp;
+    return m;
+  });
+  const boss = createBoss({ floor: f, scale: s });
+  boss.skillIds = floorMonsterSkillIds("boss", f);
+  boss.hp = boss.maxHp;
+  return [...trash, boss];
 }
