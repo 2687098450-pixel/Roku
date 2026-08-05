@@ -4,6 +4,8 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
+import { scaleGoldGain } from "../../core/economy.js?v=77";
+
 export const SLOT_KEYS = [
   "helmet",
   "necklace",
@@ -673,7 +675,7 @@ export function getItemBonus(item) {
 
 export function itemPrice(item) {
   if (!item) return 0;
-  if (item.price != null) return Math.max(0, Math.floor(item.price));
+  if (item.price != null) return Math.max(0, scaleGoldGain(item.price));
   const info = rarityInfo(item.rarity);
   const level = itemLevel(item);
   const bonus = getItemBonus(item);
@@ -685,10 +687,11 @@ export function itemPrice(item) {
     (bonus.critRate || 0) * 220 +
     (bonus.critDmg || 0) * 80;
   const affixN = (item.affixes || []).length || affixCountForRarity(item.rarity);
-  return Math.max(
+  const raw = Math.max(
     1,
     Math.round((12 + power * 5 + level * 6 + affixN * 14) * (1 + info.rank * 0.25))
   );
+  return Math.max(1, scaleGoldGain(raw));
 }
 
 export function toBagEquip(item) {

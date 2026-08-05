@@ -1,5 +1,7 @@
 /** 经验、升级、技能点（无循环依赖） */
 
+import { scaleExpGain } from "../core/economy.js?v=77";
+
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%
 export const MAX_SKILL_LEVEL = 10;
@@ -33,7 +35,8 @@ export function gainExp(hero, amount) {
   if (hero.exp == null) hero.exp = 0;
   if (hero.level == null) hero.level = 1;
 
-  const gained = Math.floor(amount);
+  const gained = scaleExpGain(amount);
+  if (!gained) return { gained: 0, levels: 0, leveled: false };
   hero.exp += gained;
   let levels = 0;
   let guard = 0;

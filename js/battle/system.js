@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=76";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=76";
+import { $, clamp, irand } from "../core/utils.js?v=77";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=77";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=76";
+} from "../characters/omni/index.js?v=77";
 import {
   gainExp,
   splitExp,
@@ -25,23 +25,24 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=76";
+} from "../characters/progression.js?v=77";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=76";
-import { buildEncounter } from "../monsters/roster.js?v=76";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=76";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=76";
-import { rollBattleLoot } from "../loot/drops.js?v=76";
+} from "../characters/skills.js?v=77";
+import { buildEncounter } from "../monsters/roster.js?v=77";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=77";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=77";
+import { rollBattleLoot } from "../loot/drops.js?v=77";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=76";
-import { createTicker } from "../core/time.js?v=76";
+} from "../characters/stats.js?v=77";
+import { createTicker } from "../core/time.js?v=77";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=77";
 
 export function createBattleApi(ctx) {
   const {
@@ -610,7 +611,11 @@ export function createBattleApi(ctx) {
         });
       }
     }
-    return { totalExp, share, levelUps };
+    return {
+      totalExp: scaleExpGain(totalExp),
+      share: scaleExpGain(share),
+      levelUps,
+    };
   }
 
   /** 击杀金币；Boss 额外 +1 钻石 */
@@ -622,6 +627,7 @@ export function createBattleApi(ctx) {
       gold += e.gold || Math.max(1, Math.round((e.exp || 10) * 0.45));
       if (e.isBoss) gems += 1;
     }
+    gold = scaleGoldGain(gold);
     state.gold = (state.gold || 0) + gold;
     if (gems) state.gem = (state.gem || 0) + gems;
     return { gold, gems };
