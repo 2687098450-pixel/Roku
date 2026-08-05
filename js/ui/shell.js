@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=104";
+import { $, clamp, styleTag } from "../core/utils.js?v=105";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -47,17 +47,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=104";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=104";
-import { setSavedFormation } from "../characters/stats.js?v=104";
-import { resetGameLocalData } from "../core/save.js?v=104";
-import { createAllUniqueItems } from "../loot/drops.js?v=104";
-import { APP_VERSION } from "../core/version.js?v=104";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=104";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=104";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=104";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=104";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=104";
+} from "../characters/omni/index.js?v=105";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=105";
+import { setSavedFormation } from "../characters/stats.js?v=105";
+import { resetGameLocalData } from "../core/save.js?v=105";
+import { createAllUniqueItems } from "../loot/drops.js?v=105";
+import { APP_VERSION } from "../core/version.js?v=105";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=105";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=105";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=105";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=105";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=105";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
