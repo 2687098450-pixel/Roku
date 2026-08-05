@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=98";
+import { $ } from "./core/utils.js?v=104";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=98";
-import { buildFloor } from "./map/dungeon.js?v=98";
-import { MAX_FLOOR } from "./map/floors.js?v=98";
+} from "./map/island15.js?v=104";
+import { buildFloor } from "./map/dungeon.js?v=104";
+import { MAX_FLOOR } from "./map/floors.js?v=104";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=98";
-import { getSavedFormation } from "./characters/stats.js?v=98";
-import { moveSlimeOnce } from "./monsters/slime.js?v=98";
-import { createBattleApi } from "./battle/system.js?v=98";
-import { createUI } from "./ui/shell.js?v=98";
+} from "./characters/omni/index.js?v=104";
+import { getSavedFormation } from "./characters/stats.js?v=104";
+import { moveSlimeOnce } from "./monsters/slime.js?v=104";
+import { createBattleApi } from "./battle/system.js?v=104";
+import { createUI } from "./ui/shell.js?v=104";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=98";
+} from "./core/save.js?v=104";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -138,6 +138,7 @@ function applyFloor(state, floorNum) {
     toBagEquip(makeItem("木盾", "shield", { def: 2 }, { id: "wood_shield_bag", rarity: "orange", icon: "wood_shield.png", level: 8 })),
   ],
   visitedFloors: [1],
+  warpAnyFloor: false,
   monsters: [],
   monsterTotal: 0,
   gold: 120,
@@ -313,10 +314,10 @@ function goNextFloor() {
   flushSave(state);
 }
 
-/** 传送刷新球：跳到已访问层并重建怪物 */
+/** 传送刷新球：跳到已访问层并重建怪物（*999# 开启后可任意层） */
 function warpToFloor(floorNum) {
   const f = Math.max(1, Math.min(MAX_FLOOR, Number(floorNum) || 1));
-  if (!state.visitedFloors?.includes(f)) {
+  if (!state.warpAnyFloor && !state.visitedFloors?.includes(f)) {
     showToast("尚未到达过该层", 2200);
     return false;
   }

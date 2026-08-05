@@ -7,6 +7,7 @@ export {
   isHealSkill,
   isBuffSkill,
   scaledSkillDef,
+  applyUniqueSkillMods,
   refreshSkillTexts,
   buildSkillText,
   upgradeSkill,
@@ -20,4 +21,4 @@ export {
   previewReflectDamage,
   calcReflectEnemyDamage,
   applyReflectAllyUnique,
-} from "../skills.js?v=102";
+} from "../skills.js?v=104";

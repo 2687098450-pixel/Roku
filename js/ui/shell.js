@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=102";
+import { $, clamp, styleTag } from "../core/utils.js?v=104";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -47,22 +47,27 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=102";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=102";
-import { setSavedFormation } from "../characters/stats.js?v=102";
-import { resetGameLocalData } from "../core/save.js?v=102";
-import { createAllUniqueItems } from "../loot/drops.js?v=102";
-import { APP_VERSION } from "../core/version.js?v=102";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=102";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=102";
-import { getFloorDef } from "../map/floors.js?v=102";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=102";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=102";
+} from "../characters/omni/index.js?v=104";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=104";
+import { setSavedFormation } from "../characters/stats.js?v=104";
+import { resetGameLocalData } from "../core/save.js?v=104";
+import { createAllUniqueItems } from "../loot/drops.js?v=104";
+import { APP_VERSION } from "../core/version.js?v=104";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=104";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=104";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=104";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=104";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=104";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
 const PHONE_UNIQUE_CODE = "*120#";
+const PHONE_WARP_ANY_CODE = "*999#";
 const PHONE_SELL_RATE = 0.3;
+const WARP_HINT_NORMAL =
+  "选择已到过的楼层。传送后刷新该层全部怪物；高层记录保留，可再传回去。";
+const WARP_HINT_ANY =
+  "调试：可传送到任意楼层。再次拨 *999# 可恢复为仅已到过楼层。";
 
 export function createUI(ctx) {
   const { getState, setMode, canOpenParty, onWarpFloor, onProgressChange } = ctx;
@@ -424,7 +429,34 @@ export function createUI(ctx) {
     }
     if (phoneDigits === PHONE_UNIQUE_CODE) {
       runPhoneUniqueBundle();
+      return;
     }
+    if (phoneDigits === PHONE_WARP_ANY_CODE) {
+      toggleWarpAnyFloor();
+    }
+  }
+
+  function showPhoneToast(msg, ms = 2800) {
+    const toast = $("lootToast") || $("toast");
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove("hidden");
+    clearTimeout(toast._phoneCheatTimer);
+    toast._phoneCheatTimer = setTimeout(() => toast.classList.add("hidden"), ms);
+  }
+
+  /** *999#：传送球可选任意层；再拨一次恢复仅已访问层 */
+  function toggleWarpAnyFloor() {
+    const state = getState();
+    state.warpAnyFloor = !state.warpAnyFloor;
+    phoneDigits = "";
+    syncPhoneDisplay();
+    closePhone();
+    showPhoneToast(
+      state.warpAnyFloor
+        ? "已开启：传送球可选任意楼层（再拨 *999# 关闭）"
+        : "已关闭：传送球恢复为仅已到过楼层"
+    );
   }
 
   function clearPhoneDigits() {
@@ -479,13 +511,9 @@ export function createUI(ctx) {
     if (detailHeroId) openDetail(detailHeroId);
     bumpSave();
 
-    const toast = $("lootToast") || $("toast");
-    if (toast) {
-      toast.textContent = `已按 30% 售出 ${sold} 件装备（+${goldGain} 金），获得唯一装 ${uniques.length} 件`;
-      toast.classList.remove("hidden");
-      clearTimeout(toast._phoneCheatTimer);
-      toast._phoneCheatTimer = setTimeout(() => toast.classList.add("hidden"), 2800);
-    }
+    showPhoneToast(
+      `已按 30% 售出 ${sold} 件装备（+${goldGain} 金），获得唯一装 ${uniques.length} 件`
+    );
   }
 
   function confirmResetGame() {
@@ -512,20 +540,29 @@ export function createUI(ctx) {
 
   function openWarpPicker() {
     const state = getState();
-    const visited = [...(state.visitedFloors || [state.floor || 1])].sort(
-      (a, b) => a - b
-    );
+    const anyFloor = !!state.warpAnyFloor;
+    const floors = anyFloor
+      ? Array.from({ length: MAX_FLOOR }, (_, i) => i + 1)
+      : [...(state.visitedFloors || [state.floor || 1])].sort((a, b) => a - b);
+    const hint = $("warpHint");
+    if (hint) hint.textContent = anyFloor ? WARP_HINT_ANY : WARP_HINT_NORMAL;
     const list = $("warpFloorList");
     if (!list) return;
-    if (!visited.length) {
+    if (!floors.length) {
       list.innerHTML = `<div class="warp-empty">还没有可传送的楼层</div>`;
     } else {
-      list.innerHTML = visited
+      list.innerHTML = floors
         .map((f) => {
           const cur = f === state.floor ? " current" : "";
+          const visited = (state.visitedFloors || []).includes(f);
+          const sub = f === state.floor
+            ? "当前 · 刷新怪物"
+            : anyFloor && !visited
+              ? "未到过 · 传送并刷新"
+              : "传送并刷新";
           return `<button type="button" class="warp-floor-btn${cur}" data-floor="${f}">
             <b>${f} 层</b>
-            <span>${f === state.floor ? "当前 · 刷新怪物" : "传送并刷新"}</span>
+            <span>${sub}</span>
           </button>`;
         })
         .join("");
