@@ -1,19 +1,74 @@
 /**
- * 十层关卡配置
- * - entrance / entranceAlcove：入口壁龛（人物站在入口外侧 spawn）
- * - exit / exitAlcove：出口壁龛
- * - boss：必须与 exit 正交相邻（出口四邻只留 Boss 这一条通路）
- * - walls：少量内墙造型，不靠堆障碍封路
+ * 五十层关卡配置
+ * - 1～10：保留原布局与数值
+ * - 11～50：循环外形模板；怪物上限 30
+ * - 逢 5 / 逢 10：怪少、实力高；另有少量中间稀薄层
  */
 
-export const MAX_FLOOR = 10;
+export const MAX_FLOOR = 50;
+export const MAX_MOB_COUNT = 30;
 
-const MOB_COUNTS = [3, 5, 4, 7, 9, 6, 11, 14, 12, 16];
+const MID_SPARSE = new Set([12, 17, 23, 28, 34, 39, 44]);
 
-export const FLOOR_DEFS = [
+const BASE_MOB = [3, 5, 4, 7, 9, 6, 11, 14, 12, 16];
+const BASE_SCALE = [1, 1.2, 1.4, 1.65, 1.9, 2.15, 2.45, 2.8, 3.2, 3.7];
+
+const FLOOR_NAMES = [
+  "阳光海岛",
+  "弯角沙洲",
+  "潮汐冠廊",
+  "双湾港",
+  "十字雾林",
+  "环礁秘径",
+  "双殿甬道",
+  "退台遗迹",
+  "锯齿海湾",
+  "终焉爪屿",
+  "雾礁回廊",
+  "暗潮洞窟",
+  "青铜祭坛",
+  "裂骨荒原",
+  "赤砂峡谷",
+  "幽灯矿脉",
+  "枯骨殿堂",
+  "毒囊沼泽",
+  "霜风隘口",
+  "黑曜尖塔",
+  "沉钟峡谷",
+  "血羽巢穴",
+  "锈蚀军堡",
+  "咒纹回廊",
+  "堕落圣殿",
+  "熔心熔炉",
+  "幽蓝冰窖",
+  "食人魔巢",
+  "影隙巷道",
+  "深渊门廊",
+  "碎星荒原",
+  "龙息裂谷",
+  "虚空浅滩",
+  "永夜墓园",
+  "影魔渊口",
+  "硫磺河岸",
+  "咒火祭台",
+  "寒晶迷宫",
+  "裂隙之脊",
+  "霜噬高塔",
+  "赤月荒原",
+  "骨龙残骸",
+  "冥河渡口",
+  "虚妄镜厅",
+  "深渊王座",
+  "劫灰平原",
+  "终末甬道",
+  "幼龙栖地",
+  "崩塌神殿",
+  "世界尽头",
+];
+
+/** 1～10 层布局模板（外形 / 坐标）；数值由 mobCountForFloor / scaleForFloor 覆盖 */
+const LAYOUTS = [
   {
-    floor: 1,
-    name: "阳光海岛",
     shape: "rect",
     playCols: 10,
     playRows: 8,
@@ -27,12 +82,8 @@ export const FLOOR_DEFS = [
       { x: 4, y: 2 },
       { x: 5, y: 5 },
     ],
-    mobCount: MOB_COUNTS[0],
-    scale: 1,
   },
   {
-    floor: 2,
-    name: "弯角沙洲",
     shape: "L",
     playCols: 12,
     playRows: 10,
@@ -48,12 +99,8 @@ export const FLOOR_DEFS = [
       { x: 6, y: 8 },
       { x: 7, y: 8 },
     ],
-    mobCount: MOB_COUNTS[1],
-    scale: 1.2,
   },
   {
-    floor: 3,
-    name: "潮汐冠廊",
     shape: "T",
     playCols: 13,
     playRows: 11,
@@ -69,12 +116,8 @@ export const FLOOR_DEFS = [
       { x: 5, y: 5 },
       { x: 7, y: 5 },
     ],
-    mobCount: MOB_COUNTS[2],
-    scale: 1.4,
   },
   {
-    floor: 4,
-    name: "双湾港",
     shape: "U",
     playCols: 13,
     playRows: 11,
@@ -91,12 +134,8 @@ export const FLOOR_DEFS = [
       { x: 11, y: 5 },
       { x: 6, y: 9 },
     ],
-    mobCount: MOB_COUNTS[3],
-    scale: 1.65,
   },
   {
-    floor: 5,
-    name: "十字雾林",
     shape: "cross",
     playCols: 13,
     playRows: 13,
@@ -114,12 +153,8 @@ export const FLOOR_DEFS = [
       { x: 3, y: 6 },
       { x: 9, y: 6 },
     ],
-    mobCount: MOB_COUNTS[4],
-    scale: 1.9,
   },
   {
-    floor: 6,
-    name: "环礁秘径",
     shape: "ring",
     playCols: 14,
     playRows: 12,
@@ -135,12 +170,8 @@ export const FLOOR_DEFS = [
       { x: 7, y: 1 },
       { x: 7, y: 10 },
     ],
-    mobCount: MOB_COUNTS[5],
-    scale: 2.15,
   },
   {
-    floor: 7,
-    name: "双殿甬道",
     shape: "twin",
     playCols: 15,
     playRows: 11,
@@ -158,12 +189,8 @@ export const FLOOR_DEFS = [
       { x: 7, y: 4 },
       { x: 7, y: 6 },
     ],
-    mobCount: MOB_COUNTS[6],
-    scale: 2.45,
   },
   {
-    floor: 8,
-    name: "退台遗迹",
     shape: "steps",
     playCols: 15,
     playRows: 12,
@@ -180,12 +207,8 @@ export const FLOOR_DEFS = [
       { x: 9, y: 6 },
       { x: 10, y: 8 },
     ],
-    mobCount: MOB_COUNTS[7],
-    scale: 2.8,
   },
   {
-    floor: 9,
-    name: "锯齿海湾",
     shape: "bay",
     playCols: 16,
     playRows: 13,
@@ -202,12 +225,8 @@ export const FLOOR_DEFS = [
       { x: 9, y: 8 },
       { x: 10, y: 7 },
     ],
-    mobCount: MOB_COUNTS[8],
-    scale: 3.2,
   },
   {
-    floor: 10,
-    name: "终焉爪屿",
     shape: "claw",
     playCols: 16,
     playRows: 14,
@@ -225,10 +244,91 @@ export const FLOOR_DEFS = [
       { x: 12, y: 5 },
       { x: 12, y: 7 },
     ],
-    mobCount: MOB_COUNTS[9],
-    scale: 3.7,
   },
 ];
+
+export function mobCountForFloor(floor) {
+  const f = Math.max(1, Math.min(MAX_FLOOR, Math.floor(floor || 1)));
+  if (f <= 10) return BASE_MOB[f - 1];
+  const t = (f - 1) / Math.max(1, MAX_FLOOR - 2);
+  let n = 3 + t * (MAX_MOB_COUNT - 3);
+  if (f % 10 === 0) n *= 0.58;
+  else if (f % 5 === 0) n *= 0.72;
+  else if (MID_SPARSE.has(f)) n *= 0.8;
+  return Math.max(3, Math.min(MAX_MOB_COUNT, Math.round(n)));
+}
+
+export function scaleForFloor(floor) {
+  const f = Math.max(1, Math.min(MAX_FLOOR, Math.floor(floor || 1)));
+  if (f <= 10) return BASE_SCALE[f - 1];
+  const extra = f - 10;
+  let s = 3.7 + extra * 0.28 + extra * (extra - 1) * 0.002;
+  if (f % 10 === 0) s *= 1.18;
+  else if (f % 5 === 0) s *= 1.1;
+  else if (MID_SPARSE.has(f)) s *= 1.05;
+  return Math.round(s * 100) / 100;
+}
+
+function clonePoint(p) {
+  return p ? { x: p.x, y: p.y } : null;
+}
+
+function buildFloorDef(floor) {
+  const f = Math.max(1, Math.min(MAX_FLOOR, floor));
+  const layout = LAYOUTS[(f - 1) % LAYOUTS.length];
+  const decade = Math.floor((f - 1) / 10);
+  return {
+    floor: f,
+    name: FLOOR_NAMES[f - 1] || `${f}层`,
+    shape: layout.shape,
+    playCols: layout.playCols + decade,
+    playRows: layout.playRows + Math.floor(decade / 2),
+    entrance: clonePoint(layout.entrance),
+    entranceAlcove: layout.entranceAlcove,
+    spawn: clonePoint(layout.spawn),
+    exit: clonePoint(layout.exit),
+    exitAlcove: layout.exitAlcove,
+    boss: clonePoint(layout.boss),
+    walls: (layout.walls || []).map(clonePoint),
+    mobCount: mobCountForFloor(f),
+    scale: scaleForFloor(f),
+  };
+}
+
+/**
+ * 地图随 decade 略增时，把出口/Boss 贴到东/南边缘，避免落在新增空地外
+ */
+function fitEdgePoints(def) {
+  const layout = LAYOUTS[(def.floor - 1) % LAYOUTS.length];
+  const dCol = def.playCols - layout.playCols;
+  const dRow = def.playRows - layout.playRows;
+  if (dCol === 0 && dRow === 0) return def;
+
+  const shift = (p, ox, oy) => {
+    if (!p) return p;
+    return {
+      x: Math.min(def.playCols - 1, Math.max(0, p.x + ox)),
+      y: Math.min(def.playRows - 1, Math.max(0, p.y + oy)),
+    };
+  };
+
+  // 出口在东侧：随列增右移；在南侧：随行增下移
+  if (layout.exitAlcove === "e") {
+    def.exit = shift(layout.exit, dCol, 0);
+    def.boss = shift(layout.boss, dCol, 0);
+  } else if (layout.exitAlcove === "s") {
+    def.exit = shift(layout.exit, 0, dRow);
+    def.boss = shift(layout.boss, 0, dRow);
+  } else if (layout.exitAlcove === "n") {
+    def.exit = shift(layout.exit, dCol > 0 ? Math.floor(dCol / 2) : 0, 0);
+    def.boss = shift(layout.boss, dCol > 0 ? Math.floor(dCol / 2) : 0, 0);
+  }
+  return def;
+}
+
+export const FLOOR_DEFS = Array.from({ length: MAX_FLOOR }, (_, i) =>
+  fitEdgePoints(buildFloorDef(i + 1))
+);
 
 export function getFloorDef(floor) {
   const n = Math.max(1, Math.min(MAX_FLOOR, Number(floor) || 1));

@@ -1,8 +1,8 @@
 /** 关卡出口守护 Boss */
 
-import { skillPowerText } from "../core/utils.js?v=65";
-import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=65";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "./skills.js?v=65";
+import { skillPowerText } from "../core/utils.js?v=68";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=68";
+import { MONSTER_SKILLS, bossSkillIdsForFloor } from "./skills.js?v=68";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -21,7 +21,7 @@ export function createBoss({
     8,
     Math.floor((sheet.spd ?? DEFAULT_MONSTER_SPEED) * (0.9 + scale * 0.05))
   );
-  const skillIds = [...TYPE_SKILL_IDS.boss];
+  const skillIds = bossSkillIdsForFloor(floor);
 
   return {
     id: `m_boss_${floor}_${Math.random().toString(36).slice(2, 6)}`,

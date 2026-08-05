@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=65";
+import { $, clamp, styleTag } from "../core/utils.js?v=68";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,11 +45,11 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=65";
-import { sumEquipBonus, UNIQUE_SKILL_IDS } from "../characters/omni/equipment.js?v=65";
-import { setSavedFormation } from "../characters/stats.js?v=65";
-import { resetGameLocalData } from "../core/save.js?v=65";
-import { createAllUniqueItems } from "../loot/drops.js?v=65";
+} from "../characters/omni/index.js?v=68";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail } from "../characters/omni/equipment.js?v=68";
+import { setSavedFormation } from "../characters/stats.js?v=68";
+import { resetGameLocalData } from "../core/save.js?v=68";
+import { createAllUniqueItems } from "../loot/drops.js?v=68";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -67,8 +67,8 @@ export function createUI(ctx) {
   let formDrag = null;
   /** 当前装备预览：角色部位 / 背包索引 */
   let equipEdit = null;
-  /** 批量出售选中的品质 */
-  let sellRarity = null;
+  /** 批量出售选中的品质（可多选） */
+  let sellRarities = new Set();
   /** 手机拨号缓冲 */
   let phoneDigits = "";
 
@@ -278,7 +278,7 @@ export function createUI(ctx) {
 
   function closeBagSell() {
     $("bagSellModal")?.classList.add("hidden");
-    sellRarity = null;
+    sellRarities = new Set();
   }
 
   function closeWarp() {
@@ -576,14 +576,59 @@ export function createUI(ctx) {
       .map((a, i) => {
         const tag = a.type === "unique" ? "唯一" : `词条${i + 1}`;
         const uid = a.uniqueId || a.id;
-        const text =
-          a.type === "unique" && uid && UNIQUE_SKILL_IDS[uid]?.text
-            ? UNIQUE_SKILL_IDS[uid].text
-            : a.text || a.label || "—";
+        if (a.type === "unique" && uid) {
+          const name = uniqueAffixName(uid);
+          if (compact) {
+            return `<li class="affix-unique"><span>${tag}</span><b>${name}</b></li>`;
+          }
+          return `<li class="affix-unique affix-unique-tap" data-unique-affix="${uid}" role="button" tabindex="0">
+            <span>${tag}</span><b>${name}</b><i class="affix-tap-hint">详情</i>
+          </li>`;
+        }
+        const text = a.text || a.label || "—";
         return `<li><span>${tag}</span><b>${text}</b></li>`;
       })
       .join("");
     return `${head}<ul class="${cls}">${rows}</ul>`;
+  }
+
+  function openUniqueAffixPreview(uniqueId) {
+    const name = uniqueAffixName(uniqueId);
+    const detail = uniqueAffixDetail(uniqueId);
+    if (!UNIQUE_SKILL_IDS[uniqueId] && !detail) return;
+    hideSkillHoldPreview();
+    const title = $("skillDetailTitle");
+    const body = $("skillDetailBody");
+    const modal = $("skillDetailModal");
+    if (!body || !modal) return;
+    if (title) title.textContent = name;
+    body.innerHTML = `
+      <div class="skill-detail-top">
+        <div class="skill-detail-ico passive">唯</div>
+        <div class="skill-detail-meta">
+          <div class="skill-detail-name">${name}</div>
+          <div class="skill-detail-type">唯一词条</div>
+        </div>
+      </div>
+      <div class="skill-detail-nums">${detail}</div>`;
+    modal.classList.remove("hidden");
+  }
+
+  function bindUniqueAffixTaps(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-unique-affix]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openUniqueAffixPreview(el.dataset.uniqueAffix);
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        openUniqueAffixPreview(el.dataset.uniqueAffix);
+      });
+    });
   }
 
   function renderEquipItemBody(item, { unequip = false, price = false } = {}) {
@@ -656,6 +701,7 @@ export function createUI(ctx) {
     } else {
       body.innerHTML = renderEquipItemBody(item, { unequip: true });
       body.querySelector("#btnUnequip")?.addEventListener("click", unequipCurrent);
+      bindUniqueAffixTaps(body);
     }
     $("equipPreviewModal").classList.remove("hidden");
   }
@@ -677,6 +723,7 @@ export function createUI(ctx) {
         upgrade: canUpgradeEquip(item),
       });
       body.innerHTML = renderEquipItemBody(item, { price: true });
+      bindUniqueAffixTaps(body);
     } else {
       if (title) title.textContent = MISC_KIND_LABEL[item.kind] || "物品";
       const isWarp = item.useId === "warp_refresh";
@@ -1307,27 +1354,37 @@ export function createUI(ctx) {
     renderBag();
   }
 
-  function countBagEquipsByRarity(rarity) {
+  function countBagEquipsByRarities(rarities) {
+    const set = rarities instanceof Set ? rarities : new Set(rarities || []);
     const inv = getState().inventory || [];
     let count = 0;
     let gold = 0;
+    const byRarity = {};
+    for (const id of set) byRarity[id] = 0;
     for (const it of inv) {
       if (!isEquipItem(it)) continue;
-      if (normalizeRarity(it.rarity) !== rarity) continue;
+      const r = normalizeRarity(it.rarity);
+      if (!set.has(r)) continue;
       count += 1;
       gold += itemPrice(it);
+      byRarity[r] = (byRarity[r] || 0) + 1;
     }
-    return { count, gold };
+    return { count, gold, byRarity };
   }
 
-  function sellBagEquipsOfRarity(rarity) {
+  function countBagEquipsByRarity(rarity) {
+    return countBagEquipsByRarities(new Set([rarity]));
+  }
+
+  function sellBagEquipsOfRarities(rarities) {
+    const set = rarities instanceof Set ? rarities : new Set(rarities || []);
     const state = getState();
     const inv = state.inventory || [];
     let count = 0;
     let gold = 0;
     const next = [];
     for (const it of inv) {
-      if (isEquipItem(it) && normalizeRarity(it.rarity) === rarity) {
+      if (isEquipItem(it) && set.has(normalizeRarity(it.rarity))) {
         count += 1;
         gold += itemPrice(it);
       } else {
@@ -1343,43 +1400,53 @@ export function createUI(ctx) {
     const summary = $("bagSellSummary");
     const btn = $("btnConfirmSell");
     if (!summary || !btn) return;
-    if (!sellRarity) {
-      summary.textContent = "请选择一种品质";
+    if (!sellRarities.size) {
+      summary.textContent = "请选择一种或多种品质";
       btn.disabled = true;
       btn.textContent = "确认出售";
       return;
     }
-    const info = rarityInfo(sellRarity);
-    const { count, gold } = countBagEquipsByRarity(sellRarity);
+    const { count, gold } = countBagEquipsByRarities(sellRarities);
+    const labels = RARITY_ORDER.filter((id) => sellRarities.has(id))
+      .map((id) => {
+        const info = rarityInfo(id);
+        return `<span class="rarity-text-${info.id}">${info.label}</span>`;
+      })
+      .join("、");
     if (!count) {
-      summary.innerHTML = `背包中没有<span class="rarity-text-${info.id}">${info.label}</span>装`;
+      summary.innerHTML = `背包中没有${labels}装`;
       btn.disabled = true;
       btn.textContent = "确认出售";
       return;
     }
-    summary.innerHTML = `将出售 <b>${count}</b> 件<span class="rarity-text-${info.id}">${info.label}</span>装，获得 <b>${gold}</b> 金币`;
+    summary.innerHTML = `将出售 <b>${count}</b> 件${labels}装，获得 <b>${gold}</b> 金币`;
     btn.disabled = false;
-    btn.textContent = `出售全部${info.label}装`;
+    btn.textContent =
+      sellRarities.size === 1
+        ? `出售全部${rarityInfo([...sellRarities][0]).label}装`
+        : `出售所选 ${sellRarities.size} 种品质`;
   }
 
   function openBagSell() {
-    sellRarity = null;
+    sellRarities = new Set();
     const box = $("bagSellRarities");
     if (box) {
       box.innerHTML = RARITY_ORDER.map((id) => {
         const info = rarityInfo(id);
         const { count } = countBagEquipsByRarity(id);
-        return `<button type="button" class="bag-sell-rarity rarity-${id}" data-rarity="${id}">
+        return `<button type="button" class="bag-sell-rarity rarity-${id}" data-rarity="${id}" aria-pressed="false">
           <span>${info.label}装</span>
           <small>${count} 件</small>
         </button>`;
       }).join("");
       box.querySelectorAll(".bag-sell-rarity").forEach((btn) => {
         btn.addEventListener("click", () => {
-          sellRarity = btn.dataset.rarity;
-          box.querySelectorAll(".bag-sell-rarity").forEach((b) => {
-            b.classList.toggle("on", b.dataset.rarity === sellRarity);
-          });
+          const id = btn.dataset.rarity;
+          if (sellRarities.has(id)) sellRarities.delete(id);
+          else sellRarities.add(id);
+          const on = sellRarities.has(id);
+          btn.classList.toggle("on", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
           updateBagSellSummary();
         });
       });
@@ -1389,9 +1456,11 @@ export function createUI(ctx) {
   }
 
   function confirmBagSell() {
-    if (!sellRarity) return;
-    const info = rarityInfo(sellRarity);
-    const { count, gold } = sellBagEquipsOfRarity(sellRarity);
+    if (!sellRarities.size) return;
+    const labels = RARITY_ORDER.filter((id) => sellRarities.has(id))
+      .map((id) => rarityInfo(id).label)
+      .join("、");
+    const { count, gold } = sellBagEquipsOfRarities(sellRarities);
     closeBagSell();
     closeEquipPreview();
     renderBag();
@@ -1400,7 +1469,7 @@ export function createUI(ctx) {
       bumpSave();
       const toast = $("lootToast");
       if (toast) {
-        toast.textContent = `已出售 ${count} 件${info.label}装，+${gold} 金币`;
+        toast.textContent = `已出售 ${count} 件${labels}装，+${gold} 金币`;
         toast.classList.remove("hidden");
         clearTimeout(toast._bagSellTimer);
         toast._bagSellTimer = setTimeout(() => toast.classList.add("hidden"), 2200);

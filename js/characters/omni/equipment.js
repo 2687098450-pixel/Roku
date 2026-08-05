@@ -133,18 +133,54 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
   return true;
 }
 
-/** 唯一技能强化装：仅对应角色生效；不受「额外技能装」数量限制 */
+/** 唯一技能强化装：仅对应角色生效；不受「额外技能装」数量限制
+ * name = 装备词条短名；detail = 点击预览全文；text 兼容旧存档（= name）
+ */
 export const UNIQUE_SKILL_IDS = {
   pink_burst_echo: {
     owner: "pink",
     skillId: "pink_burst",
-    text: "强化爆裂矢：三连射半伤·击杀加射",
+    name: "强化爆裂矢",
+    detail:
+      "强化小粉「爆裂矢」：每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。仅小粉装备时生效。",
   },
-  omni_balance_spirit: { owner: "omni", skillId: "boost", text: "强化均衡：十字共享·灵体化" },
-  green_life_flow: { owner: "green", skillId: "green_life", text: "强化生机流转：治疗提升友军伤害" },
-  yellow_reflect_shield: { owner: "yellow", skillId: "yellow_reflect", text: "强化反伤：友军比例再 -10%" },
-  green_mend_pulse: { skillId: "green_mend", text: "强化治愈之触" },
+  omni_balance_spirit: {
+    owner: "omni",
+    skillId: "boost",
+    name: "强化均衡",
+    detail:
+      "强化全能「均衡」：十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。仅全能装备时生效。",
+  },
+  green_life_flow: {
+    owner: "green",
+    skillId: "green_life",
+    name: "强化生机流转",
+    detail: "强化小绿「生机流转」：治疗时提升友军伤害。仅小绿装备时生效。",
+  },
+  yellow_reflect_shield: {
+    owner: "yellow",
+    skillId: "yellow_reflect",
+    name: "强化反伤",
+    detail:
+      "强化小黄「反伤」：友军溅射/治疗比例再降低 10%（更快转入治疗）。仅小黄装备时生效。",
+  },
+  green_mend_pulse: {
+    skillId: "green_mend",
+    name: "强化治愈之触",
+    detail:
+      "任意治疗效果都会给目标附加 2 秒脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。",
+  },
 };
+
+export function uniqueAffixName(uniqueId) {
+  const meta = UNIQUE_SKILL_IDS[uniqueId];
+  return meta?.name || meta?.text || "唯一词条";
+}
+
+export function uniqueAffixDetail(uniqueId) {
+  const meta = UNIQUE_SKILL_IDS[uniqueId];
+  return meta?.detail || meta?.name || meta?.text || "暂无说明。";
+}
 
 export function isSkillStrengthenGear(item) {
   return !!(item && (item.uniqueId || item.skillStrengthen));
@@ -175,11 +211,12 @@ export function heroHasUnique(hero, uniqueId) {
 
 export function makeUniqueAffix(uniqueId, text) {
   const meta = UNIQUE_SKILL_IDS[uniqueId];
+  const name = meta?.name || meta?.text || text || "唯一词条";
   return {
     type: "unique",
     id: uniqueId,
     uniqueId,
-    text: meta?.text || text || "唯一词条",
+    text: name,
     label: "唯一",
   };
 }
@@ -283,10 +320,11 @@ export function rebuildEquipStats(item) {
 function fillUniqueAffixSlots(item) {
   if (!item?.uniqueId) return;
   const meta = UNIQUE_SKILL_IDS[item.uniqueId];
-  if (meta?.text && Array.isArray(item.affixes)) {
+  if (meta && Array.isArray(item.affixes)) {
+    const name = meta.name || meta.text;
     for (const a of item.affixes) {
       if (a?.type === "unique" || a?.uniqueId === item.uniqueId) {
-        a.text = meta.text;
+        if (name) a.text = name;
         a.uniqueId = item.uniqueId;
       }
     }

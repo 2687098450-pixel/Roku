@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=65";
-import { getFloorDef } from "../map/floors.js?v=65";
+} from "../characters/omni/equipment.js?v=68";
+import { getFloorDef } from "../map/floors.js?v=68";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -39,7 +39,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "手枪",
       uniqueId: "pink_burst_echo",
       skillOwner: "pink",
-      uniqueText: "强化爆裂矢：三连射半伤·击杀加射",
+      uniqueText: "强化爆裂矢",
       desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
     },
     {
@@ -50,7 +50,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "Boss",
       uniqueId: "yellow_reflect_shield",
       skillOwner: "yellow",
-      uniqueText: "强化反伤：友军比例再 -10%",
+      uniqueText: "强化反伤",
       desc: "潮汐冠廊守护者掉落。唯一词条强化反伤；仅小黄装备时生效。",
     },
   ],
@@ -63,7 +63,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "Boss",
       uniqueId: "omni_balance_spirit",
       skillOwner: "omni",
-      uniqueText: "强化均衡：十字共享·灵体化",
+      uniqueText: "强化均衡",
       desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
     },
     {
@@ -87,7 +87,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       kind: "法杖",
       uniqueId: "green_life_flow",
       skillOwner: "green",
-      uniqueText: "强化生机流转：治疗提升友军伤害",
+      uniqueText: "强化生机流转",
       desc: "环礁秘径守护者掉落。唯一词条强化生机流转；仅小绿装备时生效。",
     },
   ],
@@ -385,14 +385,43 @@ function floorName(floor) {
   }
 }
 
+/** 11+ 层循环 1～10 主题池，并按十层段强化基础属性 */
+function lootThemeFloor(floor) {
+  const f = Math.max(1, Math.floor(floor || 1));
+  return ((f - 1) % 10) + 1;
+}
+
+function lootDecade(floor) {
+  return Math.floor((Math.max(1, Math.floor(floor || 1)) - 1) / 10);
+}
+
+function scaleLootBase(base, floor) {
+  const tier = lootDecade(floor);
+  if (!base || tier <= 0) return { ...(base || {}) };
+  const out = {};
+  for (const [k, v] of Object.entries(base)) {
+    out[k] = Math.max(1, Math.round(Number(v) * (1 + tier * 0.35)));
+  }
+  return out;
+}
+
 function bossSkillPool(floor) {
-  const f = Math.max(1, Math.min(10, Math.floor(floor || 1)));
-  return BOSS_LOOT_BY_FLOOR[f] || BOSS_LOOT_BY_FLOOR[1];
+  const key = lootThemeFloor(floor);
+  const pool = BOSS_LOOT_BY_FLOOR[key] || BOSS_LOOT_BY_FLOOR[1];
+  return pool.map((tpl) => ({
+    ...tpl,
+    base: scaleLootBase(tpl.base, floor),
+    desc: floor > 10 ? `${floorName(floor)}掉落。${tpl.desc || ""}` : tpl.desc,
+  }));
 }
 
 function bossNormalPool(floor) {
-  const f = Math.max(1, Math.min(10, Math.floor(floor || 1)));
-  return BOSS_NORMAL_BY_FLOOR[f] || NORMAL_POOL;
+  const key = lootThemeFloor(floor);
+  const pool = BOSS_NORMAL_BY_FLOOR[key] || NORMAL_POOL;
+  return pool.map((tpl) => ({
+    ...tpl,
+    base: scaleLootBase(tpl.base, floor),
+  }));
 }
 
 function rarityByFloor(floor, preferHigh = false) {
@@ -402,7 +431,8 @@ function rarityByFloor(floor, preferHigh = false) {
   else if (f <= 4) idx = preferHigh ? 2 : 1;
   else if (f <= 6) idx = preferHigh ? 3 : 2;
   else if (f <= 8) idx = preferHigh ? 4 : 3;
-  else idx = preferHigh ? 5 : 4;
+  else if (f <= 15) idx = preferHigh ? 5 : 4;
+  else idx = 5;
   if (Math.random() < 0.35) idx = Math.max(0, idx - 1);
   if (Math.random() < 0.25) idx = Math.min(RARITY_ORDER.length - 1, idx + 1);
   return RARITY_ORDER[idx];

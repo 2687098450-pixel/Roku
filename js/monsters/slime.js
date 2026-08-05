@@ -1,9 +1,9 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { skillPowerText } from "../core/utils.js?v=65";
-import { OX, OY, canWalk } from "../map/island15.js?v=65";
-import { createMonster } from "./roster.js?v=65";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "./skills.js?v=65";
+import { skillPowerText } from "../core/utils.js?v=68";
+import { OX, OY, canWalk } from "../map/island15.js?v=68";
+import { createMonster } from "./roster.js?v=68";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS } from "./skills.js?v=68";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 

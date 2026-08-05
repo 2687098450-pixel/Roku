@@ -1,11 +1,11 @@
 /** 按楼层配置生成地牢地图与刷怪 */
 
-import { EXIT, FLOOR, createDungeonShell, canWalk } from "./island15.js?v=65";
-import { getFloorDef } from "./floors.js?v=65";
-import { buildFloorMask } from "./shapes.js?v=65";
-import { createPatrolMonster } from "../monsters/slime.js?v=65";
-import { createBoss } from "../monsters/boss.js?v=65";
-import { pickTrashType } from "../monsters/roster.js?v=65";
+import { EXIT, FLOOR, createDungeonShell, canWalk } from "./island15.js?v=68";
+import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=68";
+import { buildFloorMask } from "./shapes.js?v=68";
+import { createPatrolMonster } from "../monsters/slime.js?v=68";
+import { createBoss } from "../monsters/boss.js?v=68";
+import { pickTrashType } from "../monsters/roster.js?v=68";
 
 function key(x, y) {
   return `${x},${y}`;
@@ -71,7 +71,7 @@ export function buildFloor(floorNum) {
   const cells = shuffle(walkablePlayCells(map, def));
   const taken = new Set();
   const monsters = [];
-  const count = Math.min(def.mobCount, 19);
+  const count = Math.min(def.mobCount, MAX_MOB_COUNT);
 
   for (let i = 0; i < count && i < cells.length; i++) {
     const from = cells[i];

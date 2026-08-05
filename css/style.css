@@ -1756,6 +1756,30 @@ body:has(#formationModal:not(.hidden)) #explore .strip-face {
   color: #2f6f4e;
 }
 
+.equip-preview-stats.affixes li.affix-unique b {
+  color: #c62828;
+}
+
+.equip-preview-stats.affixes li.affix-unique-tap {
+  cursor: pointer;
+  gap: 8px;
+  border: 1.5px solid rgba(198, 40, 40, 0.22);
+  background: linear-gradient(180deg, #fff7f6, #ffe8e6);
+}
+
+.equip-preview-stats.affixes li.affix-unique-tap:active {
+  transform: scale(0.98);
+}
+
+.equip-preview-stats.affixes li.affix-unique-tap .affix-tap-hint {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  color: #c62828;
+  opacity: 0.75;
+}
+
 .equip-preview-desc {
   margin: 0;
   font-size: 13px;

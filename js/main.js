@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=65";
+import { $ } from "./core/utils.js?v=68";
 import {
   canWalk,
   isExitCell,
@@ -6,9 +6,9 @@ import {
   computeCamera,
   screenToTile,
   VIEW_COLS,
-} from "./map/island15.js?v=65";
-import { buildFloor } from "./map/dungeon.js?v=65";
-import { MAX_FLOOR } from "./map/floors.js?v=65";
+} from "./map/island15.js?v=68";
+import { buildFloor } from "./map/dungeon.js?v=68";
+import { MAX_FLOOR } from "./map/floors.js?v=68";
 import {
   createOmniHero,
   createPinkHero,
@@ -21,16 +21,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=65";
-import { getSavedFormation } from "./characters/stats.js?v=65";
-import { moveSlimeOnce } from "./monsters/slime.js?v=65";
-import { createBattleApi } from "./battle/system.js?v=65";
-import { createUI } from "./ui/shell.js?v=65";
+} from "./characters/omni/index.js?v=68";
+import { getSavedFormation } from "./characters/stats.js?v=68";
+import { moveSlimeOnce } from "./monsters/slime.js?v=68";
+import { createBattleApi } from "./battle/system.js?v=68";
+import { createUI } from "./ui/shell.js?v=68";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=65";
+} from "./core/save.js?v=68";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -211,7 +211,7 @@ function easeOutCubic(t) {
 
 function goNextFloor() {
   if (state.floor >= MAX_FLOOR) {
-    showToast("已通关全部 10 层！出口暂时关闭。", 3200);
+    showToast("已通关全部 50 层！出口暂时关闭。", 3200);
     return;
   }
   const next = state.floor + 1;
