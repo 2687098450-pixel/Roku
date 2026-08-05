@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=107";
+import { $, clamp, styleTag } from "../core/utils.js?v=108";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -47,17 +47,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=107";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=107";
-import { setSavedFormation } from "../characters/stats.js?v=107";
-import { resetGameLocalData } from "../core/save.js?v=107";
-import { createAllUniqueItems } from "../loot/drops.js?v=107";
-import { APP_VERSION } from "../core/version.js?v=107";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=107";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=107";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=107";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=107";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=107";
+} from "../characters/omni/index.js?v=108";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=108";
+import { setSavedFormation } from "../characters/stats.js?v=108";
+import { resetGameLocalData } from "../core/save.js?v=108";
+import { createAllUniqueItems } from "../loot/drops.js?v=108";
+import { APP_VERSION } from "../core/version.js?v=108";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=108";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=108";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=108";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=108";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=108";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -301,8 +301,38 @@ export function createUI(ctx) {
 
   function closeEquipPreview() {
     closeEquipPick();
+    hideEquipAffixDetail();
     $("equipPreviewModal")?.classList.add("hidden");
     equipEdit = null;
+  }
+
+  function hideEquipAffixDetail() {
+    const el = $("equipAffixDetail");
+    if (!el) return;
+    el.classList.add("hidden");
+    el.innerHTML = "";
+  }
+
+  function showEquipAffixDetail({ title, type, detail, ico = "唯" }) {
+    const el = $("equipAffixDetail");
+    if (!el) return;
+    el.innerHTML = `
+      <div class="equip-affix-detail-head">
+        <span class="equip-affix-detail-ico">${escapeHtml(ico)}</span>
+        <div class="equip-affix-detail-meta">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(type)}</span>
+        </div>
+        <button type="button" class="equip-affix-detail-close" id="btnCloseEquipAffix" aria-label="关闭词条详情">×</button>
+      </div>
+      <p class="equip-affix-detail-text">${escapeHtml(detail)}</p>`;
+    el.classList.remove("hidden");
+    el.querySelector("#btnCloseEquipAffix")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      hideEquipAffixDetail();
+    });
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   function closeBagSell() {
@@ -746,41 +776,23 @@ export function createUI(ctx) {
     const detail = uniqueAffixDetail(uniqueId);
     if (!UNIQUE_SKILL_IDS[uniqueId] && !detail) return;
     hideSkillHoldPreview();
-    const title = $("skillDetailTitle");
-    const body = $("skillDetailBody");
-    const modal = $("skillDetailModal");
-    if (!body || !modal) return;
-    if (title) title.textContent = name;
-    body.innerHTML = `
-      <div class="skill-detail-top">
-        <div class="skill-detail-ico passive">唯</div>
-        <div class="skill-detail-meta">
-          <div class="skill-detail-name">${name}</div>
-          <div class="skill-detail-type">唯一词条</div>
-        </div>
-      </div>
-      <div class="skill-detail-nums">${detail}</div>`;
-    modal.classList.remove("hidden");
+    showEquipAffixDetail({
+      title: name,
+      type: "唯一词条",
+      detail: detail || "暂无说明。",
+      ico: "唯",
+    });
   }
 
   function openSpecialAffixPreview(id) {
     if (id !== "cast_echo") return;
     hideSkillHoldPreview();
-    const title = $("skillDetailTitle");
-    const body = $("skillDetailBody");
-    const modal = $("skillDetailModal");
-    if (!body || !modal) return;
-    if (title) title.textContent = CAST_ECHO_AFFIX.text;
-    body.innerHTML = `
-      <div class="skill-detail-top">
-        <div class="skill-detail-ico passive">特</div>
-        <div class="skill-detail-meta">
-          <div class="skill-detail-name">${CAST_ECHO_AFFIX.text}</div>
-          <div class="skill-detail-type">特殊词条 · 仅红装戒指/项链</div>
-        </div>
-      </div>
-      <div class="skill-detail-nums">${CAST_ECHO_AFFIX.detail}</div>`;
-    modal.classList.remove("hidden");
+    showEquipAffixDetail({
+      title: CAST_ECHO_AFFIX.text,
+      type: "特殊词条 · 仅红装戒指/项链",
+      detail: CAST_ECHO_AFFIX.detail,
+      ico: "特",
+    });
   }
 
   function bindUniqueAffixTaps(root) {
@@ -885,6 +897,7 @@ export function createUI(ctx) {
       body.querySelector("#btnUnequip")?.addEventListener("click", unequipCurrent);
       bindUniqueAffixTaps(body);
     }
+    hideEquipAffixDetail();
     $("equipPreviewModal").classList.remove("hidden");
   }
 
@@ -944,6 +957,7 @@ export function createUI(ctx) {
       body.querySelector("#btnUseWarp")?.addEventListener("click", openWarpPicker);
       body.querySelector("#btnUsePhone")?.addEventListener("click", openPhoneDial);
     }
+    hideEquipAffixDetail();
     $("equipPreviewModal").classList.remove("hidden");
   }
 
@@ -1002,9 +1016,15 @@ export function createUI(ctx) {
     if (title) title.textContent = `选择${SLOT_LABEL[slotKey] || "装备"}`;
     let limitHint = "";
     if (slotKey === "weapon") {
-      if (hero.statsId === "pink") limitHint = "（小粉仅可装备枪械）";
-      else if (hero.statsId === "green") limitHint = "（小绿仅可装备法杖）";
-      else if (hero.statsId === "omni" || hero.statsId === "yellow") {
+      if (hero.statsId === "pink" || hero.statsId === "orange") {
+        limitHint = "（仅可装备枪械）";
+      } else if (hero.statsId === "green" || hero.statsId === "blue") {
+        limitHint = "（仅可装备法杖）";
+      } else if (
+        hero.statsId === "omni" ||
+        hero.statsId === "yellow" ||
+        hero.statsId === "cyan"
+      ) {
         limitHint = "（可装备全部武器）";
       }
     }

@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=107";
+import { scaleGoldGain } from "../../core/economy.js?v=108";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -148,7 +148,7 @@ export function weaponClass(item) {
 
 /**
  * 角色能否穿戴该装备（含武器职业限制）
- * 全能：任意武器；小粉：仅枪械；小绿：仅法杖
+ * 全能/小黄/小青：任意；小粉/小橙：仅枪械；小绿/小蓝：仅法杖
  */
 export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
   if (!hero || !item || !canEquipInSlot(item, slotKey)) return false;
@@ -156,12 +156,10 @@ export function canHeroEquipItem(hero, item, slotKey = item?.slot) {
     slotKey === "weapon" || item.slot === "weapon";
   if (!isWeapon) return true;
   const id = hero.statsId;
-  if (id === "omni" || id === "yellow") return true;
+  if (id === "omni" || id === "yellow" || id === "cyan") return true;
   const cls = weaponClass(item);
-  if (id === "pink") return cls === "gun";
+  if (id === "pink" || id === "orange") return cls === "gun";
   if (id === "green" || id === "blue") return cls === "staff";
-  if (id === "orange") return cls === "sword" || cls === "other";
-  if (id === "cyan") return true;
   return true;
 }
 
@@ -1182,13 +1180,13 @@ export function createDefaultEquip(statsId = "omni") {
   if (statsId === "orange") {
     return {
       ...gear,
-      weapon: makeItem("短剑", "weapon", { atk: 5 }, {
-        id: "sword_orange",
-        kind: "剑",
+      weapon: makeItem("手枪", "weapon", { atk: 5, spd: 1 }, {
+        id: "pistol_orange",
+        kind: "手枪",
         rarity: "green",
         level: 1,
-        icon: "sword.png",
-        desc: "烬火短刃。绿装带 1 条词条。",
+        icon: "pistol.png",
+        desc: "烬火佩枪。绿装带 1 条词条。",
         affixes: fixedAffixes([{ key: "atk", value: 1 }]),
       }),
       shield: makeItem("皮套", "shield", { def: 1 }, {
