@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=106";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=106";
+import { $, clamp, irand } from "../core/utils.js?v=107";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=107";
 import {
   refreshHeroStats,
   skillPower,
@@ -20,7 +20,7 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=106";
+} from "../characters/omni/index.js?v=107";
 import {
   gainExp,
   splitExp,
@@ -30,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=106";
+} from "../characters/progression.js?v=107";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=106";
-import { buildEncounter } from "../monsters/roster.js?v=106";
+} from "../characters/skills.js?v=107";
+import { buildEncounter } from "../monsters/roster.js?v=107";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=106";
-import { rollBattleLoot } from "../loot/drops.js?v=106";
+} from "../monsters/skills.js?v=107";
+import { rollBattleLoot } from "../loot/drops.js?v=107";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=106";
-import { createTicker } from "../core/time.js?v=106";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=106";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=106";
+} from "../characters/stats.js?v=107";
+import { createTicker } from "../core/time.js?v=107";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=107";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=107";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=106";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=106";
+} from "./status.js?v=107";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=107";
 
 export function createBattleApi(ctx) {
   const {
@@ -752,7 +752,7 @@ export function createBattleApi(ctx) {
     return dealt;
   }
 
-  /** 小黄盾击等：命中后对自身造成少量真实伤害（不触发反伤） */
+  /** 小黄盾击等：命中后对自身造成少量真实伤害（可触发反伤） */
   function applySelfRecoil(attacker, dealt, def) {
     const pct = def?.selfRecoilPct;
     if (!attacker || !(pct > 0) || !(dealt > 0)) return 0;
@@ -760,7 +760,6 @@ export function createBattleApi(ctx) {
     const selfDmg = Math.max(1, Math.floor(dealt * pct));
     return dealDamage(attacker, selfDmg, {
       trueDamage: true,
-      skipReflect: true,
       skipHitCheck: true,
       source: attacker,
     });

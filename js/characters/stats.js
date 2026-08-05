@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=106";
+import { TICK_SECONDS } from "../core/time.js?v=107";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
