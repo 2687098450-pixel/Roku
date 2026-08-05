@@ -1215,9 +1215,16 @@ html, body {
   width: 40px;
   height: 40px;
   background: var(--c);
-  border-radius: 8px;
+  border-radius: var(--mr, 8px);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7);
   animation: bobSquare 1.8s ease-in-out infinite;
+}
+
+.square.has-art {
+  background:
+    var(--art) center / cover no-repeat,
+    var(--c);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 
 .battle-unit .diamond {
@@ -1228,7 +1235,7 @@ html, body {
 .battle-unit .square {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--mr, 14px);
 }
 
 /* Modal */

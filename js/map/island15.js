@@ -1,5 +1,12 @@
 /** 地牢 / 岛屿地图：可走地板 + 围墙 + 外圈海洋 + 出口；探索时按相机视野裁剪绘制 */
 
+import {
+  preloadMonsterImages,
+  drawMonsterSprite,
+} from "../monsters/visuals.js?v=71";
+
+export { preloadMonsterImages };
+
 export const PLAY_COLS = 10;
 export const PLAY_ROWS = 8;
 export const OCEAN = 0;
@@ -556,7 +563,7 @@ export function drawMap(ctx, map, view, entities) {
     if (!inView(cam, T, m.x, m.y)) return;
     const bob = Math.sin(time * 3 + i) * 2;
     const size = m.isBoss ? T * 0.38 : T * 0.28;
-    drawSquare(ctx, m.x * T + T / 2, m.y * T + T / 2 + bob, size, m.color);
+    drawMonsterSprite(ctx, m.x * T + T / 2, m.y * T + T / 2 + bob, size, m);
   });
 
   const pbob = Math.sin(time * 3 + 1) * 2;

@@ -1,20 +1,20 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=68";
-import { calcStats } from "./omni/attributes.js?v=68";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=68";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=71";
+import { calcStats } from "./omni/attributes.js?v=71";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=71";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=68";
+} from "./skills.js?v=71";
 import {
   expToNext,
   getSkillLevel,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
-} from "./progression.js?v=68";
+} from "./progression.js?v=71";
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
@@ -162,18 +162,19 @@ export function combatPower(hero) {
   return Math.floor(hero.maxHp * 0.35 + hero.atk * 18 + hero.def * 12 + hero.spd * 6);
 }
 
-/** 网站 lift=0.6 烤死的主体提亮色（勿再用乘法现算） */
+/** 菱形主体色：与角色表 color 一致（不再提亮） */
 export const DIAMOND_MID_COLOR = {
-  omni: "#a6d8bc",
-  pink: "#f4c1d9",
-  green: "#c7e8c8",
-  yellow: "#eadcac",
+  omni: "#3cb86a",
+  pink: "#ff7eb3",
+  green: "#8fdf8a",
+  yellow: "#e8c044",
 };
 
 export function diamondMidColor(unit) {
+  if (unit?.color) return unit.color;
   const id = unit?.statsId || unit?.id;
   if (id && DIAMOND_MID_COLOR[id]) return DIAMOND_MID_COLOR[id];
-  return unit?.color || DIAMOND_MID_COLOR.omni;
+  return DIAMOND_MID_COLOR.omni;
 }
 
 /** 宽←血防，高←攻速（仅作分项，不设写死阈值） */
@@ -219,7 +220,7 @@ export function diamondDims(unit, scale = 1, peers = null) {
   return { w, h, aspect: w / Math.max(1e-6, h) };
 }
 
-/** 用于 style：提亮主体色 + 宽高（无四角着色） */
+/** 用于 style：主体色 + 宽高（无四角着色） */
 export function diamondStyleAttr(unit, scale = 1, peers = null) {
   const { w, h } = diamondDims(unit, scale, peers);
   const mid = diamondMidColor(unit);
