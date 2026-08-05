@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=108";
-import { getFloorDef } from "../map/floors.js?v=108";
+} from "../characters/omni/equipment.js?v=109";
+import { getFloorDef } from "../map/floors.js?v=109";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -51,7 +51,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "yellow_reflect_shield",
       skillOwner: "yellow",
       uniqueText: "强化反伤",
-      desc: "潮冕祭司掉落。唯一词条强化反伤；仅小黄装备时生效。",
+      desc: "潮冕祭司掉落。唯一词条将反伤改为对全体生效；仅小黄装备时生效。",
     },
   ],
   5: [

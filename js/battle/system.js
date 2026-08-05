@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=108";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=108";
+import { $, clamp, irand } from "../core/utils.js?v=109";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=109";
 import {
   refreshHeroStats,
   skillPower,
@@ -20,7 +20,7 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=108";
+} from "../characters/omni/index.js?v=109";
 import {
   gainExp,
   splitExp,
@@ -30,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=108";
+} from "../characters/progression.js?v=109";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=108";
-import { buildEncounter } from "../monsters/roster.js?v=108";
+} from "../characters/skills.js?v=109";
+import { buildEncounter } from "../monsters/roster.js?v=109";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=108";
-import { rollBattleLoot } from "../loot/drops.js?v=108";
+} from "../monsters/skills.js?v=109";
+import { rollBattleLoot } from "../loot/drops.js?v=109";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=108";
-import { createTicker } from "../core/time.js?v=108";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=108";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=108";
+} from "../characters/stats.js?v=109";
+import { createTicker } from "../core/time.js?v=109";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=109";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=109";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=108";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=108";
+} from "./status.js?v=109";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=109";
 
 export function createBattleApi(ctx) {
   const {
@@ -659,7 +659,7 @@ export function createBattleApi(ctx) {
       unit.classList.add(crit ? "crit" : "hit");
     }
     if (!opts.fromReflect && !opts.skipReflect && raw > 0) {
-      triggerReflect(target);
+      triggerReflect(target, opts.source || null);
     }
     return raw;
   }
@@ -672,21 +672,27 @@ export function createBattleApi(ctx) {
     return calcReflectEnemyDamage(atk, def, lv);
   }
 
-  function triggerReflect(victim) {
+  function triggerReflect(victim, source = null) {
     const b = getState().battle;
     if (!b || !victim?.isHero) return;
     const hero = actingHero(victim);
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
     const lv = getSkillLevel(hero, "yellow_reflect");
     const p = getReflectParams(lv);
-    let allyRatio = applyReflectAllyUnique(
-      p.allyRatio,
-      heroHasUnique(hero, "yellow_reflect_shield")
-    );
+    const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
+    let allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
     const enemyDmg = reflectBaseDamage(victim);
     const enemyHitIds = [];
-    for (const u of battleUnits(b)) {
-      if (!u || u.hp <= 0 || u.id === victim.id) continue;
+
+    const units = battleUnits(b).filter(
+      (u) => u && u.hp > 0 && u.id !== victim.id
+    );
+    /** 默认只打伤害来源；唯一强化后打全场 */
+    const targets = hasUnique
+      ? units
+      : units.filter((u) => source && u.id === source.id);
+
+    for (const u of targets) {
       const isAlly = !!u.isHero;
       if (!isAlly) {
         dealDamage(u, enemyDmg, {

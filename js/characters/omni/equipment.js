@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=108";
+import { scaleGoldGain } from "../../core/economy.js?v=109";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -192,7 +192,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "yellow_reflect",
     name: "强化反伤",
     detail:
-      "强化小黄「反伤」：友军溅射/治疗比例再降低 10%（更快转入治疗）。仅小黄装备时生效。",
+      "强化小黄「反伤」：由仅反击伤害来源，改为对全体其他单位生效；友军按较低比例结算，且该比例再降低 10%（更快转入治疗）。仅小黄装备时生效。",
   },
   green_mend_pulse: {
     name: "强化治疗脉动",

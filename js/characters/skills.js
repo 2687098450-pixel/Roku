@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=108";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=108";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=108";
+import { getCharacterStats } from "./stats.js?v=109";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=109";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=109";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -88,6 +88,7 @@ export const SKILL_POWER = {
     turns: 3,
   },
   /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)
+   *  默认只反击伤害来源；唯一强化后打全场
    *  对友：1 级 60%，每级 -10%；≤ -10% 时改为治疗 |比例|×对敌伤害，并造成 1 真实伤害
    */
   yellow_reflect: {
@@ -599,11 +600,15 @@ export function buildSkillText(hero, skillId, level = 1) {
   if (skillId === "yellow_reflect") {
     const p = getReflectParams(lv);
     const pct = Math.round(p.reflectMult * 100);
-    const allyRatio = applyReflectAllyUnique(
-      p.allyRatio,
-      heroHasUnique(hero, "yellow_reflect_shield")
-    );
+    const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
+    const allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
     const enemyFormula = `防御力×${skVal(pct + "%")}×(1+攻击÷防御)`;
+    if (!hasUnique) {
+      return {
+        nums: `反击来源 · ${enemyFormula}`,
+        desc: `受伤时，仅对造成伤害的单位造成 ${enemyFormula} 真实伤害（来源为友方时按友方比例结算）。装备唯一强化后改为对全体生效。`,
+      };
+    }
     let allyText;
     if (allyRatio > 0) {
       allyText = `对友方造成 该伤害×${skVal(Math.round(allyRatio * 100) + "%")}`;
@@ -614,11 +619,11 @@ export function buildSkillText(hero, skillId, level = 1) {
     }
     const nums =
       allyRatio > 0
-        ? `敌${enemyFormula} · 友×${skVal(Math.round(allyRatio * 100) + "%")}`
+        ? `全体 · 敌${enemyFormula} · 友×${skVal(Math.round(allyRatio * 100) + "%")}`
         : allyRatio === 0
-          ? `敌${enemyFormula} · 友无溅射`
-          : `敌${enemyFormula} · 友治疗×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}+${skVal(1)}真伤`;
-    const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，${allyText}。`;
+          ? `全体 · 敌${enemyFormula} · 友无溅射`
+          : `全体 · 敌${enemyFormula} · 友治疗×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}+${skVal(1)}真伤`;
+    const desc = `受伤时，对全体其他单位生效：敌人 ${enemyFormula}，${allyText}。`;
     return { nums, desc };
   }
 
@@ -827,8 +832,8 @@ export function createYellowSkills() {
       name: "反伤",
       kind: "passive",
       level: 1,
-      nums: "敌防御力×10%×(1+攻击÷防御) · 友×60%",
-      desc: "受伤时，对敌人造成 防御力×10%×(1+攻击÷防御) 伤害，对友方造成 该伤害×60%。",
+      nums: "反击来源 · 防御力×10%×(1+攻击÷防御)",
+      desc: "受伤时，仅对造成伤害的单位造成 防御力×10%×(1+攻击÷防御) 真实伤害。装备唯一强化后改为对全体生效。",
     },
     {
       id: "yellow_armor",
