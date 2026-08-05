@@ -1,11 +1,11 @@
 /** 按楼层配置生成地牢地图与刷怪 */
 
-import { EXIT, FLOOR, createDungeonShell, canWalk } from "./island15.js?v=94";
-import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=94";
-import { buildFloorMask } from "./shapes.js?v=94";
-import { createPatrolMonster } from "../monsters/slime.js?v=94";
-import { createBoss } from "../monsters/boss.js?v=94";
-import { pickTrashType } from "../monsters/roster.js?v=94";
+import { EXIT, FLOOR, createDungeonShell, canWalk } from "./island15.js?v=101";
+import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=101";
+import { buildFloorMask } from "./shapes.js?v=101";
+import { createPatrolMonster } from "../monsters/slime.js?v=101";
+import { createBoss } from "../monsters/boss.js?v=101";
+import { pickTrashType } from "../monsters/roster.js?v=101";
 
 function key(x, y) {
   return `${x},${y}`;
@@ -63,8 +63,9 @@ function patrolEnd(map, def, from, taken) {
   return { ...from };
 }
 
-export function buildFloor(floorNum) {
-  const def = getFloorDef(floorNum);
+export function buildFloor(floorNum, opts = {}) {
+  const loop = Math.max(0, Math.floor(opts.loop || 0));
+  const def = getFloorDef(floorNum, loop);
   const mask = buildFloorMask(def);
   const map = createDungeonShell(def, mask);
 
@@ -78,7 +79,7 @@ export function buildFloor(floorNum) {
     taken.add(key(from.x, from.y));
     const to = patrolEnd(map, def, from, taken);
     taken.add(key(to.x, to.y));
-    const kind = pickTrashType(def.floor);
+    const kind = pickTrashType(def.combatFloor || def.floor);
     monsters.push(
       createPatrolMonster(kind, {
         from,
@@ -87,6 +88,7 @@ export function buildFloor(floorNum) {
         oy: map.oy,
         scale: def.scale,
         floor: def.floor,
+        combatFloor: def.combatFloor || def.floor,
       })
     );
   }
@@ -98,6 +100,7 @@ export function buildFloor(floorNum) {
       oy: map.oy,
       scale: def.scale,
       floor: def.floor,
+      combatFloor: def.combatFloor || def.floor,
     })
   );
 
@@ -105,6 +108,8 @@ export function buildFloor(floorNum) {
     map,
     monsters,
     floor: def.floor,
+    combatFloor: def.combatFloor || def.floor,
+    loop: def.loop || 0,
     name: def.name,
     scale: def.scale,
     exitPlay: { ...def.exit },

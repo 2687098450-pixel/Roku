@@ -1,4 +1,4 @@
-import { APP_VERSION } from "../core/version.js?v=94";
+import { APP_VERSION } from "../core/version.js?v=101";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
@@ -18,9 +18,28 @@ export const MONSTER_IMAGE_FILES = {
   mushroom: "mushroom.png",
   golem: "golem.png",
   wisp: "wisp.png",
+  skeleton: "skeleton.png",
+  spider: "spider.png",
+  wolf: "wolf.png",
+  harpy: "harpy.png",
+  knight: "knight.png",
+  mage: "mage.png",
+  ogre: "ogre.png",
+  shadow: "shadow.png",
+  frost: "frost.png",
+  demon: "demon.png",
+  dragon: "dragon.png",
   boss: "boss.png",
-  // 后续新怪有图时在此登记即可，例如：
-  // skeleton: "skeleton.png",
+  boss_sun: "boss_sun.png",
+  boss_sand: "boss_sand.png",
+  boss_tide: "boss_tide.png",
+  boss_harbor: "boss_harbor.png",
+  boss_mist: "boss_mist.png",
+  boss_reef: "boss_reef.png",
+  boss_dual: "boss_dual.png",
+  boss_ruin: "boss_ruin.png",
+  boss_saw: "boss_saw.png",
+  boss_claw: "boss_claw.png",
 };
 
 /** 方块圆角（px）：无图时用圆角差异辅助辨认种类 */
@@ -43,6 +62,16 @@ export const MONSTER_SQUARE_RADIUS = {
   demon: 5,
   dragon: 4,
   boss: 8,
+  boss_sun: 8,
+  boss_sand: 6,
+  boss_tide: 10,
+  boss_harbor: 5,
+  boss_mist: 12,
+  boss_reef: 11,
+  boss_dual: 3,
+  boss_ruin: 4,
+  boss_saw: 7,
+  boss_claw: 6,
 };
 
 const IMAGE_BASE = new URL("../../assets/monsters/", import.meta.url).href;
@@ -51,8 +80,10 @@ let _preloadPromise = null;
 
 export function monsterKindOf(unit) {
   if (!unit) return "slime";
-  if (unit.isBoss || unit.kind === "boss" || unit.type === "boss") return "boss";
-  return unit.kind || unit.type || "slime";
+  const k = unit.kind || unit.type || "";
+  if (k && MONSTER_IMAGE_FILES[k]) return k;
+  if (unit.isBoss || k === "boss" || String(k).startsWith("boss_")) return "boss";
+  return k || "slime";
 }
 
 export function monsterImageUrl(kind) {

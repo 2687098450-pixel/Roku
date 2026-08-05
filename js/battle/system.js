@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=94";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=94";
+import { $, clamp, irand } from "../core/utils.js?v=101";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=101";
 import {
   refreshHeroStats,
   skillPower,
@@ -9,6 +9,7 @@ import {
   isHealSkill,
   isBuffSkill,
   scaledSkillDef,
+  applyUniqueSkillMods,
   SKILL_POWER,
   nextAutoSkill,
   getBattleFormation,
@@ -16,7 +17,10 @@ import {
   activeSkills,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=94";
+  skillMpCost,
+  canAffordSkill,
+  spendSkillMp,
+} from "../characters/omni/index.js?v=101";
 import {
   gainExp,
   splitExp,
@@ -26,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=94";
+} from "../characters/progression.js?v=101";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=94";
-import { buildEncounter } from "../monsters/roster.js?v=94";
+} from "../characters/skills.js?v=101";
+import { buildEncounter } from "../monsters/roster.js?v=101";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=94";
-import { rollBattleLoot } from "../loot/drops.js?v=94";
+} from "../monsters/skills.js?v=101";
+import { rollBattleLoot } from "../loot/drops.js?v=101";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=94";
-import { createTicker } from "../core/time.js?v=94";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=94";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=94";
+} from "../characters/stats.js?v=101";
+import { createTicker } from "../core/time.js?v=101";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=101";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=101";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -63,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=94";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=94";
+} from "./status.js?v=101";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=101";
 
 export function createBattleApi(ctx) {
   const {
@@ -87,7 +91,7 @@ export function createBattleApi(ctx) {
 
   function setBattleButtons(on) {
     document.querySelectorAll(".skill-btn").forEach((b) => {
-      if (b.dataset.silenced === "1") {
+      if (b.dataset.silenced === "1" || b.dataset.nomp === "1") {
         b.disabled = true;
         return;
       }
@@ -398,10 +402,10 @@ export function createBattleApi(ctx) {
     radiant: "印",
     quake: "震",
     omni_bless: "衡",
-    pink_shot: "箭",
     pink_burst: "爆",
     pink_barrage: "雨",
     pink_fervor: "燃",
+    pink_marks: "印",
     green_bolt: "叶",
     green_mend: "愈",
     green_bloom: "芽",
@@ -437,10 +441,21 @@ export function createBattleApi(ctx) {
             : sk.style === "buff"
               ? "skill-btn skill buff"
               : "skill-btn skill";
+        const cost = skillMpCost(hero, sk.id);
+        const noMp = cost > 0 && !canAffordSkill(hero, sk.id);
         const locked = silenced && sk.id !== basicId;
-        return `<button type="button" class="${cls}${locked ? " silenced" : ""}" data-skill="${sk.id}"${locked ? ' data-silenced="1"' : ""} disabled title="${locked ? "禁魔中：仅可普通攻击" : ""}">
+        const blocked = locked || noMp;
+        const tip = locked
+          ? "禁魔中：仅可普通攻击"
+          : noMp
+            ? `蓝不足（需要 ${cost}）`
+            : cost > 0
+              ? `耗蓝 ${cost}`
+              : "不耗蓝";
+        return `<button type="button" class="${cls}${blocked ? " silenced" : ""}" data-skill="${sk.id}"${locked ? ' data-silenced="1"' : ""}${noMp ? ' data-nomp="1"' : ""} disabled title="${tip}">
           <span class="skill-icon" data-kind="${sk.id}">${icon}</span>
           <span class="skill-name">${sk.name}</span>
+          ${cost > 0 ? `<span class="skill-mp">${cost}</span>` : ""}
         </button>`;
       })
       .join("");
@@ -467,12 +482,18 @@ export function createBattleApi(ctx) {
 
   function unitCritRate(unit) {
     const stacks = Math.max(0, Math.min(5, unit.killStacks || 0));
-    return Math.min(0.85, (unit.critRate ?? DEFAULT_CRIT_RATE) + stacks * 0.03);
+    const hero = unit?.isHero ? actingHero(unit) : null;
+    const markLv = hero?.statsId === "pink" ? getSkillLevel(hero, "pink_marks") : 1;
+    const per = 0.03 + Math.max(0, markLv - 1) * 0.01;
+    return Math.min(0.85, (unit.critRate ?? DEFAULT_CRIT_RATE) + stacks * per);
   }
 
   function unitCritDmg(unit) {
     const stacks = Math.max(0, Math.min(5, unit.killStacks || 0));
-    return (unit.critDmg ?? DEFAULT_CRIT_DMG) + (unit.critDmgBonus || 0) + stacks * 0.05;
+    const hero = unit?.isHero ? actingHero(unit) : null;
+    const markLv = hero?.statsId === "pink" ? getSkillLevel(hero, "pink_marks") : 1;
+    const per = 0.05 + Math.max(0, markLv - 1) * 0.01;
+    return (unit.critDmg ?? DEFAULT_CRIT_DMG) + (unit.critDmgBonus || 0) + stacks * per;
   }
 
   function notePinkKill(source) {
@@ -496,6 +517,10 @@ export function createBattleApi(ctx) {
   function unitHtml(u, enemy, peers = null) {
     const pct = clamp((u.hp / u.maxHp) * 100, 0, 100);
     const g = clamp((u.gauge / GAUGE_MAX) * 100, 0, 100);
+    const mpPct =
+      !enemy && u.maxMp > 0
+        ? clamp(((u.mp || 0) / u.maxMp) * 100, 0, 100)
+        : 0;
     const ready = u.gauge >= GAUGE_MAX ? " ready" : "";
     const stunned = isStunned(u);
     const stunCls = stunned ? " stun" : "";
@@ -514,14 +539,19 @@ export function createBattleApi(ctx) {
       shapeHtml = unitShapeHtml(u, "md", { peers });
     }
 
+    const mpBar = enemy
+      ? ""
+      : `<div class="unit-mp"><i data-mp="${u.id}" style="width:${mpPct}%"></i></div>`;
+
     return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}${spiritCls}${artCls}" data-id="${u.id}" data-col="${u.col ?? 1}" data-kind="${kind}">
       <div class="unit-float">
         <div class="unit-hp"><i style="width:${pct}%"></i></div>
+        ${mpBar}
         <div class="unit-atb"><i data-gauge="${u.id}" style="width:${g}%"></i></div>
+        ${statusBadgesHtml(u)}
       </div>
       <div class="shape-wrap" data-wrap="${u.id}">
         ${stunMark}
-        ${statusBadgesHtml(u)}
         ${shapeHtml}
         <div class="unit-shadow"></div>
       </div>
@@ -533,6 +563,12 @@ export function createBattleApi(ctx) {
       if (u.hp <= 0) continue;
       const el = document.querySelector(`[data-gauge="${u.id}"]`);
       if (el) el.style.width = `${clamp((u.gauge / GAUGE_MAX) * 100, 0, 100)}%`;
+      if (u.isHero && u.maxMp > 0) {
+        const mpEl = document.querySelector(`[data-mp="${u.id}"]`);
+        if (mpEl) {
+          mpEl.style.width = `${clamp(((u.mp || 0) / u.maxMp) * 100, 0, 100)}%`;
+        }
+      }
       const unit = document.querySelector(`.battle-unit[data-id="${u.id}"]`);
       if (unit) {
         const stunned = isStunned(u);
@@ -685,7 +721,11 @@ export function createBattleApi(ctx) {
     if (attacker?.spiritForm) return 0;
     const hero = actingHero(attacker);
     const lv = getSkillLevel(hero, skillId);
-    const def = scaledSkillDef(skillId, lv) || SKILL_POWER[skillId];
+    const def = applyUniqueSkillMods(
+      hero,
+      skillId,
+      scaledSkillDef(skillId, lv) || SKILL_POWER[skillId]
+    );
     const scale =
       (damageScale || 1) *
       (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
@@ -733,7 +773,11 @@ export function createBattleApi(ctx) {
         source: ally,
       });
       if (dealt > 0) {
-        const def = scaledSkillDef(skillId, skillLv) || SKILL_POWER[skillId];
+        const def = applyUniqueSkillMods(
+          actingHero(ally),
+          skillId,
+          scaledSkillDef(skillId, skillLv) || SKILL_POWER[skillId]
+        );
         recordControl(ally, tryApplySkillStatuses(ally, t, def?.apply || {}, mods));
         if (def?.dot) applyMonsterDot(t, ally, { dot: def.dot });
       }
@@ -842,7 +886,9 @@ export function createBattleApi(ctx) {
   function syncHeroHp(b) {
     for (const ally of b.allies) {
       const hero = heroById(ally.id);
-      if (hero) hero.hp = Math.max(0, ally.hp);
+      if (!hero) continue;
+      hero.hp = Math.max(0, ally.hp);
+      if (ally.mp != null) hero.mp = Math.max(0, ally.mp);
     }
   }
 
@@ -948,9 +994,10 @@ export function createBattleApi(ctx) {
     return { gold, gems };
   }
 
-  function canUseSkill(b, skillId) {
+  function canUseSkill(b, skillId, hero = null) {
     const def = SKILL_POWER[skillId];
     if (!def) return false;
+    if (hero && !canAffordSkill(hero, skillId)) return false;
     if (isBuffSkill(skillId)) return true;
     if (isHealSkill(skillId)) return livingAllies(b).length > 0;
     if (def.hitAllFront || def.stunGauge || def.stunTurns) {
@@ -964,12 +1011,14 @@ export function createBattleApi(ctx) {
     const ally = b.allies?.find((a) => a.id === hero?.id);
     if (ally && isSilenced(ally)) {
       const basic = basicAttackId(hero);
-      if (canUseSkill(b, basic)) return basic;
+      if (canUseSkill(b, basic, hero)) return basic;
     }
     const actives = activeSkills(hero);
     for (const sk of actives) {
-      if (canUseSkill(b, sk.id)) return sk.id;
+      if (canUseSkill(b, sk.id, hero)) return sk.id;
     }
+    const basic = basicAttackId(hero);
+    if (canUseSkill(b, basic, hero)) return basic;
     return null;
   }
 
@@ -1029,15 +1078,19 @@ export function createBattleApi(ctx) {
     if (isSilenced(ally) && used !== basicAttackId(hero)) {
       used = basicAttackId(hero);
     }
-    if (!canUseSkill(b, used)) used = firstUsableSkill(b, hero);
+    if (!canUseSkill(b, used, hero)) used = firstUsableSkill(b, hero);
     if (isSilenced(ally)) {
       const basic = basicAttackId(hero);
-      if (canUseSkill(b, basic)) used = basic;
+      if (canUseSkill(b, basic, hero)) used = basic;
     }
-    if (!used || !canUseSkill(b, used)) return false;
+    if (!used || !canUseSkill(b, used, hero)) return false;
 
     const skillLv = getSkillLevel(hero, used);
-    const def = scaledSkillDef(used, skillLv) || SKILL_POWER[used];
+    const def = applyUniqueSkillMods(
+      hero,
+      used,
+      scaledSkillDef(used, skillLv) || SKILL_POWER[used]
+    );
     const style = def.style || "melee";
     const mods = sumSkillMods(hero?.equip);
     const hits = Math.max(1, 1 + (mods.hitBonus || 0));
@@ -1070,6 +1123,12 @@ export function createBattleApi(ctx) {
           applyStatus(unit, "dodgeUp", {
             gauge: def.dodgeGauge ?? DEFAULT_STATUS_GAUGE,
             power: def.dodgePower,
+          });
+        }
+        if (def.hitUpPower) {
+          applyStatus(unit, "hitUp", {
+            gauge: def.hitUpGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.hitUpPower,
           });
         }
       };
@@ -1165,6 +1224,9 @@ export function createBattleApi(ctx) {
 
     // 施加 buff 的当回合不扣持续时间
     if (!appliedBuff) tickUnitBuffs(ally);
+    spendSkillMp(hero, used);
+    ally.mp = hero.mp;
+    ally.maxMp = hero.maxMp;
     renderBattle(b);
     return true;
   }
@@ -1413,6 +1475,7 @@ export function createBattleApi(ctx) {
     for (const { hero } of lineup) {
       hero.isCaptain = hero.id === state.captainId;
       refreshHeroStats(hero);
+      hero.mp = hero.maxMp;
     }
 
     setMode("battle");
@@ -1433,6 +1496,8 @@ export function createBattleApi(ctx) {
       shape: hero.shape,
       maxHp: hero.maxHp,
       hp: hero.hp,
+      maxMp: hero.maxMp,
+      mp: hero.mp,
       atk: hero.atk,
       def: hero.def,
       spd: hero.spd,

@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=94";
+import { TICK_SECONDS } from "../core/time.js?v=101";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
@@ -221,7 +221,7 @@ export function loadSavedSettings() {
   if (data.rotations && typeof data.rotations === "object") {
     const validActives = {
       omni: new Set(["attack", "radiant", "quake", "omni_bless"]),
-      pink: new Set(["pink_shot", "pink_burst", "pink_barrage", "pink_fervor"]),
+      pink: new Set(["pink_burst", "pink_barrage", "pink_fervor"]),
       green: new Set(["green_bolt", "green_mend", "green_bloom"]),
       yellow: new Set(["yellow_hit", "yellow_slam", "yellow_fortify"]),
       blue: new Set(["blue_bolt", "blue_nova", "blue_freeze", "blue_veil"]),

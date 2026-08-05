@@ -191,25 +191,48 @@ export function tryApplySelfBuffs(unit, mods = null) {
   }
 }
 
+/** 12×12 软像素图标（无汉字），风格对齐奶油暖色 UI */
+const ST_SVG = {
+  stun: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M6 1.2l.55 1.35L8 2.8l-1.2.85.35 1.4L6 4.4 4.85 5.05l.35-1.4L4 2.8l1.45-.25z"/><path fill="#ffe9a8" d="M2.2 7.2l.4 1 .95.15-.7.6.2 1L2.2 9.4l-.85.55.2-1-.7-.6.95-.15z"/><path fill="#ffe9a8" d="M9.8 7.2l.4 1 .95.15-.7.6.2 1L9.8 9.4l-.85.55.2-1-.7-.6.95-.15z"/></svg>`,
+  slow: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="none" stroke="#fff8ee" stroke-width="1.15" stroke-linecap="round" d="M6 2.2v3.2L8.2 7"/><circle cx="6" cy="6" r="3.6" fill="none" stroke="#fff8ee" stroke-width="1.15"/><path fill="#c9f3ff" d="M6 9.6l-.7 1.2h1.4z"/></svg>`,
+  silence: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M3.2 4.2h2.1L7.2 2.6v6.8L5.3 7.8H3.2z"/><path fill="none" stroke="#ffb4a8" stroke-width="1.3" stroke-linecap="round" d="M2.2 2.4l7.6 7.2"/></svg>`,
+  healCut: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M6 10.2C4.2 8.6 2.4 7 2.4 5.1c0-1.2.9-2.1 2.1-2.1.7 0 1.3.3 1.5.8.2-.5.8-.8 1.5-.8 1.2 0 2.1.9 2.1 2.1 0 1.9-1.8 3.5-3.6 5.1z"/><path fill="none" stroke="#ff6b6b" stroke-width="1.25" stroke-linecap="round" d="M2.5 9.5L9.5 2.5"/></svg>`,
+  haste: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="none" stroke="#fff8ee" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" d="M2.2 3.2L5.6 6 2.2 8.8M6.2 3.2L9.6 6 6.2 8.8"/></svg>`,
+  dodgeUp: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="none" stroke="#fff8ee" stroke-width="1.25" stroke-linecap="round" d="M2.4 8.2c1.6-2.8 3.4-4 7.2-4.4"/><path fill="none" stroke="#c9f3ff" stroke-width="1.15" stroke-linecap="round" d="M7.6 2.6l2.2 1.1-1.4 2"/></svg>`,
+  hitUp: `<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.5" fill="none" stroke="#fff8ee" stroke-width="1.15"/><circle cx="6" cy="6" r="1.15" fill="#ffe9a8"/><path fill="none" stroke="#fff8ee" stroke-width="1.1" stroke-linecap="round" d="M6 1.4v1.5M6 9.1v1.5M1.4 6h1.5M9.1 6h1.5"/></svg>`,
+  dot: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#d8f3c8" d="M6 1.6c0 0 3.4 3.4 3.4 5.6A3.4 3.4 0 0 1 6 10.6 3.4 3.4 0 0 1 2.6 7.2C2.6 5 6 1.6 6 1.6z"/><circle cx="4.8" cy="6.6" r=".7" fill="#fff8ee" opacity=".7"/></svg>`,
+  atkUp: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M7.6 1.6l2.8 2.8-1.1 1.1-2.8-2.8z"/><path fill="#ffe9a8" d="M6.2 3.4l2.4 2.4-4.1 4.1H2.2V7.5z"/><path fill="none" stroke="#ff9f43" stroke-width="1.1" stroke-linecap="round" d="M3.2 8.8l-1 1"/></svg>`,
+  defUp: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M6 1.5l3.8 1.4v3.2c0 2.2-1.6 3.6-3.8 4.4-2.2-.8-3.8-2.2-3.8-4.4V2.9z"/><path fill="#c9f3ff" d="M6 2.8l2.4.9v2.2c0 1.4-1 2.3-2.4 2.9-1.4-.6-2.4-1.5-2.4-2.9V3.7z"/></svg>`,
+  critUp: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#ffe9a8" d="M6 1.4l1.1 2.4 2.6.3-2 1.8.6 2.5L6 7.1 3.7 8.4l.6-2.5-2-1.8 2.6-.3z"/><path fill="#fff8ee" d="M9.6 2.2l.45 1 .95.1-.7.65.2.95-.9-.5-.9.5.2-.95-.7-.65.95-.1z"/></svg>`,
+  mend: `<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="#fff8ee" d="M5.2 2.4h1.6v2.8h2.8v1.6H6.8v2.8H5.2V6.8H2.4V5.2h2.8z"/><circle cx="6" cy="6" r="4.4" fill="none" stroke="#7ed99a" stroke-width="1"/></svg>`,
+};
+
+function stIco(id, kind, title) {
+  const svg = ST_SVG[id];
+  if (!svg) return "";
+  return `<i class="st-ico ${kind} st-${id}" title="${title}" aria-label="${title}">${svg}</i>`;
+}
+
 export function statusBadgesHtml(unit) {
-  if (!unit?.statuses && !(unit?.stun > 0) && !unit?.dot) return "";
-  const ids = [];
-  if (isStunned(unit)) ids.push("stun");
-  for (const id of Object.keys(unit.statuses || {})) {
+  const badges = [];
+  if (isStunned(unit)) badges.push(stIco("stun", "debuff", STATUS_META.stun.label));
+  for (const id of Object.keys(STATUS_META)) {
     if (id === "stun") continue;
-    if (hasStatus(unit, id)) ids.push(id);
-  }
-  const badges = ids.map((id) => {
+    if (!hasStatus(unit, id)) continue;
     const meta = STATUS_META[id];
-    const cls = meta?.kind === "buff" ? "buff" : "debuff";
-    return `<i class="st-badge ${cls}" title="${meta?.label || id}">${(meta?.label || id).slice(0, 1)}</i>`;
-  });
+    badges.push(stIco(id, meta.kind === "buff" ? "buff" : "debuff", meta.label));
+  }
   if (unit?.dot && (unit.dot.remain || 0) > (unit.dot.bar || 0)) {
     const pulse = unit.dot.type === "pulse";
-    const label = pulse ? "脉动毒" : "行动毒";
-    badges.push(
-      `<i class="st-badge debuff" title="${label}">毒</i>`
-    );
+    badges.push(stIco("dot", "debuff", pulse ? "脉动毒" : "行动毒"));
+  }
+  if ((unit?.buffTurns || 0) > 0) {
+    if ((unit.atkBuff || 0) > 0) badges.push(stIco("atkUp", "buff", "攻击↑"));
+    if ((unit.defBuff || 0) > 0) badges.push(stIco("defUp", "buff", "防御↑"));
+    if ((unit.critDmgBonus || 0) > 0) badges.push(stIco("critUp", "buff", "暴伤↑"));
+  }
+  if (unit?.mendPulse && (unit.mendPulse.remain || 0) > (unit.mendPulse.bar || 0)) {
+    badges.push(stIco("mend", "buff", "愈合脉冲"));
   }
   if (!badges.length) return "";
   return `<div class="status-badges">${badges.join("")}</div>`;

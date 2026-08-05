@@ -478,6 +478,16 @@ export const TYPE_SKILL_IDS = {
   demon: ["hellfire", "demon_claw"],
   dragon: ["dragon_breath", "tail_swipe"],
   boss: ["crush", "quake_roar", "soul_drain"],
+  boss_sun: ["crush", "quake_roar", "soul_drain"],
+  boss_sand: ["crush", "quake_roar", "shield_bash"],
+  boss_tide: ["crush", "quake_roar", "soul_drain", "boss_slow"],
+  boss_harbor: ["crush", "cleave", "shield_bash"],
+  boss_mist: ["crush", "quake_roar", "spore", "boss_healcut"],
+  boss_reef: ["crush", "soul_drain", "hex_bolt"],
+  boss_dual: ["crush", "quake", "shield_bash"],
+  boss_ruin: ["crush", "bone_slash", "soul_drain"],
+  boss_saw: ["crush", "rend", "boss_cleave"],
+  boss_claw: ["crush", "quake_roar", "soul_drain", "boss_meteor"],
 };
 
 /** Boss 随层解锁更强技能（与小怪种类解锁同节奏） */
@@ -507,16 +517,61 @@ export function pickMonsterSkill(monster) {
       return true;
     });
     if (!ids.length) ids = ["gnaw"];
+    return MONSTER_SKILLS[ids[0]] || MONSTER_SKILLS.gnaw;
   }
-  const pool = ids.map((id) => MONSTER_SKILLS[id]).filter(Boolean);
-  if (!pool.length) return MONSTER_SKILLS.gnaw;
-  const total = pool.reduce((s, sk) => s + (sk.weight || 1), 0);
-  let r = Math.random() * total;
-  for (const sk of pool) {
-    r -= sk.weight || 1;
-    if (r <= 0) return sk;
+
+  const turn = Math.max(0, Math.floor(monster.actCount || 0));
+  monster.actCount = turn + 1;
+  monster.controlCd = Math.max(0, Math.floor(monster.controlCd || 0));
+
+  const controlIds = ids.filter((id) => {
+    const sk = MONSTER_SKILLS[id];
+    return sk?.apply && Object.keys(sk.apply).length > 0;
+  });
+  const basicIds = ids.filter((id) => !controlIds.includes(id));
+
+  const floor = monster.combatFloor || monster.floor || 1;
+  const wantControl =
+    controlIds.length > 0 &&
+    monster.controlCd <= 0 &&
+    Math.random() < 0.8 &&
+    (turn < 2 || Math.random() < 0.45);
+
+  const pickWeighted = (list) => {
+    const pool = list.map((id) => MONSTER_SKILLS[id]).filter(Boolean);
+    if (!pool.length) return null;
+    const total = pool.reduce((s, sk) => s + (sk.weight || 1), 0);
+    let r = Math.random() * total;
+    for (const sk of pool) {
+      r -= sk.weight || 1;
+      if (r <= 0) return sk;
+    }
+    return pool[pool.length - 1];
+  };
+
+  if (wantControl) {
+    const sk = pickWeighted(controlIds);
+    if (sk) {
+      monster.controlCd = controlSkillCooldown(sk, floor);
+      return sk;
+    }
   }
-  return pool[pool.length - 1];
+
+  if (monster.controlCd > 0) monster.controlCd -= 1;
+  const basic = pickWeighted(basicIds.length ? basicIds : ids);
+  return basic || MONSTER_SKILLS.gnaw;
+}
+
+/** 控制技内置冷却：越强越长；层数升高略缩短 */
+function controlSkillCooldown(sk, floor) {
+  const apply = sk?.apply || {};
+  let base = 2;
+  if (apply.stun) base = 3;
+  else if (apply.silence) base = 3;
+  else if (apply.healCut != null) base = 2;
+  else if (apply.slow != null) base = 2;
+  const cut = Math.min(2, Math.floor((floor || 1) / 25));
+  return Math.max(1, base - cut);
 }
 
 export function monsterSkillDamage(monster, skill) {

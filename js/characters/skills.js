@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=94";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=94";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=94";
+import { getCharacterStats } from "./stats.js?v=101";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=101";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=101";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -49,8 +49,8 @@ export const SKILL_POWER = {
   },
 
   // —— 小粉：远程爆发 ——
-  pink_shot: { mult: 1.15, flat: 3, style: "ranged" },
-  pink_burst: { mult: 2.6, flat: 10, style: "ranged" },
+  /** 普通攻击（原粉晶箭倍率） */
+  pink_burst: { mult: 1.15, flat: 3, style: "ranged" },
   pink_barrage: { mult: 1.05, flat: 2, style: "ranged", hitAllFront: true },
   /** 主动：提升自身攻击与暴击伤害 */
   pink_fervor: {
@@ -274,6 +274,39 @@ export function applyReflectAllyUnique(allyRatio, hasShield) {
 }
 
 /**
+ * 唯一词条对技能数值的覆盖（返回浅拷贝）
+ * @param {object|null} hero
+ * @param {string} skillId
+ * @param {object|null} def
+ */
+export function applyUniqueSkillMods(hero, skillId, def) {
+  if (!def || !hero || !skillId) return def;
+  const out = { ...def };
+  if (def.apply) out.apply = { ...def.apply };
+  if (def.dot) out.dot = { ...def.dot };
+
+  if (skillId === "blue_freeze" && heroHasUnique(hero, "blue_freeze_lock")) {
+    out.apply = { stun: true, stunGauge: 80, slow: 0.3 };
+  }
+  if (skillId === "orange_blaze" && heroHasUnique(hero, "orange_blaze_ember")) {
+    const d = out.dot || { type: "onAct", mult: 0.2, flat: 1, gauge: 50 };
+    out.dot = {
+      ...d,
+      mult: +((d.mult || 0.2) * 1.5).toFixed(3),
+      flat: Math.round((d.flat || 0) + 2),
+      gauge: Math.max(d.gauge || 50, 70),
+    };
+  }
+  if (skillId === "cyan_tailwind" && heroHasUnique(hero, "cyan_tailwind_gale")) {
+    out.hastePower = +((out.hastePower || 0.18) + 0.12).toFixed(3);
+    out.hasteGauge = Math.max(out.hasteGauge || 50, 70);
+    out.hitUpPower = Math.max(out.hitUpPower || 0, 0.1);
+    out.hitUpGauge = 70;
+  }
+  return out;
+}
+
+/**
  * 按角色当前攻防预览反伤数值（真实伤害，未算战中 buff）
  */
 export function previewReflectDamage(hero) {
@@ -309,16 +342,24 @@ function statusEffectNotes(s, scale = 1) {
   if (s.apply?.slow != null) {
     parts.push(`命中减速${skVal(Math.round(s.apply.slow * 100) + "%")}`);
   }
-  if (s.apply?.stun) parts.push("命中眩晕");
+  if (s.apply?.stun) {
+    const g = s.apply.stunGauge;
+    parts.push(g != null ? `命中眩晕(${skVal(g)})` : "命中眩晕");
+  }
   if (s.dot) {
     const dotDmg = skillPowerMarked(s.dot.mult || 0, s.dot.flat || 0, scale);
-    parts.push(`行动时持续伤害 ${dotDmg}`);
+    const g = s.dot.gauge;
+    parts.push(
+      g != null
+        ? `行动时持续伤害 ${dotDmg}(${skVal(g)})`
+        : `行动时持续伤害 ${dotDmg}`
+    );
   }
   return parts;
 }
 
 function skillNumsAndDesc(skillId, level = 1, opts = {}) {
-  const s = scaledSkillDef(skillId, level);
+  const s = opts.def || scaledSkillDef(skillId, level);
   if (!s) return { nums: "—", desc: "" };
   const scale = opts.damageScale != null ? opts.damageScale : 1;
   const dmg = skillPowerMarked(s.mult, s.flat, scale);
@@ -355,9 +396,12 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
       };
     }
     if (hastePct && s.target === "all") {
-      const desc = `全体增速+${skVal(hastePct + "%")}，持续 ${turns} 回合。`;
+      const hitPct = Math.round((s.hitUpPower || 0) * 100);
+      const hitNote = hitPct ? `、命中+${skVal(hitPct + "%")}` : "";
+      const hitShort = hitPct ? ` · 命中+${skVal(hitPct + "%")}` : "";
+      const desc = `全体增速+${skVal(hastePct + "%")}${hitNote}，持续 ${turns} 回合。`;
       return {
-        nums: `全体增速+${skVal(hastePct + "%")} · ${turns}回合`,
+        nums: `全体增速+${skVal(hastePct + "%")}${hitShort} · ${turns}回合`,
         desc,
       };
     }
@@ -483,15 +527,21 @@ export function attrPassiveSkillId(statsId) {
   return null;
 }
 
-/** 属性被动随等级成长（每级约 +10% 基础被动） */
+/** 属性被动随等级成长：每级约 +10% 基础被动，且非 0 项每级至少 +1（避免小数四舍五入看不出变化） */
 export function scaledPassiveBoost(baseBoost = {}, level = 1) {
   const lv = Math.max(1, Math.floor(level || 1));
-  const mult = 1 + (lv - 1) * 0.1;
+  const grow = (v) => {
+    const base = Math.max(0, Math.round(Number(v) || 0));
+    if (!base) return 0;
+    if (lv <= 1) return base;
+    const per = Math.max(1, Math.round(base * 0.1));
+    return base + (lv - 1) * per;
+  };
   return {
-    hp: Math.round((baseBoost.hp || 0) * mult),
-    atk: Math.round((baseBoost.atk || 0) * mult),
-    def: Math.round((baseBoost.def || 0) * mult),
-    spd: Math.round((baseBoost.spd || 0) * mult),
+    hp: grow(baseBoost.hp),
+    atk: grow(baseBoost.atk),
+    def: grow(baseBoost.def),
+    spd: grow(baseBoost.spd),
   };
 }
 
@@ -523,10 +573,17 @@ export function buildSkillText(hero, skillId, level = 1) {
       desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
     } else if (skillId === "green_life" && heroHasUnique(hero, "green_life_flow")) {
       desc += `治疗时提升友军伤害。`;
-    } else if (skillId === "pink_focus") {
-      desc += `本场击杀叠层（每层暴击率+3%、暴伤+5%，最多5层）。`;
     }
     return { nums, desc };
+  }
+
+  if (skillId === "pink_marks") {
+    const critPct = 3 + (lv - 1);
+    const cdmgPct = 5 + (lv - 1);
+    return {
+      nums: `击杀叠层 · 暴击+${critPct}%/层 · 暴伤+${cdmgPct}%/层 · 最多5`,
+      desc: `本场战斗每击杀一名敌人叠 1 层印记：暴击率+${critPct}%、暴击伤害+${cdmgPct}%，最多 5 层。`,
+    };
   }
 
   if (skillId === "yellow_reflect") {
@@ -570,10 +627,16 @@ export function buildSkillText(hero, skillId, level = 1) {
     casts = Math.max(1, 1 + (mods.hitBonus || 0));
   }
 
+  const uniqueDef = applyUniqueSkillMods(
+    hero,
+    skillId,
+    scaledSkillDef(skillId, lv)
+  );
   const { nums, desc } = skillNumsAndDesc(skillId, lv, {
     damageScale,
     casts,
     pinkEcho,
+    def: uniqueDef,
   });
   if (isHealSkill(skillId) && heroHasUnique(hero, "green_mend_pulse")) {
     return {
@@ -655,12 +718,6 @@ export function createPinkSkills() {
   const sheet = getCharacterStats("pink");
   return [
     makeSkill({
-      id: "pink_shot",
-      name: "粉晶箭",
-      kind: "active",
-      style: "ranged",
-    }),
-    makeSkill({
       id: "pink_burst",
       name: "爆裂矢",
       kind: "active",
@@ -684,7 +741,15 @@ export function createPinkSkills() {
       kind: "passive",
       level: 1,
       nums: passiveNums(sheet),
-      desc: `永久属性：${passiveNums(sheet)}。本场击杀叠层（每层暴击率+3%、暴伤+5%，最多5层）。`,
+      desc: `永久属性：${passiveNums(sheet)}。`,
+    },
+    {
+      id: "pink_marks",
+      name: "猎杀印记",
+      kind: "passive",
+      level: 1,
+      nums: "击杀叠层 · 暴击+3%/层 · 暴伤+5%/层 · 最多5",
+      desc: "本场战斗每击杀一名敌人叠 1 层印记：暴击率+3%、暴击伤害+5%，最多 5 层。随技能等级提升每层加成。",
     },
   ];
 }

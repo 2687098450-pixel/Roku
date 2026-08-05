@@ -1,13 +1,13 @@
 /** 全能：自动战斗逻辑（顺序数据在 characters/stats.js） */
 
-import { getAutoRotation, setAutoRotation } from "../stats.js?v=94";
+import { getAutoRotation, setAutoRotation } from "../stats.js?v=101";
 
 const STATS_ID = "omni";
 
 /** 各角色普通攻击技能 id */
 const BASIC_ATTACK_BY_STATS = {
   omni: "attack",
-  pink: "pink_shot",
+  pink: "pink_burst",
   green: "green_bolt",
   yellow: "yellow_hit",
   blue: "blue_bolt",

@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=94";
+import { scaleGoldGain } from "../../core/economy.js?v=101";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -174,7 +174,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "pink_burst",
     name: "强化爆裂矢",
     detail:
-      "强化小粉「爆裂矢」：释放 3 段，击杀额外再释放 1 段。段伤倍率已直接写入技能说明；若再有「技能回响」，段数+1 且段伤再×60%。仅小粉装备时生效。",
+      "强化小粉普通攻击「爆裂矢」：释放 3 段，击杀额外再释放 1 段。段伤倍率已直接写入技能说明；若再有「技能回响」，段数+1 且段伤再×60%。仅小粉装备时生效。",
   },
   omni_balance_spirit: {
     owner: "omni",
@@ -200,6 +200,27 @@ export const UNIQUE_SKILL_IDS = {
     name: "强化治疗脉动",
     detail:
       "任意治疗效果都会给目标附加 200 行动条脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。穿戴者治疗技能说明会同步标注。",
+  },
+  blue_freeze_lock: {
+    owner: "blue",
+    skillId: "blue_freeze",
+    name: "强化寒锁",
+    detail:
+      "强化小蓝「寒锁」：眩晕行动条更长，并附加减速。仅小蓝装备时生效。",
+  },
+  orange_blaze_ember: {
+    owner: "orange",
+    skillId: "orange_blaze",
+    name: "强化烬焚",
+    detail:
+      "强化小橙「烬焚」：持续灼烧更痛、更久。仅小橙装备时生效。",
+  },
+  cyan_tailwind_gale: {
+    owner: "cyan",
+    skillId: "cyan_tailwind",
+    name: "强化疾风",
+    detail:
+      "强化小青「疾风」：全队增速更强、更久，并附加命中提升。仅小青装备时生效。",
   },
 };
 
@@ -265,9 +286,16 @@ export function itemLevel(item) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
 }
 
-/** 仅橙装 / 红装可用金币升级 */
+/** 仅橙装 / 红装可用金币强化 */
 export const UPGRADEABLE_RARITIES = ["orange", "red"];
 export const MAX_EQUIP_LEVEL = 100;
+/** 第一次强化 100 金，之后每次 +100 */
+export const ENHANCE_COST_STEP = 100;
+
+export function itemEnhanceCount(item) {
+  const n = Number(item?.enhanceCount);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
 
 export function canUpgradeEquip(item) {
   if (!item?.slot) return false;
@@ -286,15 +314,11 @@ export function milestoneCount(level) {
   return Math.floor(Math.max(0, itemLevel({ level })) / 10);
 }
 
-/** 升级消耗：越高越贵；下一档若是突破级更贵 */
+/** 强化消耗：按已强化次数，与装备绝对等级无关。第 n 次强化 = n×100 金 */
 export function upgradeEquipCost(item) {
   if (!item) return 0;
-  const lv = itemLevel(item);
-  const rank = rarityInfo(item.rarity).rank;
-  const next = lv + 1;
-  const base = 28 + lv * 16 + rank * 22;
-  const mult = isMilestoneLevel(next) ? 2.4 : 1;
-  return Math.max(1, Math.floor(base * mult));
+  const nextEnhance = itemEnhanceCount(item) + 1;
+  return Math.max(ENHANCE_COST_STEP, nextEnhance * ENHANCE_COST_STEP);
 }
 
 /** 突破叠乘：每满 10 级主属性额外 +12% */
@@ -425,6 +449,7 @@ export function upgradeEquip(item, state) {
   state.gold -= cost;
   const next = itemLevel(item) + 1;
   item.level = next;
+  item.enhanceCount = itemEnhanceCount(item) + 1;
   const milestone = isMilestoneLevel(next);
 
   for (const a of item.affixes || []) {
@@ -456,7 +481,13 @@ export function upgradeEquip(item, state) {
   }
 
   rebuildEquipStats(item);
-  return { ok: true, cost, level: next, milestone };
+  return {
+    ok: true,
+    cost,
+    level: next,
+    enhanceCount: item.enhanceCount,
+    milestone,
+  };
 }
 
 /** 第 N 层掉落 → 等级 N；Boss 战利品高 1 级 */
@@ -914,6 +945,7 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
     slot,
     rarity,
     level,
+    enhanceCount: Math.max(0, Math.floor(Number(extra.enhanceCount) || 0)),
     baseBonus: { ...(baseBonus || {}) },
     primary: { ...primary },
     affixes,

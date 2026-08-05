@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=94";
+import { $, clamp, styleTag } from "../core/utils.js?v=101";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -16,6 +16,7 @@ import {
   canHeroEquipItem,
   compareEquipByRarityLevel,
   itemLevel,
+  itemEnhanceCount,
   itemPrice,
   toBagEquip,
   BONUS_LABEL,
@@ -46,17 +47,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=94";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=94";
-import { setSavedFormation } from "../characters/stats.js?v=94";
-import { resetGameLocalData } from "../core/save.js?v=94";
-import { createAllUniqueItems } from "../loot/drops.js?v=94";
-import { APP_VERSION } from "../core/version.js?v=94";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=94";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=94";
-import { getFloorDef } from "../map/floors.js?v=94";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=94";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=94";
+} from "../characters/omni/index.js?v=101";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=101";
+import { setSavedFormation } from "../characters/stats.js?v=101";
+import { resetGameLocalData } from "../core/save.js?v=101";
+import { createAllUniqueItems } from "../loot/drops.js?v=101";
+import { APP_VERSION } from "../core/version.js?v=101";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=101";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=101";
+import { getFloorDef } from "../map/floors.js?v=101";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=101";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=101";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -240,11 +241,11 @@ export function createUI(ctx) {
     omni_bless: "衡",
     boost: "衡",
     aftercare: "愈",
-    pink_shot: "箭",
     pink_burst: "爆",
     pink_barrage: "雨",
     pink_fervor: "燃",
     pink_focus: "专",
+    pink_marks: "印",
     green_bolt: "叶",
     green_mend: "愈",
     green_bloom: "芽",
@@ -581,14 +582,15 @@ export function createUI(ctx) {
       return;
     }
     const cost = upgradeEquipCost(item);
+    const nextEnhance = itemEnhanceCount(item) + 1;
     const next = itemLevel(item) + 1;
     const milestone = isMilestoneLevel(next);
     const gold = getState().gold || 0;
     btn.hidden = false;
     btn.disabled = gold < cost;
     btn.textContent = milestone
-      ? `突破升级 Lv.${next}（${cost}金）`
-      : `升级 Lv.${next}（${cost}金）`;
+      ? `突破强化 +${nextEnhance}（${cost}金）`
+      : `强化 +${nextEnhance}（${cost}金）`;
     btn.classList.toggle("milestone", milestone);
   }
 
@@ -623,8 +625,8 @@ export function createUI(ctx) {
     refreshTopBar();
     if (toast) {
       toast.textContent = r.milestone
-        ? `突破！装备升至 Lv.${r.level}（-${r.cost}金）`
-        : `装备升至 Lv.${r.level}（-${r.cost}金）`;
+        ? `突破！强化 +${r.enhanceCount} · Lv.${r.level}（-${r.cost}金）`
+        : `强化 +${r.enhanceCount} · Lv.${r.level}（-${r.cost}金）`;
       toast.classList.remove("hidden");
       clearTimeout(toast._upTimer);
       toast._upTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
@@ -1453,9 +1455,11 @@ export function createUI(ctx) {
 
     if (title) title.textContent = skill.name;
     refreshSkillTexts(hero);
-    const cur = skill.desc || skill.nums || "";
-    const next = buildSkillText(hero, skill.id, lv + 1);
-    const nextLine = next?.desc || next?.nums || "";
+    const curText = buildSkillText(hero, skill.id, lv);
+    const nextText =
+      lv < MAX_SKILL_LEVEL ? buildSkillText(hero, skill.id, lv + 1) : null;
+    const cur = curText?.desc || curText?.nums || skill.desc || skill.nums || "";
+    const nextLine = nextText?.desc || nextText?.nums || "";
     body.innerHTML = `
       <div class="skill-detail-top">
         <div class="skill-detail-ico ${skillIcoClass(skill)}">${skillFace(skill)}</div>

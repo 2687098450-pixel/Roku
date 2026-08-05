@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=94";
+import { $ } from "./core/utils.js?v=98";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=94";
-import { buildFloor } from "./map/dungeon.js?v=94";
-import { MAX_FLOOR } from "./map/floors.js?v=94";
+} from "./map/island15.js?v=98";
+import { buildFloor } from "./map/dungeon.js?v=98";
+import { MAX_FLOOR } from "./map/floors.js?v=98";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=94";
-import { getSavedFormation } from "./characters/stats.js?v=94";
-import { moveSlimeOnce } from "./monsters/slime.js?v=94";
-import { createBattleApi } from "./battle/system.js?v=94";
-import { createUI } from "./ui/shell.js?v=94";
+} from "./characters/omni/index.js?v=98";
+import { getSavedFormation } from "./characters/stats.js?v=98";
+import { moveSlimeOnce } from "./monsters/slime.js?v=98";
+import { createBattleApi } from "./battle/system.js?v=98";
+import { createUI } from "./ui/shell.js?v=98";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=94";
+} from "./core/save.js?v=98";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -82,14 +82,17 @@ function markVisited(state, floorNum) {
 
 /** 进入 / 传送到某层：重建地图与怪物（传送会刷新本层怪物） */
 function applyFloor(state, floorNum) {
-  const built = buildFloor(floorNum);
+  const loop = Math.max(0, Math.floor(state.loop || 0));
+  const built = buildFloor(floorNum, { loop });
   state.map = built.map;
   state.monsters = built.monsters;
   state.monsterTotal = built.monsters.length;
   state.floor = built.floor;
   state.floorScale = built.scale;
+  state.combatFloor = built.combatFloor || built.floor;
   state.placeName = built.name;
-  state.placeFloor = `${built.floor}层`;
+  state.placeFloor =
+    loop > 0 ? `${built.floor}层 · 轮回${loop}` : `${built.floor}层`;
   state.playerPos = { ...built.map.spawn };
   state.displayPos = { ...built.map.spawn };
   state.camReady = false;
@@ -99,10 +102,12 @@ function applyFloor(state, floorNum) {
   markVisited(state, built.floor);
 }
 
-const state = {
+  const state = {
   mode: "explore",
   floor: 1,
+  loop: 0,
   floorScale: 1,
+  combatFloor: 1,
   map: null,
   playerPos: null,
   displayPos: null,
@@ -178,6 +183,13 @@ function getHero() {
     state.party.find(isLiving) ||
     state.party[0]
   );
+}
+
+/** 探索地图上的角色图标：优先显示队长 */
+function getMapCaptain() {
+  const cap = state.party.find((h) => h.id === state.captainId);
+  if (cap) return cap;
+  return getHero();
 }
 
 function getDeployed() {
@@ -280,7 +292,15 @@ function easeOutCubic(t) {
 
 function goNextFloor() {
   if (state.floor >= MAX_FLOOR) {
-    showToast("已通关全部 50 层！出口暂时关闭。", 3200);
+    state.loop = Math.max(0, Math.floor(state.loop || 0)) + 1;
+    applyFloor(state, 1);
+    showToast(
+      `通关 50 层！进入轮回 ${state.loop}（怪物约等于旧 ${1 + state.loop * 34} 层强度）`,
+      3600
+    );
+    ui.refreshExploreHud();
+    resize();
+    flushSave(state);
     return;
   }
   const next = state.floor + 1;
@@ -414,7 +434,7 @@ function updateCamera(dt) {
 }
 
 function draw() {
-  const leader = getHero();
+  const leader = getMapCaptain();
   const form = diamondDims(leader, 1, state.party);
   drawMap(
     ctx,

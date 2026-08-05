@@ -248,24 +248,33 @@ const LAYOUTS = [
 ];
 
 export function mobCountForFloor(floor) {
-  const f = Math.max(1, Math.min(MAX_FLOOR, Math.floor(floor || 1)));
+  const f = Math.max(1, Math.floor(floor || 1));
   if (f <= 10) return BASE_MOB[f - 1];
-  const t = (f - 1) / Math.max(1, MAX_FLOOR - 2);
+  const t = Math.min(1, (f - 1) / Math.max(1, MAX_FLOOR - 2));
   let n = 3 + t * (MAX_MOB_COUNT - 3);
   if (f % 10 === 0) n *= 0.58;
   else if (f % 5 === 0) n *= 0.72;
-  else if (MID_SPARSE.has(f)) n *= 0.8;
+  else if (MID_SPARSE.has(((f - 1) % MAX_FLOOR) + 1) || MID_SPARSE.has(f)) n *= 0.8;
   return Math.max(3, Math.min(MAX_MOB_COUNT, Math.round(n)));
 }
 
+/** 展示层 + 轮回 → 战斗强度层（一轮 ≈ 旧 35 层强度） */
+export const LOOP_FLOOR_OFFSET = 34;
+
+export function effectiveCombatFloor(displayFloor, loop = 0) {
+  const d = Math.max(1, Math.floor(displayFloor || 1));
+  const L = Math.max(0, Math.floor(loop || 0));
+  return d + L * LOOP_FLOOR_OFFSET;
+}
+
 export function scaleForFloor(floor) {
-  const f = Math.max(1, Math.min(MAX_FLOOR, Math.floor(floor || 1)));
+  const f = Math.max(1, Math.floor(floor || 1));
   if (f <= 10) return BASE_SCALE[f - 1];
   const extra = f - 10;
   let s = 3.7 + extra * 0.28 + extra * (extra - 1) * 0.002;
   if (f % 10 === 0) s *= 1.18;
   else if (f % 5 === 0) s *= 1.1;
-  else if (MID_SPARSE.has(f)) s *= 1.05;
+  else if (MID_SPARSE.has(((f - 1) % MAX_FLOOR) + 1)) s *= 1.05;
   return Math.round(s * 100) / 100;
 }
 
@@ -273,12 +282,15 @@ function clonePoint(p) {
   return p ? { x: p.x, y: p.y } : null;
 }
 
-function buildFloorDef(floor) {
+function buildFloorDef(floor, loop = 0) {
   const f = Math.max(1, Math.min(MAX_FLOOR, floor));
   const layout = LAYOUTS[(f - 1) % LAYOUTS.length];
   const decade = Math.floor((f - 1) / 10);
+  const combatFloor = effectiveCombatFloor(f, loop);
   return {
     floor: f,
+    combatFloor,
+    loop: Math.max(0, Math.floor(loop || 0)),
     name: FLOOR_NAMES[f - 1] || `${f}层`,
     shape: layout.shape,
     playCols: layout.playCols + decade,
@@ -290,8 +302,8 @@ function buildFloorDef(floor) {
     exitAlcove: layout.exitAlcove,
     boss: clonePoint(layout.boss),
     walls: (layout.walls || []).map(clonePoint),
-    mobCount: mobCountForFloor(f),
-    scale: scaleForFloor(f),
+    mobCount: mobCountForFloor(combatFloor),
+    scale: scaleForFloor(combatFloor),
   };
 }
 
@@ -330,7 +342,9 @@ export const FLOOR_DEFS = Array.from({ length: MAX_FLOOR }, (_, i) =>
   fitEdgePoints(buildFloorDef(i + 1))
 );
 
-export function getFloorDef(floor) {
+export function getFloorDef(floor, loop = 0) {
   const n = Math.max(1, Math.min(MAX_FLOOR, Number(floor) || 1));
-  return FLOOR_DEFS[n - 1];
+  const L = Math.max(0, Math.floor(loop || 0));
+  if (!L) return FLOOR_DEFS[n - 1];
+  return fitEdgePoints(buildFloorDef(n, L));
 }

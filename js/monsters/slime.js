@@ -1,14 +1,14 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { OX, OY, canWalk } from "../map/island15.js?v=94";
-import { createMonster } from "./roster.js?v=94";
+import { OX, OY, canWalk } from "../map/island15.js?v=101";
+import { createMonster } from "./roster.js?v=101";
 import {
   MONSTER_SKILLS,
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=94";
+} from "./skills.js?v=101";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 
@@ -40,16 +40,19 @@ export function createPatrolMonster(
     oy = OY,
     scale = 1,
     floor = 1,
+    combatFloor = null,
   } = {}
 ) {
   const absFrom = { x: ox + from.x, y: oy + from.y };
   const absTo = { x: ox + to.x, y: oy + to.y };
+  const cf = combatFloor || floor;
   const base = createMonster(kind, {
     x: absFrom.x,
     y: absFrom.y,
     scale,
     role: "trash",
     floor,
+    combatFloor: cf,
   });
   return {
     ...base,
@@ -59,8 +62,9 @@ export function createPatrolMonster(
     to: absTo,
     dir: 1,
     floor,
+    combatFloor: cf,
     isBoss: false,
-    skills: skillListFor(kind, floor),
+    skills: skillListFor(kind, cf),
     skillIds: [...(base.skillIds || TYPE_SKILL_IDS[kind] || ["gnaw"])],
   };
 }

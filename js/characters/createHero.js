@@ -1,14 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=94";
-import { calcStats } from "./omni/attributes.js?v=94";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=94";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=101";
+import { calcStats } from "./omni/attributes.js?v=101";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=101";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=94";
+  createPinkSkills,
+} from "./skills.js?v=101";
 import {
   expToNext,
   getSkillLevel,
@@ -16,12 +17,38 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=94";
+} from "./progression.js?v=101";
+import { heroMaxMp } from "./skillMp.js?v=101";
+
+/** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
+function migratePinkKit(hero) {
+  if (hero?.statsId !== "pink" || !Array.isArray(hero.skills)) return;
+  const hasShot = hero.skills.some((s) => s.id === "pink_shot");
+  const hasMarks = hero.skills.some((s) => s.id === "pink_marks");
+  if (!hasShot && hasMarks) return;
+  const levels = { ...(hero.skillLevels || {}) };
+  if (levels.pink_shot != null) {
+    levels.pink_burst = Math.max(levels.pink_burst || 1, levels.pink_shot);
+    delete levels.pink_shot;
+  }
+  hero.skillLevels = levels;
+  hero.skills = createPinkSkills();
+  for (const sk of hero.skills) {
+    sk.level = getSkillLevel(hero, sk.id);
+  }
+  if (Array.isArray(hero.autoRotation)) {
+    hero.autoRotation = hero.autoRotation.map((id) =>
+      id === "pink_shot" ? "" : id
+    );
+  }
+  refreshSkillTexts(hero);
+}
 
 export function refreshHeroStats(hero) {
   if (!hero.basePassiveBoost) {
     hero.basePassiveBoost = { ...(hero.passiveBoost || {}) };
   }
+  migratePinkKit(hero);
   const attrId = attrPassiveSkillId(hero.statsId);
   if (attrId) {
     hero.passiveBoost = scaledPassiveBoost(
@@ -36,12 +63,15 @@ export function refreshHeroStats(hero) {
   hero.atk = Math.max(1, Math.floor(stats.atk * mult));
   hero.def = Math.max(0, Math.floor(stats.def * mult));
   hero.spd = Math.max(1, Math.floor(stats.spd * mult));
+  hero.maxMp = heroMaxMp(hero.statsId);
   hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
   hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
   hero.hitRate = Math.min(1.6, DEFAULT_HIT_RATE + (eq.hitRate || 0));
   hero.dodgeRate = Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
   if (hero.hp == null) hero.hp = hero.maxHp;
   else hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
+  if (hero.mp == null) hero.mp = hero.maxMp;
+  else hero.mp = Math.max(0, Math.min(hero.maxMp, hero.mp));
 }
 
 const DESC = {
@@ -69,8 +99,8 @@ export function createHero(statsId) {
     critDmg: DEFAULT_CRIT_DMG,
     hitRate: DEFAULT_HIT_RATE,
     dodgeRate: DEFAULT_DODGE_RATE,
-    mp: 30,
-    maxMp: 30,
+    mp: 0,
+    maxMp: 0,
     desc: DESC[statsId] || "",
     color: sheet.color,
     shape: "diamond",

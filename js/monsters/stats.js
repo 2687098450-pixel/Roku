@@ -241,6 +241,138 @@ export const MONSTER_STATS = {
     gold: 80,
     unlockFloor: 1,
   },
+
+  // —— 十种层固定主题 Boss（循环 1～10 / 11～20 …）——
+  boss_sun: {
+    id: "boss_sun",
+    name: "日冕卫士",
+    color: "#f0c040",
+    shape: "square",
+    hp: 210,
+    atk: 30,
+    def: 11,
+    spd: DEFAULT_MONSTER_SPEED - 2,
+    exp: 14,
+    gold: 88,
+    unlockFloor: 1,
+  },
+  boss_sand: {
+    id: "boss_sand",
+    name: "沙角巨蟹",
+    color: "#d4a574",
+    shape: "square",
+    hp: 230,
+    atk: 28,
+    def: 14,
+    spd: DEFAULT_MONSTER_SPEED - 4,
+    exp: 14,
+    gold: 90,
+    unlockFloor: 1,
+  },
+  boss_tide: {
+    id: "boss_tide",
+    name: "潮冕祭司",
+    color: "#4ec3f7",
+    shape: "square",
+    hp: 200,
+    atk: 32,
+    def: 10,
+    spd: DEFAULT_MONSTER_SPEED - 1,
+    exp: 15,
+    gold: 96,
+    unlockFloor: 1,
+  },
+  boss_harbor: {
+    id: "boss_harbor",
+    name: "双湾港监",
+    color: "#6a8aaa",
+    shape: "square",
+    hp: 220,
+    atk: 34,
+    def: 12,
+    spd: DEFAULT_MONSTER_SPEED - 2,
+    exp: 15,
+    gold: 98,
+    unlockFloor: 1,
+  },
+  boss_mist: {
+    id: "boss_mist",
+    name: "雾林树妖",
+    color: "#6bcf8a",
+    shape: "square",
+    hp: 240,
+    atk: 31,
+    def: 9,
+    spd: DEFAULT_MONSTER_SPEED + 1,
+    exp: 16,
+    gold: 105,
+    unlockFloor: 1,
+  },
+  boss_reef: {
+    id: "boss_reef",
+    name: "环礁海巫",
+    color: "#7ec8ff",
+    shape: "square",
+    hp: 250,
+    atk: 30,
+    def: 11,
+    spd: DEFAULT_MONSTER_SPEED - 1,
+    exp: 16,
+    gold: 108,
+    unlockFloor: 1,
+  },
+  boss_dual: {
+    id: "boss_dual",
+    name: "双殿石像",
+    color: "#a09080",
+    shape: "square",
+    hp: 260,
+    atk: 29,
+    def: 16,
+    spd: DEFAULT_MONSTER_SPEED - 5,
+    exp: 17,
+    gold: 112,
+    unlockFloor: 1,
+  },
+  boss_ruin: {
+    id: "boss_ruin",
+    name: "退台亡王",
+    color: "#c4a06a",
+    shape: "square",
+    hp: 215,
+    atk: 36,
+    def: 10,
+    spd: DEFAULT_MONSTER_SPEED - 2,
+    exp: 17,
+    gold: 115,
+    unlockFloor: 1,
+  },
+  boss_saw: {
+    id: "boss_saw",
+    name: "锯湾海怪",
+    color: "#ff8f6b",
+    shape: "square",
+    hp: 205,
+    atk: 35,
+    def: 9,
+    spd: DEFAULT_MONSTER_SPEED + 2,
+    exp: 18,
+    gold: 118,
+    unlockFloor: 1,
+  },
+  boss_claw: {
+    id: "boss_claw",
+    name: "终焉爪兽",
+    color: "#e05070",
+    shape: "square",
+    hp: 280,
+    atk: 38,
+    def: 13,
+    spd: DEFAULT_MONSTER_SPEED - 1,
+    exp: 20,
+    gold: 130,
+    unlockFloor: 1,
+  },
 };
 
 export function getMonsterStats(id) {
@@ -249,10 +381,14 @@ export function getMonsterStats(id) {
   return data;
 }
 
+function isBossSheetId(id) {
+  return id === "boss" || String(id || "").startsWith("boss_");
+}
+
 /** 该层可刷的小怪类型（不含 boss） */
 export function trashTypesForFloor(floor) {
   const f = Math.max(1, floor || 1);
   return Object.values(MONSTER_STATS).filter(
-    (m) => m.id !== "boss" && (m.unlockFloor || 1) <= f
+    (m) => !isBossSheetId(m.id) && (m.unlockFloor || 1) <= f
   );
 }

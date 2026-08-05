@@ -47,6 +47,34 @@
 - 装备：属性词条可出命中/闪避；技能词条可出附带控制 / 施法后增益
 - 小怪控制技按层解锁（约 6 减速 / 10 减疗 / 14 禁魔 / 18 眩晕）；Boss 另有强化控制技
 
+## 装备强化
+
+源：`js/characters/omni/equipment.js`
+
+- 仅橙/红装可强化；**按强化次数计费**，与绝对等级无关
+- 第 1 次 100 金，之后每次 +100（第 n 次 = n×100）
+- 每次强化 `level+1`，并记录 `enhanceCount`
+
+## 轮回（通关 50 层）
+
+- 通关后 `loop++`，回到 1 层；战斗强度按 `floor + loop×34`（一轮约等于旧 35 层）
+- 布局仍按展示层 1～50 循环
+
+## 蓝条
+
+源：`js/characters/skillMp.js`
+
+- 普攻 / 被动 / 自身单体增益不耗蓝；其余主动耗蓝
+- 战斗单位显示蓝条（怪物无）；开场回满
+
+## 层 Boss
+
+源：`js/monsters/bossKinds.js` + `createBoss`
+
+- 每层固定一种主题 Boss（`boss_sun`…`boss_claw` 十种循环）
+- 逢 5 / 逢 10 额外放大；部分层掉唯一红装（见 `UNIQUE_BOSS_BY_FLOOR`）
+- 立绘：`assets/monsters/boss_*.png`，在 `MONSTER_IMAGE_FILES` 登记
+
 ## 伤害结算
 
 源：`js/battle/system.js` → `mitigatedDamage`

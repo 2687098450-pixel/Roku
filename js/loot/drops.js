@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=94";
-import { getFloorDef } from "../map/floors.js?v=94";
+} from "../characters/omni/equipment.js?v=101";
+import { getFloorDef } from "../map/floors.js?v=101";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -28,7 +28,7 @@ const NORMAL_POOL = [
  * 各层 Boss 专属掉落（技能装）
  * 每层独立池：打哪个关口，掉哪套主题装备
  */
-/** 3/5/6 层必掉的唯一红装（可多层数组；仅对应角色装备时生效） */
+/** 部分层必掉唯一红装（可多层数组；仅对应角色装备时生效） */
 export const UNIQUE_BOSS_BY_FLOOR = {
   3: [
     {
@@ -40,7 +40,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "pink_burst_echo",
       skillOwner: "pink",
       uniqueText: "强化爆裂矢",
-      desc: "潮汐冠廊守护者掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
+      desc: "潮冕祭司掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
     },
     {
       name: "冠廊反伤盾",
@@ -51,7 +51,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "yellow_reflect_shield",
       skillOwner: "yellow",
       uniqueText: "强化反伤",
-      desc: "潮汐冠廊守护者掉落。唯一词条强化反伤；仅小黄装备时生效。",
+      desc: "潮冕祭司掉落。唯一词条强化反伤；仅小黄装备时生效。",
     },
   ],
   5: [
@@ -64,7 +64,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "omni_balance_spirit",
       skillOwner: "omni",
       uniqueText: "强化均衡",
-      desc: "十字雾林守护者掉落。唯一词条强化均衡；仅全能装备时生效。",
+      desc: "雾林树妖掉落。唯一词条强化均衡；仅全能装备时生效。",
     },
     {
       name: "雾林脉动戒",
@@ -75,7 +75,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "green_mend_pulse",
       skillOwner: "",
       uniqueText: "强化治疗脉动",
-      desc: "十字雾林守护者掉落。任意治疗附加 200 行动条脉动。",
+      desc: "雾林树妖掉落。任意治疗附加 200 行动条脉动。",
     },
   ],
   6: [
@@ -88,7 +88,46 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "green_life_flow",
       skillOwner: "green",
       uniqueText: "强化生机流转",
-      desc: "环礁秘径守护者掉落。唯一词条强化生机流转；仅小绿装备时生效。",
+      desc: "环礁海巫掉落。唯一词条强化生机流转；仅小绿装备时生效。",
+    },
+  ],
+  10: [
+    {
+      name: "爪屿寒锁杖",
+      slot: "weapon",
+      base: { atk: 6, hp: 20 },
+      icon: "staff.png",
+      kind: "法杖",
+      uniqueId: "blue_freeze_lock",
+      skillOwner: "blue",
+      uniqueText: "强化寒锁",
+      desc: "终焉爪兽掉落。唯一词条强化小蓝「寒锁」；仅小蓝装备时生效。",
+    },
+  ],
+  20: [
+    {
+      name: "黑曜烬焚枪",
+      slot: "weapon",
+      base: { atk: 10, spd: 1 },
+      icon: "pistol.png",
+      kind: "手枪",
+      uniqueId: "orange_blaze_ember",
+      skillOwner: "orange",
+      uniqueText: "强化烬焚",
+      desc: "终焉爪兽掉落。唯一词条强化小橙「烬焚」；仅小橙装备时生效。",
+    },
+  ],
+  30: [
+    {
+      name: "深渊疾风靴",
+      slot: "shoes",
+      base: { spd: 4, def: 2 },
+      icon: "sandals.png",
+      kind: "Boss",
+      uniqueId: "cyan_tailwind_gale",
+      skillOwner: "cyan",
+      uniqueText: "强化疾风",
+      desc: "深渊门廊爪兽掉落。唯一词条强化小青「疾风」；仅小青装备时生效。",
     },
   ],
 };

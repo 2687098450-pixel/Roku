@@ -14,10 +14,10 @@ import {
   rebuildEquipStats,
   refreshSkillTexts,
   expToNext,
-} from "../characters/omni/index.js?v=94";
-import { createPatrolMonster } from "../monsters/slime.js?v=94";
-import { createBoss } from "../monsters/boss.js?v=94";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=94";
+} from "../characters/omni/index.js?v=101";
+import { createPatrolMonster } from "../monsters/slime.js?v=101";
+import { createBoss } from "../monsters/boss.js?v=101";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=101";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -36,6 +36,7 @@ function serializeItem(item) {
 function reviveItem(raw) {
   if (!raw) return null;
   const item = cloneJson(raw);
+  if (item.enhanceCount == null) item.enhanceCount = 0;
   if (item.slot || item.kind === "equip" || item.rarity) {
     try {
       rebuildEquipStats(item);
@@ -194,6 +195,7 @@ export function serializeProgress(state) {
     v: SAVE_VERSION,
     savedAt: Date.now(),
     floor: state.floor || 1,
+    loop: Math.max(0, Math.floor(state.loop || 0)),
     visitedFloors: Array.isArray(state.visitedFloors)
       ? [...state.visitedFloors]
       : [1],
@@ -396,6 +398,7 @@ export function loadProgressIntoState(state, applyFloorFn) {
     state.formation.map((id) => party.find((h) => h.id === id)?.statsId || null)
   );
 
+  state.loop = Math.max(0, Math.floor(data.loop || 0));
   const floor = Math.max(1, Math.floor(data.floor || 1));
   applyFloorFn(state, floor);
 

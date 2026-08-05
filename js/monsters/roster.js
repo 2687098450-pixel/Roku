@@ -4,17 +4,17 @@
  * - Boss：后排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=94";
+import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=101";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=94";
+} from "./skills.js?v=101";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=94";
-import { createBoss } from "./boss.js?v=94";
+} from "../characters/progression.js?v=101";
+import { createBoss } from "./boss.js?v=101";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -45,8 +45,11 @@ function skillIdsForTrash(kind, floor) {
 export function createMonster(kind, opts = {}) {
   const base = getMonsterStats(kind);
   const scale = opts.scale ?? 1;
-  const isBoss = Boolean(opts.isBoss || kind === "boss");
+  const isBoss = Boolean(
+    opts.isBoss || kind === "boss" || String(kind || "").startsWith("boss_")
+  );
   const floor = opts.floor || 1;
+  const combatFloor = opts.combatFloor || floor;
   return {
     id: nextId(kind),
     kind,
@@ -65,7 +68,7 @@ export function createMonster(kind, opts = {}) {
     gauge: 0,
     skillIds: isBoss
       ? [...(TYPE_SKILL_IDS.boss || [])]
-      : skillIdsForTrash(kind, floor),
+      : skillIdsForTrash(kind, combatFloor),
     hitRate: DEFAULT_HIT_RATE,
     dodgeRate: DEFAULT_DODGE_RATE,
     isBoss,
@@ -73,6 +76,7 @@ export function createMonster(kind, opts = {}) {
     /** 地图实体引用（仅主怪保留，战斗生成的小怪为 null） */
     worldRef: opts.worldRef ?? null,
     floor,
+    combatFloor,
   };
 }
 
@@ -176,6 +180,8 @@ function battleReady(unit, extras = {}) {
     gauge: Math.floor(Math.random() * 41),
     skillIds: unit.skillIds || TYPE_SKILL_IDS[unit.kind] || ["gnaw"],
     shape: unit.shape || "square",
+    actCount: 0,
+    controlCd: 0,
     ...extras,
   };
 }
@@ -186,7 +192,13 @@ function battleReady(unit, extras = {}) {
  */
 export function buildEncounter(touched, floor, scale) {
   const s = scale ?? 1;
-  const isBoss = Boolean(touched.isBoss || touched.kind === "boss" || touched.type === "boss");
+  const isBoss = Boolean(
+    touched.isBoss ||
+      touched.kind === "boss" ||
+      touched.type === "boss" ||
+      String(touched.kind || "").startsWith("boss_") ||
+      String(touched.type || "").startsWith("boss_")
+  );
   const touchedKind = touched.kind || touched.type || "slime";
 
   if (isBoss) {
@@ -197,7 +209,7 @@ export function buildEncounter(touched, floor, scale) {
         worldRef: touched,
         isBoss: true,
         role: "boss",
-        kind: "boss",
+        kind: touched.kind || touched.type || "boss",
         hp: touched.hp,
         maxHp: touched.maxHp,
       })
