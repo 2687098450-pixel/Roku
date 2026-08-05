@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=78";
-import { getFloorDef } from "../map/floors.js?v=78";
+} from "../characters/omni/equipment.js?v=81";
+import { getFloorDef } from "../map/floors.js?v=81";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -135,8 +135,8 @@ const BOSS_LOOT_BY_FLOOR = {
       base: { spd: 2 },
       icon: "sandals.png",
       rarity: "purple",
-      skillMods: { hitBonus: 1 },
-      skillAffixText: "技能段数 +1",
+      skillMods: { powerMult: 0.12 },
+      skillAffixText: "技能伤害 +12%",
       desc: "弯角沙洲守护者掉落。脚下生风。",
     },
   ],
@@ -181,8 +181,8 @@ const BOSS_LOOT_BY_FLOOR = {
       base: { atk: 2 },
       icon: "ring.png",
       rarity: "purple",
-      skillMods: { hitBonus: 1 },
-      skillAffixText: "技能段数 +1",
+      skillMods: { powerMult: 0.14 },
+      skillAffixText: "技能伤害 +14%",
       desc: "双湾港守护者掉落。勒紧再释放。",
     },
   ],
@@ -215,8 +215,8 @@ const BOSS_LOOT_BY_FLOOR = {
       base: { atk: 3 },
       icon: "ring.png",
       rarity: "orange",
-      skillMods: { hitBonus: 1, powerMult: 0.08 },
-      skillAffixText: "技能段数 +1，伤害 +8%",
+      skillMods: { powerMult: 0.18, powerFlat: 4 },
+      skillAffixText: "技能伤害 +18%，额外 +4",
       desc: "环礁秘径守护者掉落。一击之后还有余韵。",
     },
     {
@@ -270,8 +270,8 @@ const BOSS_LOOT_BY_FLOOR = {
       base: { spd: 2, atk: 1 },
       icon: "ring.png",
       rarity: "orange",
-      skillMods: { hitBonus: 1, powerMult: 0.12 },
-      skillAffixText: "技能段数 +1，伤害 +12%",
+      skillMods: { powerMult: 0.2, powerFlat: 5 },
+      skillAffixText: "技能伤害 +20%，额外 +5",
       desc: "退台遗迹守护者掉落。箭雨的节奏。",
     },
   ],
@@ -315,8 +315,8 @@ const BOSS_LOOT_BY_FLOOR = {
       base: { atk: 4, spd: 2 },
       icon: "ring.png",
       rarity: "red",
-      skillMods: { hitBonus: 1, powerMult: 0.2 },
-      skillAffixText: "技能段数 +1，伤害 +20%",
+      skillMods: { hitBonus: 1, hitDamageMult: 0.6 },
+      skillAffixText: "技能回响",
       desc: "终焉爪屿守护者掉落。最后的契约。",
     },
     {

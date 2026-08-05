@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=78";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=78";
+import { $, clamp, irand } from "../core/utils.js?v=81";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=81";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=78";
+} from "../characters/omni/index.js?v=81";
 import {
   gainExp,
   splitExp,
@@ -25,24 +25,24 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=78";
+} from "../characters/progression.js?v=81";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=78";
-import { buildEncounter } from "../monsters/roster.js?v=78";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=78";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=78";
-import { rollBattleLoot } from "../loot/drops.js?v=78";
+} from "../characters/skills.js?v=81";
+import { buildEncounter } from "../monsters/roster.js?v=81";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=81";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=81";
+import { rollBattleLoot } from "../loot/drops.js?v=81";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=78";
-import { createTicker } from "../core/time.js?v=78";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=78";
+} from "../characters/stats.js?v=81";
+import { createTicker } from "../core/time.js?v=81";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=81";
 
 export function createBattleApi(ctx) {
   const {
@@ -71,6 +71,110 @@ export function createBattleApi(ctx) {
 
   function battleUnits(b) {
     return [...b.allies, ...b.enemies];
+  }
+
+  function blankCombat() {
+    return { dmg: 0, heal: 0, tank: 0 };
+  }
+
+  function ensureCombat(unit) {
+    if (!unit) return blankCombat();
+    if (!unit.combat) unit.combat = blankCombat();
+    return unit.combat;
+  }
+
+  function findUnitById(b, id) {
+    if (!b || !id) return null;
+    return battleUnits(b).find((u) => u.id === id) || null;
+  }
+
+  function recordDamage(source, target, amount) {
+    const n = Math.max(0, Math.floor(amount || 0));
+    if (!n) return;
+    if (source) ensureCombat(source).dmg += n;
+    if (target) ensureCombat(target).tank += n;
+  }
+
+  function recordHeal(source, amount) {
+    const n = Math.max(0, Math.floor(amount || 0));
+    if (!n || !source) return;
+    ensureCombat(source).heal += n;
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function closeBattleInfo() {
+    $("battleInfoModal")?.classList.add("hidden");
+  }
+
+  function biBarPct(val, max) {
+    if (!(max > 0) || !(val > 0)) return 0;
+    return Math.max(4, Math.min(100, Math.round((val / max) * 100)));
+  }
+
+  function renderBattleInfoRows(units, maxDmg, maxHeal, maxTank) {
+    if (!units.length) {
+      return `<div class="bi-empty">暂无单位</div>`;
+    }
+    const rows = units
+      .slice()
+      .sort((a, b) => (b.combat?.dmg || 0) - (a.combat?.dmg || 0))
+      .map((u) => {
+        const c = ensureCombat(u);
+        const dead = u.hp <= 0;
+        const color = u.color || (u.isBoss ? "#6b7280" : "#8a9aaa");
+        return `<li class="bi-row${dead ? " is-dead" : ""}" style="--bi-c:${color}">
+          <div class="bi-dot" aria-hidden="true"></div>
+          <div class="bi-main">
+            <div class="bi-name">${escapeHtml(u.name || "？")}${dead ? " · 倒下" : ""}</div>
+            <div class="bi-metric dmg">
+              <span class="bi-metric-lab">伤害</span>
+              <div class="bi-bar"><i style="width:${biBarPct(c.dmg, maxDmg)}%"></i></div>
+              <span class="bi-metric-val">${c.dmg}</span>
+            </div>
+            <div class="bi-metric heal">
+              <span class="bi-metric-lab">治疗</span>
+              <div class="bi-bar"><i style="width:${biBarPct(c.heal, maxHeal)}%"></i></div>
+              <span class="bi-metric-val">${c.heal}</span>
+            </div>
+            <div class="bi-metric tank">
+              <span class="bi-metric-lab">抗伤</span>
+              <div class="bi-bar"><i style="width:${biBarPct(c.tank, maxTank)}%"></i></div>
+              <span class="bi-metric-val">${c.tank}</span>
+            </div>
+          </div>
+        </li>`;
+      })
+      .join("");
+    return `<ul class="bi-list">${rows}</ul>`;
+  }
+
+  function openBattleInfo() {
+    const b = getState().battle;
+    const modal = $("battleInfoModal");
+    const body = $("battleInfoBody");
+    if (!b || !modal || !body) return;
+    const units = battleUnits(b);
+    for (const u of units) ensureCombat(u);
+    const maxDmg = units.reduce((m, u) => Math.max(m, u.combat.dmg), 0);
+    const maxHeal = units.reduce((m, u) => Math.max(m, u.combat.heal), 0);
+    const maxTank = units.reduce((m, u) => Math.max(m, u.combat.tank), 0);
+    body.innerHTML = `
+      <div>
+        <div class="bi-section-title">己方</div>
+        ${renderBattleInfoRows(b.allies || [], maxDmg, maxHeal, maxTank)}
+      </div>
+      <div>
+        <div class="bi-section-title">敌方</div>
+        ${renderBattleInfoRows(b.enemies || [], maxDmg, maxHeal, maxTank)}
+      </div>`;
+    modal.classList.remove("hidden");
   }
 
   function livingEnemies(b) {
@@ -342,6 +446,7 @@ export function createBattleApi(ctx) {
       }
     }
     target.hp = Math.max(0, target.hp - raw);
+    recordDamage(opts.source || null, target, raw);
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
       unit.classList.remove("hit", "crit");
@@ -382,6 +487,7 @@ export function createBattleApi(ctx) {
         dealDamage(u, enemyDmg, {
           fromReflect: true,
           trueDamage: true,
+          source: victim,
         });
         enemyHitIds.push(u.id);
         continue;
@@ -391,14 +497,16 @@ export function createBattleApi(ctx) {
         dealDamage(u, allyDmg, {
           fromReflect: true,
           trueDamage: true,
+          source: victim,
         });
       } else if (allyRatio < 0) {
         const healAmt = Math.max(1, Math.floor(enemyDmg * Math.abs(allyRatio)));
-        applyHeal(u, healAmt);
+        applyHeal(u, healAmt, { source: victim });
         applyMendPulse(b, victim, u, healAmt);
         dealDamage(u, 1, {
           fromReflect: true,
           trueDamage: true,
+          source: victim,
         });
       }
     }
@@ -406,25 +514,34 @@ export function createBattleApi(ctx) {
     syncHeroHp(b);
   }
 
-  function heroStrike(attacker, target, skillId, mods) {
+  function heroStrike(attacker, target, skillId, mods, damageScale = 1) {
     if (attacker?.spiritForm) return 0;
     const hero = actingHero(attacker);
     const lv = getSkillLevel(hero, skillId);
-    const power = skillPower(effectiveAtk(attacker), skillId, mods, lv);
+    const scale =
+      (damageScale || 1) *
+      (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
+    const power = Math.max(
+      1,
+      Math.floor(skillPower(effectiveAtk(attacker), skillId, mods, lv) * scale)
+    );
     return dealDamage(target, power, {
       canCrit: true,
       critRate: unitCritRate(attacker),
       critDmg: unitCritDmg(attacker),
+      source: attacker,
     });
   }
 
-  /** 爆裂枪强化：单段连射（与技能段数独立；每段固定起手 3 发） */
-  async function resolvePinkBurstEchoSegment(b, ally, skillId, mods, skillLv, fxMeta) {
+  /** 强化爆裂矢：3+回响 段，每段写入倍率的半伤（再乘回响 60%），击杀额外 +1 段 */
+  async function resolvePinkBurstEcho(b, ally, skillId, mods, skillLv, fxMeta) {
+    const hitScale = mods?.hitDamageMult != null ? mods.hitDamageMult : 1;
+    const damageScale = 0.5 * hitScale;
     const shotPower = Math.max(
       1,
-      Math.floor(skillPower(effectiveAtk(ally), skillId, mods, skillLv) * 0.5)
+      Math.floor(skillPower(effectiveAtk(ally), skillId, mods, skillLv) * damageScale)
     );
-    let remaining = 3;
+    let remaining = 3 + (mods.hitBonus || 0);
     while (remaining > 0) {
       const t = pickLowestEnemy(b);
       if (!t) break;
@@ -437,22 +554,25 @@ export function createBattleApi(ctx) {
         canCrit: true,
         critRate: unitCritRate(ally),
         critDmg: unitCritDmg(ally),
+        source: ally,
       });
       if (t.hp <= 0) remaining += 1;
       renderBattle(b);
     }
   }
 
-  function applyHeal(target, amount) {
+  function applyHeal(target, amount, opts = {}) {
     const before = target.hp;
     target.hp = Math.min(target.maxHp, target.hp + amount);
+    const healed = target.hp - before;
+    if (healed > 0) recordHeal(opts.source || null, healed);
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
       unit.classList.remove("healed");
       void unit.offsetWidth;
       unit.classList.add("healed");
     }
-    return target.hp - before;
+    return healed;
   }
 
   function pickLowestAlly(b) {
@@ -481,6 +601,7 @@ export function createBattleApi(ctx) {
       lostThisCycle: false,
       lastLost: 0,
       tickDmg,
+      healerId: healer?.id || null,
     };
   }
 
@@ -498,7 +619,8 @@ export function createBattleApi(ctx) {
     }
     if (p.walk >= 20) {
       const healAmt = Math.max(1, Math.floor(p.lastLost * 2.5));
-      applyHeal(unit, healAmt);
+      const healer = findUnitById(b, p.healerId);
+      applyHeal(unit, healAmt, { source: healer || null });
       p.walk -= 20;
       p.lostThisCycle = false;
       p.lastLost = 0;
@@ -664,6 +786,7 @@ export function createBattleApi(ctx) {
     if (!b || b.ending) return;
     b.ending = true;
     b.busy = true;
+    closeBattleInfo();
     syncHeroHp(b);
     syncWorldHp(b);
     syncHeroDeathFlags(b);
@@ -733,7 +856,7 @@ export function createBattleApi(ctx) {
         const primary = pickLowestAlly(b) || list[0];
         await playSkillAnim(style, ally.id, primary.id, fxMeta);
         for (const t of list) {
-          const healed = applyHeal(t, amount);
+          const healed = applyHeal(t, amount, { source: ally });
           applyMendPulse(b, ally, t, healed || amount);
         }
       } else {
@@ -741,7 +864,7 @@ export function createBattleApi(ctx) {
         if (!t) return false;
         const amount = skillHealAmount(ally, used, mods, skillLv, t);
         await playSkillAnim(style, ally.id, t.id, fxMeta);
-        const healed = applyHeal(t, amount);
+        const healed = applyHeal(t, amount, { source: ally });
         applyMendPulse(b, ally, t, healed || amount);
       }
       applyLifeFlowBuff(b, ally);
@@ -778,11 +901,7 @@ export function createBattleApi(ctx) {
       used === "pink_burst" &&
       heroHasUnique(hero, "pink_burst_echo")
     ) {
-      // 技能段数各自独立：每段起手 3 发半伤子弹，击杀仅本段 +1 发
-      for (let seg = 0; seg < hits; seg++) {
-        if (!livingEnemies(b).length) break;
-        await resolvePinkBurstEchoSegment(b, ally, used, mods, skillLv, fxMeta);
-      }
+      await resolvePinkBurstEcho(b, ally, used, mods, skillLv, fxMeta);
     } else {
       const t =
         used === "pink_burst"
@@ -852,7 +971,7 @@ export function createBattleApi(ctx) {
       statsId: "enemy",
       color: actor.color || "",
     });
-    for (const t of targets) dealDamage(t, power);
+    for (const t of targets) dealDamage(t, power, { source: actor });
     syncHeroHp(b);
     renderBattle(b);
   }
@@ -1091,7 +1210,10 @@ export function createBattleApi(ctx) {
       rotIndex: 0,
       spiritForm: false,
       mendPulse: null,
+      combat: blankCombat(),
     }));
+
+    for (const e of enemies) ensureCombat(e);
 
     state.battle = {
       allies,
@@ -1131,6 +1253,11 @@ export function createBattleApi(ctx) {
   function bind() {
     $("btnFlee")?.addEventListener("click", flee);
     $("btnAuto")?.addEventListener("click", toggleAuto);
+    $("btnBattleInfo")?.addEventListener("click", openBattleInfo);
+    $("closeBattleInfo")?.addEventListener("click", closeBattleInfo);
+    $("battleInfoModal")?.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeBattleInfo();
+    });
     $("battleActions")?.addEventListener("click", (e) => {
       const btn = e.target.closest?.(".skill-btn[data-skill]");
       if (!btn || btn.disabled) return;

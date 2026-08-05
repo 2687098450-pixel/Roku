@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=78" />
+  <link rel="stylesheet" href="css/style.css?v=81" />
 </head>
 <body>
   <div id="app">
@@ -52,7 +52,7 @@
         </div>
         <div class="top-place">
           <strong id="placeName">阳光海岛</strong>
-          <span id="placeFloor">1层 v0.78</span>
+          <span id="placeFloor">1层 v0.81</span>
         </div>
         <div class="top-mobs" title="剩余怪物 / 本层怪物">
           <i class="mob-ico"></i>
@@ -80,6 +80,7 @@
     <section id="battle" class="scene battle-scene hidden">
       <div class="battle-arena" id="battleField">
         <button type="button" id="btnAuto" class="arena-fab left" aria-pressed="false">自动</button>
+        <button type="button" id="btnBattleInfo" class="arena-fab info" aria-label="战斗信息">信息</button>
         <button type="button" id="btnFlee" class="arena-fab right">逃跑</button>
         <div class="arena-enemies arena-enemy-back" id="enemyBack"></div>
         <div class="arena-enemies arena-enemy-mid" id="enemyMid"></div>
@@ -201,6 +202,17 @@
         </div>
         <p id="skillPickSub" class="skill-pick-sub"></p>
         <div id="skillPickList" class="skill-pick-list"></div>
+      </div>
+    </div>
+
+    <!-- 战斗信息：本局伤害 / 治疗 / 抗伤 -->
+    <div id="battleInfoModal" class="modal nested hidden">
+      <div class="modal-card battle-info-card">
+        <div class="modal-head">
+          <h2>战斗信息</h2>
+          <button type="button" class="icon-close" id="closeBattleInfo">×</button>
+        </div>
+        <div id="battleInfoBody" class="battle-info-body"></div>
       </div>
     </div>
 
@@ -349,6 +361,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=78"></script>
+  <script type="module" src="js/main.js?v=81"></script>
 </body>
 </html>

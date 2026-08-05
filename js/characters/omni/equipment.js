@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=78";
+import { scaleGoldGain } from "../../core/economy.js?v=81";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -77,16 +77,28 @@ const STAT_AFFIX_GROWTH = {
   critDmg: { base: 0.04, perLevel: 0.01 },
 };
 
-/** 技能词条池（高品质 / Boss） */
+/** 技能词条池（高品质 / Boss）；不含「技能回响」（红装饰品特殊） */
 const SKILL_AFFIX_POOL = [
   { id: "pwr_pct", skillMods: { powerMult: 0.1 }, text: "技能伤害 +10%" },
   { id: "pwr_pct2", skillMods: { powerMult: 0.15 }, text: "技能伤害 +15%" },
   { id: "pwr_flat", skillMods: { powerFlat: 4 }, text: "技能伤害 +4" },
   { id: "pwr_flat2", skillMods: { powerFlat: 8 }, text: "技能伤害 +8" },
-  { id: "hit", skillMods: { hitBonus: 1 }, text: "技能段数 +1" },
   { id: "heal", skillMods: { healMult: 0.15 }, text: "治疗效果 +15%" },
   { id: "heal2", skillMods: { healMult: 0.25 }, text: "治疗效果 +25%" },
 ];
+
+/** 红装戒指/项链特殊词条：多释放 1 次，伤害 ×60% */
+export const CAST_ECHO_AFFIX = {
+  type: "skill",
+  id: "cast_echo",
+  skillMods: { hitBonus: 1, hitDamageMult: 0.6 },
+  text: "技能回响",
+  label: "特殊",
+  detail: "技能多释放 1 次，每次伤害变为原来的 60%。",
+};
+
+const CAST_ECHO_SLOTS = new Set(["necklace", "ringL", "ringR"]);
+const CAST_ECHO_CHANCE = 0.05;
 
 /** 用模块 URL 解析，避免 GitHub Pages 子路径 / 无尾斜杠时相对路径失效 */
 export const ITEM_ICON_BASE = new URL("../../../assets/items/", import.meta.url).href;
@@ -144,7 +156,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "pink_burst",
     name: "强化爆裂矢",
     detail:
-      "强化小粉「爆裂矢」：每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。仅小粉装备时生效。",
+      "强化小粉「爆裂矢」：释放 3 段，击杀额外再释放 1 段。段伤倍率已直接写入技能说明；若再有「技能回响」，段数+1 且段伤再×60%。仅小粉装备时生效。",
   },
   omni_balance_spirit: {
     owner: "omni",
@@ -296,7 +308,13 @@ function refreshAffixText(a) {
     a.bonus = { [a.key]: a.value };
     a.text = formatStatAffixText(a.key, a.value);
   } else if (a.type === "skill" && a.skillMods) {
-    a.text = formatSkillModsText(a.skillMods);
+    if (a.id === "cast_echo") {
+      a.text = CAST_ECHO_AFFIX.text;
+      a.label = CAST_ECHO_AFFIX.label;
+      a.detail = CAST_ECHO_AFFIX.detail;
+    } else {
+      a.text = formatSkillModsText(a.skillMods);
+    }
   }
 }
 
@@ -412,7 +430,10 @@ export function upgradeEquip(item, state) {
       if (m.powerMult) m.powerMult = +(m.powerMult + 0.04).toFixed(3);
       if (m.powerFlat) m.powerFlat += 3;
       if (m.healMult) m.healMult = +(m.healMult + 0.04).toFixed(3);
-      if (m.hitBonus && next % 20 === 0) m.hitBonus += 1;
+      // 技能回响不随强化叠段数
+      if (a.id !== "cast_echo" && m.hitBonus && !m.hitDamageMult && next % 20 === 0) {
+        m.hitBonus += 1;
+      }
       refreshAffixText(a);
     }
   }
@@ -554,22 +575,69 @@ function rollStatValue(stat, level, rng = Math.random) {
 }
 
 function skillAffixFromMods(skillMods, text) {
+  const m = skillMods || {};
+  if (m.hitBonus && m.hitDamageMult) {
+    const echo = makeCastEchoAffix();
+    echo.skillMods = {
+      hitBonus: m.hitBonus || 1,
+      hitDamageMult: m.hitDamageMult,
+    };
+    if (text) echo.text = text;
+    return echo;
+  }
   return {
     type: "skill",
-    id: `skill_${Object.keys(skillMods || {}).join("_")}`,
-    skillMods: { ...skillMods },
-    text: text || formatSkillModsText(skillMods),
+    id: `skill_${Object.keys(m).join("_")}`,
+    skillMods: { ...m },
+    text: text || formatSkillModsText(m),
     label: "词条",
   };
 }
 
 function formatSkillModsText(m = {}) {
   const parts = [];
-  if (m.powerMult) parts.push(`技能伤害 +${Math.round(m.powerMult * 100)}%`);
-  if (m.powerFlat) parts.push(`技能伤害 +${m.powerFlat}`);
-  if (m.hitBonus) parts.push(`技能段数 +${m.hitBonus}`);
-  if (m.healMult) parts.push(`治疗效果 +${Math.round(m.healMult * 100)}%`);
+  if (m.hitBonus && m.hitDamageMult) {
+    parts.push(`技能回响：多释放 ${m.hitBonus} 次，伤害×${Math.round(m.hitDamageMult * 100)}%`);
+  } else {
+    if (m.powerMult) parts.push(`技能伤害 +${Math.round(m.powerMult * 100)}%`);
+    if (m.powerFlat) parts.push(`技能伤害 +${m.powerFlat}`);
+    if (m.hitBonus) parts.push(`技能多释放 +${m.hitBonus}`);
+    if (m.hitDamageMult && m.hitDamageMult !== 1) {
+      parts.push(`技能伤害×${Math.round(m.hitDamageMult * 100)}%`);
+    }
+    if (m.healMult) parts.push(`治疗效果 +${Math.round(m.healMult * 100)}%`);
+  }
   return parts.join("，") || "技能强化";
+}
+
+export function makeCastEchoAffix() {
+  return {
+    type: CAST_ECHO_AFFIX.type,
+    id: CAST_ECHO_AFFIX.id,
+    skillMods: { ...CAST_ECHO_AFFIX.skillMods },
+    text: CAST_ECHO_AFFIX.text,
+    label: CAST_ECHO_AFFIX.label,
+    detail: CAST_ECHO_AFFIX.detail,
+  };
+}
+
+/** 红装戒指/项链：5% 概率替换一条词条为技能回响（每件最多 1） */
+export function maybeApplyCastEchoAffix(affixes, { rarity, slot, rng = Math.random } = {}) {
+  const list = Array.isArray(affixes) ? affixes.slice() : [];
+  if (normalizeRarity(rarity) !== "red") return list;
+  if (!CAST_ECHO_SLOTS.has(slot)) return list;
+  if (list.some((a) => a?.id === "cast_echo" || a?.skillMods?.hitDamageMult)) return list;
+  if (rng() >= CAST_ECHO_CHANCE) return list;
+  const echo = makeCastEchoAffix();
+  if (!list.length) return [echo];
+  // 优先替换普通技能词条，否则替换最后一条非唯一
+  let idx = list.findIndex((a) => a?.type === "skill" && a?.id !== "cast_echo" && !a?.uniqueId);
+  if (idx < 0) {
+    idx = list.map((a, i) => (!a?.uniqueId && a?.type !== "unique" ? i : -1)).filter((i) => i >= 0).pop();
+  }
+  if (idx == null || idx < 0) idx = list.length - 1;
+  list[idx] = echo;
+  return list;
 }
 
 function makeStatAffix(stat, value) {
@@ -600,7 +668,7 @@ function pickStatForAffix(usedStats, opts, rng) {
  * 按品质数量随机词条
  * @param {number} count
  * @param {number} level
- * @param {{ allowSkill?: boolean, forcedSkillMods?: object, preferDps?: boolean, preferTank?: boolean, rng?: () => number }} [opts]
+ * @param {{ allowSkill?: boolean, forcedSkillMods?: object, preferDps?: boolean, preferTank?: boolean, rng?: () => number, rarity?: string, slot?: string }} [opts]
  */
 export function rollAffixes(count, level, opts = {}) {
   const n = Math.max(0, Math.floor(count || 0));
@@ -636,12 +704,23 @@ export function rollAffixes(count, level, opts = {}) {
     affixes.push(makeStatAffix(key, rollStatValue(key, L, rng)));
   }
 
-  return affixes.slice(0, n);
+  return maybeApplyCastEchoAffix(affixes.slice(0, n), {
+    rarity: opts.rarity,
+    slot: opts.slot,
+    rng,
+  });
 }
 
 export function skillModsFromAffixes(affixes = []) {
-  const sum = { powerMult: 0, powerFlat: 0, hitBonus: 0, healMult: 0 };
+  const sum = {
+    powerMult: 0,
+    powerFlat: 0,
+    hitBonus: 0,
+    healMult: 0,
+    hitDamageMult: 1,
+  };
   let any = false;
+  let hasHitScale = false;
   for (const a of affixes) {
     const m = a?.skillMods;
     if (!m) continue;
@@ -650,7 +729,12 @@ export function skillModsFromAffixes(affixes = []) {
     sum.powerFlat += m.powerFlat || 0;
     sum.hitBonus += m.hitBonus || 0;
     sum.healMult += m.healMult || 0;
+    if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
+      sum.hitDamageMult *= m.hitDamageMult;
+      hasHitScale = true;
+    }
   }
+  if (!hasHitScale) delete sum.hitDamageMult;
   return any ? sum : null;
 }
 
@@ -740,7 +824,15 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
       preferDps: !!preferDps,
       preferTank: !preferDps && !!preferTank,
       rng: extra.rng,
+      rarity,
+      slot,
     });
+  } else if (extra.affixes) {
+    affixes = maybeApplyCastEchoAffix(affixes, {
+      rarity,
+      slot,
+      rng: extra.rng || Math.random,
+    }).slice(0, maxAffix);
   }
 
   // 若强制技能词条但品质词条数为 0，仍保留在 skillMods（极少见）
@@ -779,7 +871,14 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
 }
 
 export function sumSkillMods(equip = {}) {
-  const sum = { powerMult: 0, powerFlat: 0, hitBonus: 0, healMult: 0 };
+  const sum = {
+    powerMult: 0,
+    powerFlat: 0,
+    hitBonus: 0,
+    healMult: 0,
+    hitDamageMult: 1,
+  };
+  let hasHitScale = false;
   for (const key of SLOT_KEYS) {
     const m = equip[key]?.skillMods;
     if (!m) continue;
@@ -787,7 +886,12 @@ export function sumSkillMods(equip = {}) {
     sum.powerFlat += m.powerFlat || 0;
     sum.hitBonus += m.hitBonus || 0;
     sum.healMult += m.healMult || 0;
+    if (m.hitDamageMult != null && m.hitDamageMult !== 1) {
+      sum.hitDamageMult *= m.hitDamageMult;
+      hasHitScale = true;
+    }
   }
+  if (!hasHitScale) delete sum.hitDamageMult;
   return sum;
 }
 

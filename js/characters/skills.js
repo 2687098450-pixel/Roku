@@ -1,9 +1,34 @@
 /** 各职业技能定义与战斗数值 */
 
-import { skillPowerText } from "../core/utils.js?v=78";
-import { getCharacterStats } from "./stats.js?v=78";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=78";
-import { heroHasUnique } from "./omni/equipment.js?v=78";
+import { getCharacterStats } from "./stats.js?v=81";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=81";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=81";
+
+function fmtSkillNum(n) {
+  const x = Math.round(Number(n) * 100) / 100;
+  if (!Number.isFinite(x)) return "0";
+  if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+  return String(+x.toFixed(2));
+}
+
+/** 技能描述里可计算数值高亮 */
+function skVal(inner) {
+  return `<span class="sk-val">${inner}</span>`;
+}
+
+/** 将段伤倍率折入公式，避免玩家二次换算 */
+function skillPowerMarked(mult, flat, scale = 1) {
+  const m = (Number(mult) || 0) * scale;
+  const f = Math.round((Number(flat) || 0) * scale);
+  const parts = [`攻击力×${skVal(fmtSkillNum(m))}`];
+  if (f > 0) parts.push(`+${skVal(f)}`);
+  else if (f < 0) parts.push(skVal(String(f)));
+  return parts.join("");
+}
+
+function hitDamageScale(mods) {
+  return mods?.hitDamageMult != null ? mods.hitDamageMult : 1;
+}
 
 /**
  * 技能数值表（基础值；升级在 scaledSkillDef 中叠加）
@@ -211,40 +236,42 @@ function passiveNums(sheet) {
   return parts.join(" ") || "—";
 }
 
-function skillNumsAndDesc(skillId, level = 1) {
+function skillNumsAndDesc(skillId, level = 1, opts = {}) {
   const s = scaledSkillDef(skillId, level);
   if (!s) return { nums: "—", desc: "" };
-  const dmg = skillPowerText(s.mult, s.flat);
+  const scale = opts.damageScale != null ? opts.damageScale : 1;
+  const dmg = skillPowerMarked(s.mult, s.flat, scale);
+  const casts = Math.max(1, opts.casts || 1);
 
   if (skillId === "aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const desc = `战斗结束时，恢复自身最大生命×${pct}%。`;
-    return { nums: `战斗结束 · 自身×${pct}%`, desc };
+    const desc = `战斗结束时，恢复自身最大生命×${skVal(pct + "%")}。`;
+    return { nums: `战斗结束 · 自身×${skVal(pct + "%")}`, desc };
   }
   if (skillId === "green_aftercare") {
     const pct = Math.round(s.healRatio * 100);
-    const desc = `战斗结束时，参战全体各恢复最大生命×${pct}%。`;
-    return { nums: `战斗结束 · 全体×${pct}%`, desc };
+    const desc = `战斗结束时，参战全体各恢复最大生命×${skVal(pct + "%")}。`;
+    return { nums: `战斗结束 · 全体×${skVal(pct + "%")}`, desc };
   }
   if (s.style === "buff") {
     const atkPct = Math.round((s.atkMult || 0) * 100);
     const critPct = Math.round((s.critDmgBonus || 0) * 100);
     const defPct = Math.round((s.defMult || 0) * 100);
     if (defPct && !atkPct) {
-      const desc = `自身防御+${defPct}%，持续 ${s.turns} 回合。`;
-      return { nums: `防御+${defPct}% · ${s.turns}回合`, desc };
+      const desc = `自身防御+${skVal(defPct + "%")}，持续 ${skVal(s.turns)} 回合。`;
+      return { nums: `防御+${skVal(defPct + "%")} · ${skVal(s.turns)}回合`, desc };
     }
-    const desc = `自身攻击+${atkPct}%、暴伤+${critPct}%，持续 ${s.turns} 回合。`;
+    const desc = `自身攻击+${skVal(atkPct + "%")}、暴伤+${skVal(critPct + "%")}，持续 ${skVal(s.turns)} 回合。`;
     return {
-      nums: `攻击+${atkPct}% · 暴伤+${critPct}% · ${s.turns}回合`,
+      nums: `攻击+${skVal(atkPct + "%")} · 暴伤+${skVal(critPct + "%")} · ${skVal(s.turns)}回合`,
       desc,
     };
   }
   if (s.style === "heal") {
     const atkPart = s.healAtkMult
-      ? skillPowerText(s.healAtkMult, s.healFlat || 0)
+      ? skillPowerMarked(s.healAtkMult, s.healFlat || 0, 1)
       : s.healFlat
-        ? `+${s.healFlat}`
+        ? `+${skVal(s.healFlat)}`
         : "";
     if (s.target === "all") {
       const nums = `${atkPart} · 全体`;
@@ -255,7 +282,7 @@ function skillNumsAndDesc(skillId, level = 1) {
     }
     const hpPct = Math.round((s.healTargetMaxHp || s.healMaxHp || 0) * 100);
     const text =
-      hpPct > 0 ? `${atkPart}+目标生命×${hpPct}%` : atkPart;
+      hpPct > 0 ? `${atkPart}+目标生命×${skVal(hpPct + "%")}` : atkPart;
     return {
       nums: text,
       desc: `治疗生命比例最低的友方：${text}。`,
@@ -263,26 +290,41 @@ function skillNumsAndDesc(skillId, level = 1) {
   }
   if (s.stunGauge || s.stunTurns) {
     const stun = s.stunGauge || s.stunTurns * 100;
+    const castNote =
+      casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
     return {
-      nums: `${dmg} · 命中眩晕${stun}`,
-      desc: `对十字范围造成 ${dmg} 伤害，命中眩晕 ${stun}。`,
+      nums:
+        casts > 1
+          ? `${dmg} · 命中眩晕${skVal(stun)} · ${skVal(casts)}次`
+          : `${dmg} · 命中眩晕${skVal(stun)}`,
+      desc: `对十字范围造成 ${dmg} 伤害，命中眩晕 ${skVal(stun)}。${castNote}`,
     };
   }
   if (s.hitAllFront) {
+    const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
     return {
-      nums: `${dmg} · 前排全体`,
-      desc: `对前排全体造成 ${dmg} 伤害。`,
+      nums: casts > 1 ? `${dmg} · 前排全体 · ${skVal(casts)}次` : `${dmg} · 前排全体`,
+      desc: `对前排全体造成 ${dmg} 伤害。${castNote}`,
     };
   }
   if (skillId === "pink_burst") {
+    if (opts.pinkEcho) {
+      const segs = Math.max(3, opts.casts || 3);
+      return {
+        nums: `${dmg} · ${skVal(segs)}段 · 击杀+${skVal(1)}`,
+        desc: `对生命最低的敌人造成 ${dmg} 伤害。释放 ${skVal(segs)} 段，每击杀一个敌人额外释放 ${skVal(1)} 段。`,
+      };
+    }
+    const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
     return {
-      nums: dmg,
-      desc: `对生命最低的敌人造成 ${dmg} 伤害。`,
+      nums: casts > 1 ? `${dmg} · ${skVal(casts)}次` : dmg,
+      desc: `对生命最低的敌人造成 ${dmg} 伤害。${castNote}`,
     };
   }
+  const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
   return {
-    nums: dmg,
-    desc: `对单体造成 ${dmg} 伤害。`,
+    nums: casts > 1 ? `${dmg} · ${skVal(casts)}次` : dmg,
+    desc: `对单体造成 ${dmg} 伤害。${castNote}`,
   };
 }
 
@@ -357,36 +399,49 @@ export function buildSkillText(hero, skillId, level = 1) {
       p.allyRatio,
       heroHasUnique(hero, "yellow_reflect_shield")
     );
-    const enemyFormula = `防御力×${pct}%×(1+攻击÷防御)`;
+    const enemyFormula = `防御力×${skVal(pct + "%")}×(1+攻击÷防御)`;
     let allyText;
     if (allyRatio > 0) {
-      allyText = `对友方造成 该伤害×${Math.round(allyRatio * 100)}%`;
+      allyText = `对友方造成 该伤害×${skVal(Math.round(allyRatio * 100) + "%")}`;
     } else if (allyRatio === 0) {
       allyText = `对友方无溅射`;
     } else {
-      allyText = `治疗友方 该伤害×${Math.round(Math.abs(allyRatio) * 100)}%，并造成 1 真实伤害`;
+      allyText = `治疗友方 该伤害×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}，并造成 ${skVal(1)} 真实伤害`;
     }
     const nums =
       allyRatio > 0
-        ? `敌${enemyFormula} · 友×${Math.round(allyRatio * 100)}%`
+        ? `敌${enemyFormula} · 友×${skVal(Math.round(allyRatio * 100) + "%")}`
         : allyRatio === 0
           ? `敌${enemyFormula} · 友无溅射`
-          : `敌${enemyFormula} · 友治疗×${Math.round(Math.abs(allyRatio) * 100)}%+1真伤`;
+          : `敌${enemyFormula} · 友治疗×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}+${skVal(1)}真伤`;
     const desc = `受伤时，对敌人造成 ${enemyFormula} 伤害，${allyText}。`;
     return { nums, desc };
   }
 
-  const { nums, desc } = skillNumsAndDesc(skillId, lv);
-  if (skillId === "pink_burst" && heroHasUnique(hero, "pink_burst_echo")) {
-    return {
-      nums: `${nums} · 3发×50% · 击杀+1发`,
-      desc: `${desc}每段连射 3 发（每发 50% 伤害），击杀则本段 +1 发。`,
-    };
+  const mods = sumSkillMods(hero?.equip || {});
+  const pinkEcho =
+    skillId === "pink_burst" && heroHasUnique(hero, "pink_burst_echo");
+  const hitScale = hitDamageScale(mods);
+  let damageScale = 1;
+  let casts = 1;
+  if (pinkEcho) {
+    damageScale = 0.5 * hitScale;
+    casts = 3 + (mods.hitBonus || 0);
+  } else if (hitScale !== 1 || mods.hitBonus) {
+    // 技能回响：多释放，伤害折入倍率
+    damageScale = hitScale;
+    casts = Math.max(1, 1 + (mods.hitBonus || 0));
   }
+
+  const { nums, desc } = skillNumsAndDesc(skillId, lv, {
+    damageScale,
+    casts,
+    pinkEcho,
+  });
   if (skillId === "green_mend" && heroHasUnique(hero, "green_mend_pulse")) {
     return {
       nums: `${nums} · 治疗后脉动`,
-      desc: `${desc}装备治愈戒时：任意治疗效果都会给目标附加 2 秒脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。`,
+      desc: `${desc}装备治愈戒时：任意治疗效果都会给目标附加 ${skVal(2)} 秒脉动——行动条每累计走 ${skVal(10)}，流失约等于本次治疗量 ${skVal("20%")} 的血；再累计走到 ${skVal(20)}，按刚流失量的 ${skVal("2.5")} 倍回血。`,
     };
   }
   return { nums, desc };

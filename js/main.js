@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=78";
+import { $ } from "./core/utils.js?v=81";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=78";
-import { buildFloor } from "./map/dungeon.js?v=78";
-import { MAX_FLOOR } from "./map/floors.js?v=78";
+} from "./map/island15.js?v=81";
+import { buildFloor } from "./map/dungeon.js?v=81";
+import { MAX_FLOOR } from "./map/floors.js?v=81";
 import {
   createOmniHero,
   createPinkHero,
@@ -22,16 +22,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=78";
-import { getSavedFormation } from "./characters/stats.js?v=78";
-import { moveSlimeOnce } from "./monsters/slime.js?v=78";
-import { createBattleApi } from "./battle/system.js?v=78";
-import { createUI } from "./ui/shell.js?v=78";
+} from "./characters/omni/index.js?v=81";
+import { getSavedFormation } from "./characters/stats.js?v=81";
+import { moveSlimeOnce } from "./monsters/slime.js?v=81";
+import { createBattleApi } from "./battle/system.js?v=81";
+import { createUI } from "./ui/shell.js?v=81";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=78";
+} from "./core/save.js?v=81";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -598,6 +598,11 @@ function bindExplore() {
       const skillDetail = $("skillDetailModal");
       if (skillDetail && !skillDetail.classList.contains("hidden")) {
         skillDetail.querySelector("#closeSkillDetail")?.click();
+        return;
+      }
+      const battleInfo = $("battleInfoModal");
+      if (battleInfo && !battleInfo.classList.contains("hidden")) {
+        battleInfo.querySelector("#closeBattleInfo")?.click();
         return;
       }
       const pick = $("skillPickModal");

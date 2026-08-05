@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=78";
+import { $, clamp, styleTag } from "../core/utils.js?v=81";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,12 +45,12 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=78";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail } from "../characters/omni/equipment.js?v=78";
-import { setSavedFormation } from "../characters/stats.js?v=78";
-import { resetGameLocalData } from "../core/save.js?v=78";
-import { createAllUniqueItems } from "../loot/drops.js?v=78";
-import { APP_VERSION } from "../core/version.js?v=78";
+} from "../characters/omni/index.js?v=81";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX } from "../characters/omni/equipment.js?v=81";
+import { setSavedFormation } from "../characters/stats.js?v=81";
+import { resetGameLocalData } from "../core/save.js?v=81";
+import { createAllUniqueItems } from "../loot/drops.js?v=81";
+import { APP_VERSION } from "../core/version.js?v=81";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -575,7 +575,7 @@ export function createUI(ctx) {
     }
     const rows = list
       .map((a, i) => {
-        const tag = a.type === "unique" ? "唯一" : `词条${i + 1}`;
+        const tag = a.type === "unique" ? "唯一" : a.id === "cast_echo" ? "特殊" : `词条${i + 1}`;
         const uid = a.uniqueId || a.id;
         if (a.type === "unique" && uid) {
           const name = uniqueAffixName(uid);
@@ -583,6 +583,15 @@ export function createUI(ctx) {
             return `<li class="affix-unique"><span>${tag}</span><b>${name}</b></li>`;
           }
           return `<li class="affix-unique affix-unique-tap" data-unique-affix="${uid}" role="button" tabindex="0">
+            <span>${tag}</span><b>${name}</b><i class="affix-tap-hint">详情</i>
+          </li>`;
+        }
+        if (a.id === "cast_echo") {
+          const name = a.text || CAST_ECHO_AFFIX.text;
+          if (compact) {
+            return `<li class="affix-unique"><span>${tag}</span><b>${name}</b></li>`;
+          }
+          return `<li class="affix-unique affix-unique-tap" data-special-affix="cast_echo" role="button" tabindex="0">
             <span>${tag}</span><b>${name}</b><i class="affix-tap-hint">详情</i>
           </li>`;
         }
@@ -615,6 +624,26 @@ export function createUI(ctx) {
     modal.classList.remove("hidden");
   }
 
+  function openSpecialAffixPreview(id) {
+    if (id !== "cast_echo") return;
+    hideSkillHoldPreview();
+    const title = $("skillDetailTitle");
+    const body = $("skillDetailBody");
+    const modal = $("skillDetailModal");
+    if (!body || !modal) return;
+    if (title) title.textContent = CAST_ECHO_AFFIX.text;
+    body.innerHTML = `
+      <div class="skill-detail-top">
+        <div class="skill-detail-ico passive">特</div>
+        <div class="skill-detail-meta">
+          <div class="skill-detail-name">${CAST_ECHO_AFFIX.text}</div>
+          <div class="skill-detail-type">特殊词条 · 仅红装戒指/项链</div>
+        </div>
+      </div>
+      <div class="skill-detail-nums">${CAST_ECHO_AFFIX.detail}</div>`;
+    modal.classList.remove("hidden");
+  }
+
   function bindUniqueAffixTaps(root) {
     if (!root) return;
     root.querySelectorAll("[data-unique-affix]").forEach((el) => {
@@ -628,6 +657,19 @@ export function createUI(ctx) {
         e.preventDefault();
         e.stopPropagation();
         openUniqueAffixPreview(el.dataset.uniqueAffix);
+      });
+    });
+    root.querySelectorAll("[data-special-affix]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openSpecialAffixPreview(el.dataset.specialAffix);
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        openSpecialAffixPreview(el.dataset.specialAffix);
       });
     });
   }
