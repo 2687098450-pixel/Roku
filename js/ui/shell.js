@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=71";
+import { $, clamp, styleTag } from "../core/utils.js?v=72";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -45,11 +45,11 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=71";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail } from "../characters/omni/equipment.js?v=71";
-import { setSavedFormation } from "../characters/stats.js?v=71";
-import { resetGameLocalData } from "../core/save.js?v=71";
-import { createAllUniqueItems } from "../loot/drops.js?v=71";
+} from "../characters/omni/index.js?v=72";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail } from "../characters/omni/equipment.js?v=72";
+import { setSavedFormation } from "../characters/stats.js?v=72";
+import { resetGameLocalData } from "../core/save.js?v=72";
+import { createAllUniqueItems } from "../loot/drops.js?v=72";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";

@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=71";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=71";
+import { $, clamp, irand } from "../core/utils.js?v=72";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=72";
 import {
   refreshHeroStats,
   skillPower,
@@ -17,7 +17,7 @@ import {
   diamondStyleAttr,
   sumSkillMods,
   heroHasUnique,
-} from "../characters/omni/index.js?v=71";
+} from "../characters/omni/index.js?v=72";
 import {
   gainExp,
   splitExp,
@@ -25,23 +25,23 @@ import {
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
   isHeroDead,
-} from "../characters/progression.js?v=71";
+} from "../characters/progression.js?v=72";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=71";
-import { buildEncounter } from "../monsters/roster.js?v=71";
-import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=71";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=71";
-import { rollBattleLoot } from "../loot/drops.js?v=71";
+} from "../characters/skills.js?v=72";
+import { buildEncounter } from "../monsters/roster.js?v=72";
+import { pickMonsterSkill, monsterSkillDamage } from "../monsters/skills.js?v=72";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=72";
+import { rollBattleLoot } from "../loot/drops.js?v=72";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=71";
-import { createTicker } from "../core/time.js?v=71";
+} from "../characters/stats.js?v=72";
+import { createTicker } from "../core/time.js?v=72";
 
 export function createBattleApi(ctx) {
   const {
@@ -225,28 +225,37 @@ export function createBattleApi(ctx) {
     const stunned = isStunned(u);
     const stunCls = stunned ? " stun" : "";
     const side = enemy ? "enemy" : "ally";
-    let shapeClass = u.shape || "square";
-    let shapeStyle =
-      u.shape === "diamond"
-        ? diamondStyleAttr(u, 1.15, peers)
-        : `--c:${u.color}`;
-    if (enemy) {
-      const props = monsterShapeDomProps(u);
-      shapeClass = props.className;
-      shapeStyle = props.style;
-    }
     const bossCls = u.isBoss ? " boss-unit" : "";
     const spiritCls = u.spiritForm ? " spirit-form" : "";
     const kind = u.kind || u.type || "";
     const stunMark = `<div class="stun-mark"${stunned ? "" : " hidden"} title="眩晕" aria-label="眩晕"><span>★</span><span>★</span><span>★</span></div>`;
-    return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}${spiritCls}" data-id="${u.id}" data-col="${u.col ?? 1}" data-kind="${kind}">
+
+    let artCls = "";
+    let shapeHtml;
+    if (enemy) {
+      const props = monsterShapeDomProps(u);
+      const styleAttr = props.style ? ` style="${props.style}"` : "";
+      artCls = props.inner ? " has-monster-art" : "";
+      shapeHtml = props.inner
+        ? `<div class="shape ${props.className}"${styleAttr}>${props.inner}</div>`
+        : `<div class="shape ${props.className}"${styleAttr}></div>`;
+    } else {
+      const shapeClass = u.shape || "square";
+      const shapeStyle =
+        u.shape === "diamond"
+          ? diamondStyleAttr(u, 1.15, peers)
+          : `--c:${u.color}`;
+      shapeHtml = `<div class="shape ${shapeClass}" style="${shapeStyle}"></div>`;
+    }
+
+    return `<div class="battle-unit ${side}${ready}${stunCls}${bossCls}${spiritCls}${artCls}" data-id="${u.id}" data-col="${u.col ?? 1}" data-kind="${kind}">
       <div class="unit-float">
         <div class="unit-hp"><i style="width:${pct}%"></i></div>
         <div class="unit-atb"><i data-gauge="${u.id}" style="width:${g}%"></i></div>
       </div>
       <div class="shape-wrap" data-wrap="${u.id}">
         ${stunMark}
-        <div class="shape ${shapeClass}" style="${shapeStyle}"></div>
+        ${shapeHtml}
         <div class="unit-shadow"></div>
       </div>
     </div>`;

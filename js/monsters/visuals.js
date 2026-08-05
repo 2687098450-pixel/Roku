@@ -69,8 +69,8 @@ export function monsterSquareRadius(kind) {
 }
 
 /**
- * 战斗 / DOM 用：方块或图片背景 style
- * @returns {{ className: string, style: string }}
+ * 战斗 / DOM 用：方块或图片
+ * @returns {{ className: string, style: string, inner: string }}
  */
 export function monsterShapeDomProps(unit) {
   const kind = monsterKindOf(unit);
@@ -79,13 +79,15 @@ export function monsterShapeDomProps(unit) {
   if (useMonsterImage(kind)) {
     const url = monsterImageUrl(kind);
     return {
-      className: "square has-art",
-      style: `--c:${color};--mr:${radius}px;--art:url("${url}")`,
+      className: "monster-art-wrap",
+      style: "",
+      inner: `<img class="monster-art" src="${url}" alt="" draggable="false" decoding="async" />`,
     };
   }
   return {
     className: "square",
     style: `--c:${color};--mr:${radius}px`,
+    inner: "",
   };
 }
 
@@ -145,20 +147,8 @@ function drawMonsterImage(ctx, cx, cy, size, img, isBoss) {
   ctx.translate(cx, cy);
   const x = -s / 2;
   const y = -s / 2;
-  const r = Math.max(4, s * 0.18);
-  ctx.beginPath();
-  roundRectPath(ctx, x, y, s, s, r);
-  ctx.clip();
+  // 直接贴图，不加外框白边
   ctx.drawImage(img, x, y, s, s);
-  ctx.restore();
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.beginPath();
-  roundRectPath(ctx, x, y, s, s, r);
-  ctx.strokeStyle = "rgba(255,255,255,0.75)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.restore();
 }
 

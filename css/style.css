@@ -1220,13 +1220,6 @@ html, body {
   animation: bobSquare 1.8s ease-in-out infinite;
 }
 
-.square.has-art {
-  background:
-    var(--art) center / cover no-repeat,
-    var(--c);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
-}
-
 .battle-unit .diamond {
   width: var(--dw, 30px);
   height: var(--dh, 44px);
@@ -1236,6 +1229,35 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: var(--mr, 14px);
+}
+
+/* 怪物贴图：无外框色块 / 白边 / 脚下阴影 */
+.battle-unit .monster-art-wrap {
+  width: 56px;
+  height: 56px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  animation: bobSquare 1.8s ease-in-out infinite;
+  overflow: visible;
+}
+
+.battle-unit.boss-unit .monster-art-wrap {
+  width: 68px;
+  height: 68px;
+}
+
+.battle-unit .monster-art {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.battle-unit.has-monster-art .unit-shadow {
+  display: none;
 }
 
 /* Modal */
