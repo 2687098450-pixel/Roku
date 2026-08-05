@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=105";
-import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=105";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=105";
+import { getCharacterStats } from "./stats.js?v=106";
+import { getSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=106";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=106";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -78,7 +78,8 @@ export const SKILL_POWER = {
   },
 
   // —— 小黄：坦克 ——
-  yellow_hit: { mult: 1.0, flat: 2, style: "melee" },
+  /** 普攻盾击：命中后自身承受造成伤害的一小部分（真实伤害，不触发反伤） */
+  yellow_hit: { mult: 1.0, flat: 2, style: "melee", selfRecoilPct: 0.15 },
   yellow_slam: { mult: 1.65, flat: 6, style: "melee", apply: { slow: 0.2 } },
   yellow_fortify: {
     style: "buff",
@@ -496,11 +497,20 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
   }
   const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
   const effects = statusEffectNotes(s, scale);
+  const recoilPct =
+    s.selfRecoilPct != null ? Math.round(s.selfRecoilPct * 100) : 0;
+  if (recoilPct > 0) {
+    effects.push(`自伤${skVal(recoilPct + "%")}`);
+  }
   const effectStr = effects.length ? ` · ${effects.join(" · ")}` : "";
   const descEffects = effects.length ? `，${effects.join("，")}` : "";
+  const recoilNote =
+    recoilPct > 0
+      ? `命中后自身受到该次伤害×${skVal(recoilPct + "%")} 的真实伤害。`
+      : "";
   return {
     nums: casts > 1 ? `${dmg}${effectStr} · ${skVal(casts)}次` : `${dmg}${effectStr}`,
-    desc: `对单体造成 ${dmg} 伤害${descEffects}。${castNote}`,
+    desc: `对单体造成 ${dmg} 伤害${descEffects}。${recoilNote}${castNote}`,
   };
 }
 

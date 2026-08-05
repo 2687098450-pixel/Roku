@@ -4,17 +4,17 @@
  * - Boss：后排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=105";
+import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=106";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=105";
+} from "./skills.js?v=106";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=105";
-import { createBoss } from "./boss.js?v=105";
+} from "../characters/progression.js?v=106";
+import { createBoss } from "./boss.js?v=106";
 
 let _seq = 1;
 function nextId(prefix) {

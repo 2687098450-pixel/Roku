@@ -1,13 +1,13 @@
 /** 关卡出口守护 Boss（按层固定主题 kind） */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=105";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=106";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=105";
-import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=105";
+} from "./skills.js?v=106";
+import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=106";
 
 export function createBoss({
   pos = { x: 8, y: 4 },

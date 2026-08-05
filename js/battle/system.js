@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=105";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=105";
+import { $, clamp, irand } from "../core/utils.js?v=106";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=106";
 import {
   refreshHeroStats,
   skillPower,
@@ -20,7 +20,7 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=105";
+} from "../characters/omni/index.js?v=106";
 import {
   gainExp,
   splitExp,
@@ -30,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=105";
+} from "../characters/progression.js?v=106";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=105";
-import { buildEncounter } from "../monsters/roster.js?v=105";
+} from "../characters/skills.js?v=106";
+import { buildEncounter } from "../monsters/roster.js?v=106";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=105";
-import { rollBattleLoot } from "../loot/drops.js?v=105";
+} from "../monsters/skills.js?v=106";
+import { rollBattleLoot } from "../loot/drops.js?v=106";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=105";
-import { createTicker } from "../core/time.js?v=105";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=105";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=105";
+} from "../characters/stats.js?v=106";
+import { createTicker } from "../core/time.js?v=106";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=106";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=106";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=105";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=105";
+} from "./status.js?v=106";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=106";
 
 export function createBattleApi(ctx) {
   const {
@@ -649,14 +649,16 @@ export function createBattleApi(ctx) {
     }
     target.hp = Math.max(0, target.hp - raw);
     recordDamage(opts.source || null, target, raw);
-    if (target.hp <= 0 && opts.source) notePinkKill(opts.source);
+    if (target.hp <= 0 && opts.source && opts.source.id !== target.id) {
+      notePinkKill(opts.source);
+    }
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
       unit.classList.remove("hit", "crit", "miss");
       void unit.offsetWidth;
       unit.classList.add(crit ? "crit" : "hit");
     }
-    if (!opts.fromReflect && raw > 0) {
+    if (!opts.fromReflect && !opts.skipReflect && raw > 0) {
       triggerReflect(target);
     }
     return raw;
@@ -745,8 +747,23 @@ export function createBattleApi(ctx) {
         tryApplySkillStatuses(attacker, target, def?.apply || {}, mods)
       );
       if (def?.dot) applyMonsterDot(target, attacker, { dot: def.dot });
+      applySelfRecoil(attacker, dealt, def);
     }
     return dealt;
+  }
+
+  /** 小黄盾击等：命中后对自身造成少量真实伤害（不触发反伤） */
+  function applySelfRecoil(attacker, dealt, def) {
+    const pct = def?.selfRecoilPct;
+    if (!attacker || !(pct > 0) || !(dealt > 0)) return 0;
+    if (attacker.spiritForm || attacker.hp <= 0) return 0;
+    const selfDmg = Math.max(1, Math.floor(dealt * pct));
+    return dealDamage(attacker, selfDmg, {
+      trueDamage: true,
+      skipReflect: true,
+      skipHitCheck: true,
+      source: attacker,
+    });
   }
 
   /** 强化爆裂矢：3+回响 段，每段写入倍率的半伤（再乘回响 60%），击杀额外 +1 段 */
@@ -1227,6 +1244,7 @@ export function createBattleApi(ctx) {
     spendSkillMp(hero, used);
     ally.mp = hero.mp;
     ally.maxMp = hero.maxMp;
+    syncHeroHp(b);
     renderBattle(b);
     return true;
   }
