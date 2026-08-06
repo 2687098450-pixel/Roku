@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=133";
+import { scaleGoldGain } from "../../core/economy.js?v=134";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -101,6 +101,31 @@ const SKILL_AFFIX_POOL = [
   { id: "self_haste", skillMods: { selfHaste: 0.2 }, text: "施法后增速 20%" },
   { id: "self_dodge", skillMods: { selfDodge: 0.12 }, text: "施法后闪避 +12%" },
   { id: "self_hit", skillMods: { selfHit: 0.1 }, text: "施法后命中 +10%" },
+  {
+    id: "gauge_hp1",
+    skillMods: { gaugeHpPer10: 0.008 },
+    text: "行动回血：每 10 行动回复最大生命 0.8%",
+  },
+  {
+    id: "gauge_hp2",
+    skillMods: { gaugeHpPer10: 0.015 },
+    text: "行动回血：每 10 行动回复最大生命 1.5%",
+  },
+  {
+    id: "gauge_mp1",
+    skillMods: { gaugeMpPer10: 1 },
+    text: "行动回蓝：每 10 行动回复 1 蓝",
+  },
+  {
+    id: "gauge_mp2",
+    skillMods: { gaugeMpPer10: 2 },
+    text: "行动回蓝：每 10 行动回复 2 蓝",
+  },
+  {
+    id: "gauge_vital",
+    skillMods: { gaugeHpPer10: 0.005, gaugeMpPer10: 1 },
+    text: "行动调息：每 10 行动回复最大生命 0.5% 与 1 蓝",
+  },
 ];
 
 /** 红装戒指/项链特殊词条：多释放 1 次，伤害 ×60% */
@@ -519,6 +544,12 @@ export function upgradeEquip(item, state) {
       if (m.powerMult) m.powerMult = +(m.powerMult + 0.04).toFixed(3);
       if (m.powerFlat) m.powerFlat += 3;
       if (m.healMult) m.healMult = +(m.healMult + 0.04).toFixed(3);
+      if (m.gaugeHpPer10) {
+        m.gaugeHpPer10 = +(m.gaugeHpPer10 + 0.002).toFixed(4);
+      }
+      if (m.gaugeMpPer10) {
+        m.gaugeMpPer10 = Math.max(1, Math.round(m.gaugeMpPer10 + 0.5));
+      }
       // 技能回响不随强化叠段数
       if (a.id !== "cast_echo" && m.hitBonus && !m.hitDamageMult && next % 20 === 0) {
         m.hitBonus += 1;
@@ -729,6 +760,13 @@ function formatSkillModsText(m = {}) {
     if (m.selfHaste) parts.push(`施法后增速 ${Math.round(m.selfHaste * 100)}%`);
     if (m.selfDodge) parts.push(`施法后闪避 +${Math.round(m.selfDodge * 100)}%`);
     if (m.selfHit) parts.push(`施法后命中 +${Math.round(m.selfHit * 100)}%`);
+    if (m.gaugeHpPer10) {
+      const pct = Math.round(m.gaugeHpPer10 * 1000) / 10;
+      parts.push(`每 10 行动回复最大生命 ${pct}%`);
+    }
+    if (m.gaugeMpPer10) {
+      parts.push(`每 10 行动回复 ${m.gaugeMpPer10} 蓝`);
+    }
   }
   return parts.join("，") || "技能强化";
 }
@@ -910,6 +948,8 @@ function blankSkillModsSum() {
     selfHaste: 0,
     selfDodge: 0,
     selfHit: 0,
+    gaugeHpPer10: 0,
+    gaugeMpPer10: 0,
   };
 }
 
@@ -932,6 +972,8 @@ function mergeSkillModsInto(sum, m) {
   sum.selfHaste = Math.max(sum.selfHaste || 0, m.selfHaste || 0);
   sum.selfDodge = Math.max(sum.selfDodge || 0, m.selfDodge || 0);
   sum.selfHit = Math.max(sum.selfHit || 0, m.selfHit || 0);
+  sum.gaugeHpPer10 += m.gaugeHpPer10 || 0;
+  sum.gaugeMpPer10 += m.gaugeMpPer10 || 0;
 }
 
 export function bonusFromParts(primary = {}, affixes = []) {

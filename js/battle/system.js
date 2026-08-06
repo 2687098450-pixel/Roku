@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=133";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=133";
+import { $, clamp, irand } from "../core/utils.js?v=134";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=134";
 import {
   refreshHeroStats,
   skillPower,
@@ -23,7 +23,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=133";
+} from "../characters/omni/index.js?v=134";
 import {
   gainExp,
   splitExp,
@@ -33,30 +33,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=133";
+} from "../characters/progression.js?v=134";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=133";
-import { buildEncounter } from "../monsters/roster.js?v=133";
+} from "../characters/skills.js?v=134";
+import { buildEncounter } from "../monsters/roster.js?v=134";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=133";
-import { rollBattleLoot } from "../loot/drops.js?v=133";
+} from "../monsters/skills.js?v=134";
+import { rollBattleLoot } from "../loot/drops.js?v=134";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=133";
-import { createTicker } from "../core/time.js?v=133";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=133";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=133";
+} from "../characters/stats.js?v=134";
+import { createTicker } from "../core/time.js?v=134";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=134";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=134";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -70,8 +70,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=133";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=133";
+} from "./status.js?v=134";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=134";
 
 export function createBattleApi(ctx) {
   const {
@@ -1066,6 +1066,37 @@ export function createBattleApi(ctx) {
     }
   }
 
+  /** 行动条词条：推进时按累计回复生命/蓝量 */
+  function applyGaugeRegen(unit, walked) {
+    if (!unit?.isHero || !(walked > 0) || unit.hp <= 0) return;
+    const hero = actingHero(unit);
+    if (!hero) return;
+    const mods = sumSkillMods(hero.equip);
+    const hpPer = mods?.gaugeHpPer10 || 0;
+    const mpPer = mods?.gaugeMpPer10 || 0;
+    if (!(hpPer > 0) && !(mpPer > 0)) return;
+    if (!unit.gaugeRegen) unit.gaugeRegen = { hp: 0, mp: 0 };
+    if (hpPer > 0) {
+      unit.gaugeRegen.hp += walked;
+      while (unit.gaugeRegen.hp >= 10) {
+        unit.gaugeRegen.hp -= 10;
+        const amt = Math.max(1, Math.floor((unit.maxHp || 1) * hpPer));
+        applyHeal(unit, amt, { source: unit });
+      }
+    }
+    if (mpPer > 0) {
+      unit.gaugeRegen.mp += walked;
+      while (unit.gaugeRegen.mp >= 10) {
+        unit.gaugeRegen.mp -= 10;
+        const gain = Math.max(1, Math.floor(mpPer));
+        const maxMp = hero.maxMp || unit.maxMp || 0;
+        hero.mp = Math.min(maxMp, (hero.mp || 0) + gain);
+        unit.mp = hero.mp;
+        unit.maxMp = maxMp;
+      }
+    }
+  }
+
   function advanceMendPulse(b, unit, walked) {
     const p = unit?.mendPulse;
     if (!p || unit.hp <= 0) {
@@ -1699,6 +1730,7 @@ export function createBattleApi(ctx) {
         tickStatuses(u, walk);
         const spd = effectiveSpd(u);
         u.gauge += spd;
+        applyGaugeRegen(u, spd);
         advanceMendPulsesFromHealer(b, u, spd);
         advanceUnitDot(b, u, spd);
         if (u.gauge >= GAUGE_MAX) {
@@ -1800,6 +1832,7 @@ export function createBattleApi(ctx) {
       killStacks: 0,
       firstSkillDone: false,
       windEnchant: null,
+      gaugeRegen: { hp: 0, mp: 0 },
       combat: blankCombat(),
     }));
 
