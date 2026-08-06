@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=136";
+import { $, clamp, styleTag } from "../core/utils.js?v=137";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -44,6 +44,7 @@ import {
   MAX_SKILL_LEVEL,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
+  DEFAULT_DODGE_RATE,
   reviveCost,
   reviveHero,
   isHeroDead,
@@ -53,17 +54,17 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=136";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=136";
-import { setSavedFormation } from "../characters/stats.js?v=136";
-import { resetGameLocalData } from "../core/save.js?v=136";
-import { createAllUniqueItems } from "../loot/drops.js?v=136";
-import { APP_VERSION } from "../core/version.js?v=136";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=136";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=136";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=136";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=136";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=136";
+} from "../characters/omni/index.js?v=137";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=137";
+import { setSavedFormation } from "../characters/stats.js?v=137";
+import { resetGameLocalData } from "../core/save.js?v=137";
+import { createAllUniqueItems } from "../loot/drops.js?v=137";
+import { APP_VERSION } from "../core/version.js?v=137";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=137";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=137";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=137";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=137";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=137";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1475,11 +1476,17 @@ export function createUI(ctx) {
     const critRate = Math.round((hero.critRate ?? DEFAULT_CRIT_RATE) * 100);
     const critDmg = Math.round((hero.critDmg ?? DEFAULT_CRIT_DMG) * 100);
     const hitRate = Math.round((hero.hitRate ?? 1) * 1000) / 10;
+    const dodgeFull =
+      hero.dodgeFull ??
+      Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
     const dodgeRate = Math.round((hero.dodgeRate ?? 0.05) * 1000) / 10;
+    const dodgeFullPct = Math.round(dodgeFull * 1000) / 10;
     const capNote = hero.isCaptain ? " · 队长+10%" : "";
     const atkFull = hero.atkFull ?? hero.atk;
     const sAtk = Number(hero.atkScale);
     const atkScale = sAtk === 0.5 || sAtk === 0.75 || sAtk === 1 ? sAtk : 1;
+    const sDodge = Number(hero.dodgeScale);
+    const dodgeScale = sDodge === 0 || sDodge === 1 ? sDodge : 1;
     const atkRow = `<li class="stat-atk-scale" title="基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote} · 满攻${atkFull}">
             <span>攻击</span>
             <b>${hero.atk}</b>
@@ -1494,6 +1501,22 @@ export function createUI(ctx) {
                 .join("")}
             </div>
           </li>`;
+    const dodgeRow = `<li class="stat-atk-scale" title="默认 5% + 装备 ${
+      Math.round((eq.dodgeRate || 0) * 1000) / 10
+    }% = ${dodgeFullPct}% · 100%档=沿用该概率（非必闪）">
+            <span>闪避</span>
+            <b>${dodgeRate}%</b>
+            <div class="atk-scale-opts" role="group" aria-label="闪避倍率">
+              ${[0, 1]
+                .map(
+                  (s) =>
+                    `<button type="button" class="atk-scale-btn${
+                      s === dodgeScale ? " on" : ""
+                    }" data-dodge-scale="${s}">${Math.round(s * 100)}%</button>`
+                )
+                .join("")}
+            </div>
+          </li>`;
     $("statList").innerHTML = [
       `<li title="基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
       atkRow,
@@ -1502,7 +1525,7 @@ export function createUI(ctx) {
       `<li title="默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%"><span>暴击率</span><b>${critRate}%</b></li>`,
       `<li title="默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%"><span>暴击伤害</span><b>${critDmg}%</b></li>`,
       `<li title="默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%"><span>命中</span><b>${hitRate}%</b></li>`,
-      `<li title="默认 5% + 装备 ${Math.round((eq.dodgeRate || 0) * 1000) / 10}%"><span>闪避</span><b>${dodgeRate}%</b></li>`,
+      dodgeRow,
     ].join("");
 
     $("statList")?.querySelectorAll("[data-atk-scale]").forEach((btn) => {
@@ -1511,6 +1534,18 @@ export function createUI(ctx) {
         const s = Number(btn.dataset.atkScale);
         if (s !== 0.5 && s !== 0.75 && s !== 1) return;
         hero.atkScale = s;
+        refreshHeroStats(hero);
+        openDetail(hero.id);
+        refreshExploreHud();
+        bumpSave();
+      });
+    });
+    $("statList")?.querySelectorAll("[data-dodge-scale]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const s = Number(btn.dataset.dodgeScale);
+        if (s !== 0 && s !== 1) return;
+        hero.dodgeScale = s;
         refreshHeroStats(hero);
         openDetail(hero.id);
         refreshExploreHud();

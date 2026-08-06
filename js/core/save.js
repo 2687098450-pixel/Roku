@@ -15,10 +15,10 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=136";
-import { createPatrolMonster } from "../monsters/slime.js?v=136";
-import { createBoss } from "../monsters/boss.js?v=136";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=136";
+} from "../characters/omni/index.js?v=137";
+import { createPatrolMonster } from "../monsters/slime.js?v=137";
+import { createBoss } from "../monsters/boss.js?v=137";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=137";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -90,6 +90,10 @@ function serializeHero(hero) {
       const s = Number(hero.atkScale);
       return s === 0.5 || s === 0.75 || s === 1 ? s : 1;
     })(),
+    dodgeScale: (() => {
+      const s = Number(hero.dodgeScale);
+      return s === 0 || s === 1 ? s : 1;
+    })(),
     equip: serializeEquip(hero.equip),
   };
 }
@@ -123,6 +127,10 @@ function applyHeroSave(hero, data) {
   {
     const s = Number(data.atkScale);
     hero.atkScale = s === 0.5 || s === 0.75 || s === 1 ? s : 1;
+  }
+  {
+    const s = Number(data.dodgeScale);
+    hero.dodgeScale = s === 0 || s === 1 ? s : 1;
   }
   if (data.equip) hero.equip = reviveEquip(data.equip);
   refreshSkillTexts(hero);

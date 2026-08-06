@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=136";
-import { calcStats } from "./omni/attributes.js?v=136";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=136";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=137";
+import { calcStats } from "./omni/attributes.js?v=137";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=137";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=136";
+} from "./skills.js?v=137";
 import {
   expToNext,
   getSkillLevel,
@@ -17,8 +17,8 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=136";
-import { heroMaxMp } from "./skillMp.js?v=136";
+} from "./progression.js?v=137";
+import { heroMaxMp } from "./skillMp.js?v=137";
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
@@ -73,7 +73,13 @@ export function refreshHeroStats(hero) {
   hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
   hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
   hero.hitRate = Math.min(1.6, DEFAULT_HIT_RATE + (eq.hitRate || 0));
-  hero.dodgeRate = Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
+  const dodgeFull = Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
+  hero.dodgeFull = dodgeFull;
+  const d = Number(hero.dodgeScale);
+  const dodgeScale = d === 0 || d === 1 ? d : 1;
+  hero.dodgeScale = dodgeScale;
+  // 100% = 当前完整闪避概率，不是「必闪」
+  hero.dodgeRate = dodgeFull * dodgeScale;
   if (hero.hp == null) hero.hp = hero.maxHp;
   else hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
   if (hero.mp == null) hero.mp = hero.maxMp;
@@ -139,6 +145,7 @@ export function createHero(statsId) {
     autoRotation: getAutoRotation(statsId),
     skillAi: {},
     atkScale: 1,
+    dodgeScale: 1,
     hp: 0,
     maxHp: 0,
   };
