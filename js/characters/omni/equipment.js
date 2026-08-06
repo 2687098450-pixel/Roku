@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=116";
+import { scaleGoldGain } from "../../core/economy.js?v=118";
 
 export const SLOT_KEYS = [
   "helmet",

@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=116";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=116";
+import { $, clamp, irand } from "../core/utils.js?v=118";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=118";
 import {
   refreshHeroStats,
   skillPower,
@@ -20,7 +20,7 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=116";
+} from "../characters/omni/index.js?v=118";
 import {
   gainExp,
   splitExp,
@@ -30,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=116";
+} from "../characters/progression.js?v=118";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=116";
-import { buildEncounter } from "../monsters/roster.js?v=116";
+} from "../characters/skills.js?v=118";
+import { buildEncounter } from "../monsters/roster.js?v=118";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=116";
-import { rollBattleLoot } from "../loot/drops.js?v=116";
+} from "../monsters/skills.js?v=118";
+import { rollBattleLoot } from "../loot/drops.js?v=118";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=116";
-import { createTicker } from "../core/time.js?v=116";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=116";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=116";
+} from "../characters/stats.js?v=118";
+import { createTicker } from "../core/time.js?v=118";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=118";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=118";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=116";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=116";
+} from "./status.js?v=118";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=118";
 
 export function createBattleApi(ctx) {
   const {
@@ -1010,7 +1010,7 @@ export function createBattleApi(ctx) {
       gold += e.gold || Math.max(1, Math.round((e.exp || 10) * 0.45));
       if (e.isBoss) gems += 1;
     }
-    gold = scaleGoldGain(gold);
+    gold = scaleMonsterGoldGain(gold);
     state.gold = (state.gold || 0) + gold;
     if (gems) state.gem = (state.gem || 0) + gems;
     return { gold, gems };
