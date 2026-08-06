@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=134";
+import { scaleGoldGain } from "../../core/economy.js?v=135";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -271,7 +271,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "cyan_cut",
     name: "强化风刃",
     detail:
-      "强化小青「风刃」：附魔友方下次整段技能——多段每段追加小青攻击×10%（最多5段）；单次伤害（含群伤一次结算）追加攻击×100%。开局自动释放风刃。仅小青装备时生效。",
+      "强化小青「风刃」：附魔友方下次整段技能——多段每段追加小青攻击×10%（最多段数初始3，每两级+1）；单次伤害（含群伤一次结算）追加攻击×80%起，每级+10%。开局自动释放风刃。仅小青装备时生效。",
   },
   status_weave_ring: {
     name: "织律之戒",

@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=134";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=134";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=134";
+import { getCharacterStats } from "./stats.js?v=135";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=135";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=135";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -249,6 +249,21 @@ export function isBuffSkill(skillId) {
   return SKILL_POWER[skillId]?.style === "buff";
 }
 
+/** 强化风刃：最多段数 = 3 + ⌊(等级-1)/2⌋ */
+export function windGaleMaxSegments(skillLevel = 1) {
+  const lv = Math.max(1, Math.floor(skillLevel || 1));
+  return 3 + Math.floor((lv - 1) / 2);
+}
+
+/** 强化风刃：单次伤害附魔倍率 = 80% + (等级-1)×10% */
+export function windGaleSingleMult(skillLevel = 1) {
+  const lv = Math.max(1, Math.floor(skillLevel || 1));
+  return +(0.8 + (lv - 1) * 0.1).toFixed(3);
+}
+
+/** 强化风刃：多段每段固定攻×10% */
+export const WIND_GALE_SEGMENT_MULT = 0.1;
+
 /** 织律戒：增益 / 带控制·减速·持续伤害的减益技 */
 export function isWeaveStatusSkill(skillId) {
   const s = SKILL_POWER[skillId];
@@ -468,9 +483,13 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
       const pct = Math.round((s.windEnchantMult || 0.3) * 100);
       const unique = !!opts.windUnique;
       if (unique) {
+        const lv = Math.max(1, Math.floor(opts.level || 1));
+        const maxSeg = windGaleMaxSegments(lv);
+        const singlePct = Math.round(windGaleSingleMult(lv) * 100);
+        const segPct = Math.round(WIND_GALE_SEGMENT_MULT * 100);
         return {
-          nums: `附魔整段 · 段伤攻×10%（最多5）· 单段攻×100%`,
-          desc: `为攻击最高的友方附魔下次技能：多段技每段追加小青攻击×${skVal("10%")}（最多${skVal(5)}段）；单次伤害（含群伤一次结算）追加攻击×${skVal("100%")}。开局自动释放。`,
+          nums: `附魔整段 · 段伤攻×${skVal(segPct + "%")}（最多${skVal(maxSeg)}）· 单段攻×${skVal(singlePct + "%")}`,
+          desc: `为攻击最高的友方附魔下次技能：多段技每段追加小青攻击×${skVal(segPct + "%")}（最多${skVal(maxSeg)}段，初始3段每两级+1）；单次伤害（含群伤一次结算）追加攻击×${skVal(singlePct + "%")}（初始80%每级+10%）。开局自动释放。`,
         };
       }
       return {
@@ -713,6 +732,7 @@ export function buildSkillText(hero, skillId, level = 1) {
     def: uniqueDef,
     windUnique:
       skillId === "cyan_cut" && heroHasUnique(hero, "cyan_cut_gale"),
+    level: lv,
   });
   if (isHealSkill(skillId) && heroHasUnique(hero, "green_mend_pulse")) {
     return {

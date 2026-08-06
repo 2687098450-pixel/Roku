@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=134";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=134";
+import { $, clamp, irand } from "../core/utils.js?v=135";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=135";
 import {
   refreshHeroStats,
   skillPower,
@@ -10,6 +10,9 @@ import {
   isBuffSkill,
   isWeaveStatusSkill,
   applyWeaveEffectBoost,
+  windGaleMaxSegments,
+  windGaleSingleMult,
+  WIND_GALE_SEGMENT_MULT,
   scaledSkillDef,
   applyUniqueSkillMods,
   SKILL_POWER,
@@ -23,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=134";
+} from "../characters/omni/index.js?v=135";
 import {
   gainExp,
   splitExp,
@@ -33,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=134";
+} from "../characters/progression.js?v=135";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=134";
-import { buildEncounter } from "../monsters/roster.js?v=134";
+} from "../characters/skills.js?v=135";
+import { buildEncounter } from "../monsters/roster.js?v=135";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=134";
-import { rollBattleLoot } from "../loot/drops.js?v=134";
+} from "../monsters/skills.js?v=135";
+import { rollBattleLoot } from "../loot/drops.js?v=135";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=134";
-import { createTicker } from "../core/time.js?v=134";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=134";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=134";
+} from "../characters/stats.js?v=135";
+import { createTicker } from "../core/time.js?v=135";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=135";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=135";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -70,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=134";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=134";
+} from "./status.js?v=135";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=135";
 
 export function createBattleApi(ctx) {
   const {
@@ -688,25 +691,34 @@ export function createBattleApi(ctx) {
       )[0];
   }
 
-  /** 规划风刃附魔段数 */
+  /** 规划风刃附魔段数（强化装随风刃等级成长） */
   function planWindEnchant(casterHero, targetHero, skillId, mods) {
     const unique = heroHasUnique(casterHero, "cyan_cut_gale");
     if (!unique) {
       return { charges: 1, mult: 0.3, aoeOnce: true };
     }
+    const cutLv = getSkillLevel(casterHero, "cyan_cut");
+    const maxSeg = windGaleMaxSegments(cutLv);
+    const singleMult = windGaleSingleMult(cutLv);
+    const segMult = WIND_GALE_SEGMENT_MULT;
     if (
       skillId === "pink_burst" &&
       heroHasUnique(targetHero, "pink_burst_echo")
     ) {
       return {
-        charges: Math.min(5, 3 + (mods?.hitBonus || 0)),
-        mult: 0.1,
+        charges: Math.min(maxSeg, 3 + (mods?.hitBonus || 0)),
+        mult: segMult,
         aoeOnce: false,
       };
     }
     const hits = Math.max(1, 1 + (mods?.hitBonus || 0));
     if (isHealSkill(skillId) && heroHasUnique(targetHero, "green_mend_pulse")) {
-      return { charges: 5, mult: 0.1, aoeOnce: false, mendPulse: true };
+      return {
+        charges: maxSeg,
+        mult: segMult,
+        aoeOnce: false,
+        mendPulse: true,
+      };
     }
     const def = SKILL_POWER[skillId];
     const isAoe = !!(
@@ -717,14 +729,22 @@ export function createBattleApi(ctx) {
     );
     if (isAoe) {
       if (hits > 1) {
-        return { charges: Math.min(5, hits), mult: 0.1, aoeOnce: true };
+        return {
+          charges: Math.min(maxSeg, hits),
+          mult: segMult,
+          aoeOnce: true,
+        };
       }
-      return { charges: 1, mult: 1.0, aoeOnce: true };
+      return { charges: 1, mult: singleMult, aoeOnce: true };
     }
     if (hits > 1) {
-      return { charges: Math.min(5, hits), mult: 0.1, aoeOnce: false };
+      return {
+        charges: Math.min(maxSeg, hits),
+        mult: segMult,
+        aoeOnce: false,
+      };
     }
-    return { charges: 1, mult: 1.0, aoeOnce: true };
+    return { charges: 1, mult: singleMult, aoeOnce: true };
   }
 
   function applyWindEnchant(b, caster, target) {

@@ -8,6 +8,9 @@ export {
   isBuffSkill,
   isWeaveStatusSkill,
   applyWeaveEffectBoost,
+  windGaleMaxSegments,
+  windGaleSingleMult,
+  WIND_GALE_SEGMENT_MULT,
   scaledSkillDef,
   applyUniqueSkillMods,
   refreshSkillTexts,
@@ -23,4 +26,4 @@ export {
   previewReflectDamage,
   calcReflectEnemyDamage,
   applyReflectAllyUnique,
-} from "../skills.js?v=134";
+} from "../skills.js?v=135";
