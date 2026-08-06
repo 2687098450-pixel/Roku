@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=110";
+import { $, clamp, styleTag } from "../core/utils.js?v=111";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -39,6 +39,8 @@ import {
   isSlenderFemale,
   upgradeSkill,
   getSkillLevel,
+  getBaseSkillLevel,
+  equipSkillLevelBonus,
   MAX_SKILL_LEVEL,
   DEFAULT_CRIT_RATE,
   DEFAULT_CRIT_DMG,
@@ -47,17 +49,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=110";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=110";
-import { setSavedFormation } from "../characters/stats.js?v=110";
-import { resetGameLocalData } from "../core/save.js?v=110";
-import { createAllUniqueItems } from "../loot/drops.js?v=110";
-import { APP_VERSION } from "../core/version.js?v=110";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=110";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=110";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=110";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=110";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=110";
+} from "../characters/omni/index.js?v=111";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=111";
+import { setSavedFormation } from "../characters/stats.js?v=111";
+import { resetGameLocalData } from "../core/save.js?v=111";
+import { createAllUniqueItems } from "../loot/drops.js?v=111";
+import { APP_VERSION } from "../core/version.js?v=111";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=111";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=111";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=111";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=111";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=111";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1166,13 +1168,18 @@ export function createUI(ctx) {
     const el = $("skillHoldPreview");
     if (!skill || !el) return;
     const lv = getSkillLevel(hero, skill.id);
+    const baseLv = getBaseSkillLevel(hero, skill.id);
+    const bonus = Math.max(0, lv - baseLv);
     const typeLine =
       skill.kind === "passive"
         ? "被动"
         : `${skillKindLabel(skill)}${skill.style ? ` · ${styleTag(skill.style)}` : ""}`;
+    const lvLine = bonus
+      ? `等级 ${lv}（加点 ${baseLv}/${MAX_SKILL_LEVEL}）`
+      : `加点 ${baseLv}/${MAX_SKILL_LEVEL}`;
     el.innerHTML = `
       <div class="shp-name">${skill.name}</div>
-      <div class="shp-meta">${typeLine} · 等级 ${lv}/${MAX_SKILL_LEVEL}</div>
+      <div class="shp-meta">${typeLine} · ${lvLine}</div>
       <p class="shp-desc">${skill.desc || skill.nums || ""}</p>`;
     el.dataset.skill = skillId;
     el.classList.remove("hidden");
@@ -1478,11 +1485,14 @@ export function createUI(ctx) {
     $("skillList").innerHTML = hero.skills
       .map((s) => {
         const lv = getSkillLevel(hero, s.id);
-        const canUp = points > 0 && lv < MAX_SKILL_LEVEL;
+        const baseLv = getBaseSkillLevel(hero, s.id);
+        const canUp = points > 0 && baseLv < MAX_SKILL_LEVEL;
         const typeLine =
           s.kind === "passive"
             ? "被动"
             : `${skillKindLabel(s)}${s.style ? ` · ${styleTag(s.style)}` : ""}`;
+        const lvLabel =
+          lv > baseLv ? `等级 ${lv}（加点${baseLv}）` : `等级 ${lv}`;
         return `<li class="skill-item" data-skill="${s.id}">
           <div class="skill-row">
             <button type="button" class="skill-open" data-skill="${s.id}">
@@ -1490,12 +1500,12 @@ export function createUI(ctx) {
               <div class="skill-meta">
                 <span class="sname">${s.name}</span>
                 <span class="stype">${typeLine}</span>
-                <span class="slv">等级 ${lv}</span>
+                <span class="slv">${lvLabel}</span>
               </div>
             </button>
           </div>
           <button type="button" class="skill-up-btn${canUp ? "" : " off"}" data-skill="${s.id}" ${canUp ? "" : "disabled"} aria-label="升级">${
-            lv >= MAX_SKILL_LEVEL ? "满" : "+"
+            baseLv >= MAX_SKILL_LEVEL ? "满" : "+"
           }</button>
         </li>`;
       })
@@ -1528,8 +1538,9 @@ export function createUI(ctx) {
     if (!hero || !skill || !body || !modal) return;
 
     const lv = getSkillLevel(hero, skill.id);
+    const baseLv = getBaseSkillLevel(hero, skill.id);
     const points = hero.skillPoints ?? 0;
-    const canUp = points > 0 && lv < MAX_SKILL_LEVEL;
+    const canUp = points > 0 && baseLv < MAX_SKILL_LEVEL;
     const typeLine =
       skill.kind === "passive"
         ? "被动技能"
@@ -1539,16 +1550,22 @@ export function createUI(ctx) {
     refreshSkillTexts(hero);
     const curText = buildSkillText(hero, skill.id, lv);
     const nextText =
-      lv < MAX_SKILL_LEVEL ? buildSkillText(hero, skill.id, lv + 1) : null;
+      baseLv < MAX_SKILL_LEVEL
+        ? buildSkillText(hero, skill.id, lv + 1)
+        : null;
     const cur = curText?.desc || curText?.nums || skill.desc || skill.nums || "";
     const nextLine = nextText?.desc || nextText?.nums || "";
+    const lvLine =
+      lv > baseLv
+        ? `实际 ${lv} · 加点 ${baseLv} / ${MAX_SKILL_LEVEL}`
+        : `加点 ${baseLv} / ${MAX_SKILL_LEVEL}`;
     body.innerHTML = `
       <div class="skill-detail-top">
         <div class="skill-detail-ico ${skillIcoClass(skill)}">${skillFace(skill)}</div>
         <div class="skill-detail-meta">
           <div class="skill-detail-name">${skill.name}</div>
           <div class="skill-detail-type">${typeLine}</div>
-          <div class="skill-detail-lv">等级 ${lv} / ${MAX_SKILL_LEVEL}</div>
+          <div class="skill-detail-lv">${lvLine}</div>
         </div>
       </div>
       ${cur ? `<div class="skill-detail-nums">${cur}</div>` : ""}
@@ -1559,7 +1576,7 @@ export function createUI(ctx) {
       }
       <div class="skill-detail-actions">
         <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
-          ${lv >= MAX_SKILL_LEVEL ? "已满级" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
+          ${baseLv >= MAX_SKILL_LEVEL ? "加点已满" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
         </button>
       </div>`;
 

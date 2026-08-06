@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=110";
+import { scaleGoldGain } from "../../core/economy.js?v=111";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -120,7 +120,7 @@ export const SKILL_LEVEL_AFFIX = {
   skillMods: { skillLevel: 1 },
   text: "技能等级 +1",
   label: "特殊",
-  detail: "穿戴时全部技能等级 +1（与技能点升级叠加，上限仍为 10）。",
+  detail: "穿戴时全部技能等级 +1（与技能点升级叠加；加点上限仍为 10，装备加成可超过 10）。",
 };
 
 const CAST_ECHO_SLOTS = new Set(["necklace", "ringL", "ringR"]);

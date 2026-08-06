@@ -1,6 +1,6 @@
 /** 经验、升级、技能点（无循环依赖） */
 
-import { scaleExpGain } from "../core/economy.js?v=110";
+import { scaleExpGain } from "../core/economy.js?v=111";
 
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%
@@ -33,7 +33,8 @@ export function getSkillLevel(hero, skillId) {
   if (!hero || !skillId) return 1;
   const base = getBaseSkillLevel(hero, skillId);
   const bonus = equipSkillLevelBonus(hero);
-  return Math.min(MAX_SKILL_LEVEL, Math.max(1, base + bonus));
+  // 加点上限 10；装备等其他途径可继续抬高实际等级
+  return Math.max(1, base + bonus);
 }
 
 /** 升到下一级所需经验 */
