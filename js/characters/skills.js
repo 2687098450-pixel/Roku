@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=137";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=137";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=137";
+import { getCharacterStats } from "./stats.js?v=138";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=138";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=138";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -116,24 +116,25 @@ export const SKILL_POWER = {
   },
 
   // —— 小橙：烬火 ——
+  // DoT：按施法者行动条脉动（每 10 跳一次）；单跳低于旧「行动时」以匹配更高跳数
   orange_shot: {
     mult: 0.95,
     flat: 2,
     style: "ranged",
-    dot: { type: "onAct", mult: 0.16, flat: 0, gauge: 50 },
+    dot: { type: "pulse", mult: 0.08, flat: 0, gauge: 100 },
   },
   orange_wave: {
     mult: 0.55,
     flat: 1,
     style: "ranged",
     hitAllFront: true,
-    dot: { type: "onAct", mult: 0.12, flat: 0, gauge: 50 },
+    dot: { type: "pulse", mult: 0.06, flat: 0, gauge: 100 },
   },
   orange_blaze: {
     mult: 1.8,
     flat: 6,
     style: "ranged",
-    dot: { type: "onAct", mult: 0.2, flat: 1, gauge: 50 },
+    dot: { type: "pulse", mult: 0.1, flat: 1, gauge: 120 },
   },
   orange_stoke: { style: "buff", target: "self", atkMult: 0.22, turns: 3 },
 
@@ -350,12 +351,13 @@ export function applyUniqueSkillMods(hero, skillId, def) {
     out.apply = { stun: true, stunGauge: 80, slow: 0.3 };
   }
   if (skillId === "orange_blaze" && heroHasUnique(hero, "orange_blaze_ember")) {
-    const d = out.dot || { type: "onAct", mult: 0.2, flat: 1, gauge: 50 };
+    const d = out.dot || { type: "pulse", mult: 0.1, flat: 1, gauge: 120 };
     out.dot = {
       ...d,
-      mult: +((d.mult || 0.2) * 1.5).toFixed(3),
-      flat: Math.round((d.flat || 0) + 2),
-      gauge: Math.max(d.gauge || 50, 70),
+      type: "pulse",
+      mult: +((d.mult || 0.1) * 1.45).toFixed(3),
+      flat: Math.round((d.flat || 0) + 1),
+      gauge: Math.max(d.gauge || 120, 160),
     };
   }
   if (skillId === "cyan_tailwind" && heroHasUnique(hero, "cyan_tailwind_gale")) {
@@ -409,11 +411,11 @@ function statusEffectNotes(s, scale = 1) {
   if (s.dot) {
     const dotDmg = skillPowerMarked(s.dot.mult || 0, s.dot.flat || 0, scale);
     const g = s.dot.gauge;
-    parts.push(
-      g != null
-        ? `行动时持续伤害 ${dotDmg}(${skVal(g)})`
-        : `行动时持续伤害 ${dotDmg}`
-    );
+    const pulse = s.dot.type === "pulse";
+    const label = pulse
+      ? "脉动持续伤害(施法者每10行动条)"
+      : "行动时持续伤害";
+    parts.push(g != null ? `${label} ${dotDmg}(${skVal(g)})` : `${label} ${dotDmg}`);
   }
   return parts;
 }

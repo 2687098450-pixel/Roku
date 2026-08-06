@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=137";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=137";
+import { $, clamp, irand } from "../core/utils.js?v=138";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=138";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=137";
+} from "../characters/omni/index.js?v=138";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=137";
+} from "../characters/progression.js?v=138";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=137";
-import { buildEncounter } from "../monsters/roster.js?v=137";
+} from "../characters/skills.js?v=138";
+import { buildEncounter } from "../monsters/roster.js?v=138";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=137";
-import { rollBattleLoot } from "../loot/drops.js?v=137";
+} from "../monsters/skills.js?v=138";
+import { rollBattleLoot } from "../loot/drops.js?v=138";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=137";
-import { createTicker } from "../core/time.js?v=137";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=137";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=137";
+} from "../characters/stats.js?v=138";
+import { createTicker } from "../core/time.js?v=138";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=138";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=138";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=137";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=137";
+} from "./status.js?v=138";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=138";
 
 export function createBattleApi(ctx) {
   const {
@@ -416,11 +416,30 @@ export function createBattleApi(ctx) {
   function applyMonsterDot(target, caster, skill) {
     const def = skill?.dot;
     if (!def || !target || target.hp <= 0) return;
-    const type = def.type === "pulse" ? "pulse" : "onAct";
+    // 对怪物：与脉动治疗同理，按施法者行动条每 10 跳一次
+    const sourceDriven = !target.isHero;
+    const type = sourceDriven || def.type === "pulse" ? "pulse" : "onAct";
+    const tickDef = { ...def, type };
+    let tickDmg;
+    if (sourceDriven) {
+      // 英雄灼烧不吃怪物脉动单跳硬顶，便于按跳数平衡
+      const atk = Math.max(0, Number(caster?.atk) || 0);
+      tickDmg = Math.max(
+        1,
+        Math.floor(atk * (Number(def.mult) || 0)) + (Number(def.flat) || 0)
+      );
+    } else {
+      tickDmg = monsterDotTickDamage(caster?.atk || 0, tickDef);
+    }
+    let remain = Math.max(1, Math.floor(def.gauge ?? 50));
+    if (type === "pulse" && !sourceDriven) {
+      remain = clampMonsterDotGauge(tickDef);
+    }
     target.dot = {
       type,
-      tickDmg: monsterDotTickDamage(caster?.atk || 0, { ...def, type }),
-      remain: clampMonsterDotGauge({ ...def, type }),
+      sourceDriven,
+      tickDmg,
+      remain,
       bar: 0,
       walk: 0,
       interval: type === "pulse" ? def.interval || PULSE_DOT_INTERVAL : 0,
@@ -434,6 +453,8 @@ export function createBattleApi(ctx) {
       if (unit) unit.dot = null;
       return;
     }
+    // 施法者推进的灼烧不在目标走条时结算
+    if (d.sourceDriven) return;
     d.bar = (d.bar || 0) + walked;
     if (d.type === "pulse") {
       d.walk = (d.walk || 0) + walked;
@@ -448,10 +469,40 @@ export function createBattleApi(ctx) {
     if (d.bar >= d.remain) unit.dot = null;
   }
 
-  /** 行动时持续：出手瞬间跳伤 */
+  /** 施法者走行动条时，推进其施加在怪物上的脉动灼烧 */
+  function advanceDotsFromSource(b, source, walked) {
+    if (!source?.id || !(walked > 0)) return;
+    for (const u of battleUnits(b)) {
+      const d = u?.dot;
+      if (!d?.sourceDriven || d.sourceId !== source.id) continue;
+      if (u.hp <= 0) {
+        u.dot = null;
+        continue;
+      }
+      const src = findUnitById(b, d.sourceId);
+      if (!src || src.hp <= 0) {
+        u.dot = null;
+        continue;
+      }
+      d.bar = (d.bar || 0) + walked;
+      d.walk = (d.walk || 0) + walked;
+      const interval = d.interval || PULSE_DOT_INTERVAL;
+      while (d.walk >= interval && u.hp > 0 && u.dot) {
+        d.walk -= interval;
+        dealDamage(u, d.tickDmg, { source: src });
+        if (u.hp <= 0) {
+          u.dot = null;
+          break;
+        }
+      }
+      if (u.dot && d.bar >= (d.remain || 0)) u.dot = null;
+    }
+  }
+
+  /** 行动时持续：出手瞬间跳伤（仅非施法者推进型） */
   function triggerActDot(b, unit) {
     const d = unit?.dot;
-    if (!d || d.type !== "onAct" || unit.hp <= 0) return;
+    if (!d || d.sourceDriven || d.type !== "onAct" || unit.hp <= 0) return;
     const src = findUnitById(b, d.sourceId);
     dealDamage(unit, d.tickDmg, { source: src || null });
   }
@@ -1753,6 +1804,7 @@ export function createBattleApi(ctx) {
         u.gauge += spd;
         applyGaugeRegen(u, spd);
         advanceMendPulsesFromHealer(b, u, spd);
+        advanceDotsFromSource(b, u, spd);
         advanceUnitDot(b, u, spd);
         if (u.gauge >= GAUGE_MAX) {
           u.gauge = GAUGE_MAX;

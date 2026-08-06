@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=137";
+import { $, clamp, styleTag } from "../core/utils.js?v=138";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -54,17 +54,17 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=137";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=137";
-import { setSavedFormation } from "../characters/stats.js?v=137";
-import { resetGameLocalData } from "../core/save.js?v=137";
-import { createAllUniqueItems } from "../loot/drops.js?v=137";
-import { APP_VERSION } from "../core/version.js?v=137";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=137";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=137";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=137";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=137";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=137";
+} from "../characters/omni/index.js?v=138";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=138";
+import { setSavedFormation } from "../characters/stats.js?v=138";
+import { resetGameLocalData } from "../core/save.js?v=138";
+import { createAllUniqueItems } from "../loot/drops.js?v=138";
+import { APP_VERSION } from "../core/version.js?v=138";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=138";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=138";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=138";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=138";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=138";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";

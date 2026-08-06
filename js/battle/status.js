@@ -223,8 +223,8 @@ export function statusBadgesHtml(unit) {
     badges.push(stIco(id, meta.kind === "buff" ? "buff" : "debuff", meta.label));
   }
   if (unit?.dot && (unit.dot.remain || 0) > (unit.dot.bar || 0)) {
-    const pulse = unit.dot.type === "pulse";
-    badges.push(stIco("dot", "debuff", pulse ? "脉动毒" : "行动毒"));
+    const pulse = unit.dot.type === "pulse" || unit.dot.sourceDriven;
+    badges.push(stIco("dot", "debuff", pulse ? "脉动灼烧" : "行动毒"));
   }
   if ((unit?.buffTurns || 0) > 0) {
     if ((unit.atkBuff || 0) > 0) badges.push(stIco("atkUp", "buff", "攻击↑"));

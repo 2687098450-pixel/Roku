@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=137";
+import { scaleGoldGain } from "../../core/economy.js?v=138";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -252,7 +252,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "orange_blaze",
     name: "强化烬焚",
     detail:
-      "强化小橙「烬焚」：持续灼烧更痛、更久。仅小橙装备时生效。",
+      "强化小橙「烬焚」：脉动灼烧更痛、更久（按施法者行动条，每 10 跳一次）。仅小橙装备时生效。",
   },
   cyan_tailwind_gale: {
     owner: "cyan",
