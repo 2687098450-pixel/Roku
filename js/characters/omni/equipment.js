@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=112";
+import { scaleGoldGain } from "../../core/economy.js?v=113";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -1150,7 +1150,7 @@ function baseGear() {
       rarity: "green",
       level: 1,
       icon: "ring.png",
-      desc: "木制戒指。无主属性，绿戒额外词条。",
+      desc: "木制戒指。绿戒额外词条。",
       affixes: fixedAffixes([
         { key: "hp", value: 5 },
         { key: "atk", value: 1 },

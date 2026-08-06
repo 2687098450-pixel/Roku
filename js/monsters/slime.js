@@ -1,14 +1,14 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { OX, OY, canWalk } from "../map/island15.js?v=112";
-import { createMonster } from "./roster.js?v=112";
+import { OX, OY, canWalk } from "../map/island15.js?v=113";
+import { createMonster } from "./roster.js?v=113";
 import {
   MONSTER_SKILLS,
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=112";
+} from "./skills.js?v=113";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 
