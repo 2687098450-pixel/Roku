@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=130";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=130";
+import { $, clamp, irand } from "../core/utils.js?v=133";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=133";
 import {
   refreshHeroStats,
   skillPower,
@@ -23,7 +23,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=130";
+} from "../characters/omni/index.js?v=133";
 import {
   gainExp,
   splitExp,
@@ -33,30 +33,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=130";
+} from "../characters/progression.js?v=133";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=130";
-import { buildEncounter } from "../monsters/roster.js?v=130";
+} from "../characters/skills.js?v=133";
+import { buildEncounter } from "../monsters/roster.js?v=133";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=130";
-import { rollBattleLoot } from "../loot/drops.js?v=130";
+} from "../monsters/skills.js?v=133";
+import { rollBattleLoot } from "../loot/drops.js?v=133";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=130";
-import { createTicker } from "../core/time.js?v=130";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=130";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=130";
+} from "../characters/stats.js?v=133";
+import { createTicker } from "../core/time.js?v=133";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=133";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=133";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -70,8 +70,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=130";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=130";
+} from "./status.js?v=133";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=133";
 
 export function createBattleApi(ctx) {
   const {
@@ -477,7 +477,6 @@ export function createBattleApi(ctx) {
     orange_blaze: "焚",
     orange_stoke: "薪",
     cyan_cut: "刃",
-    cyan_strike: "斩",
     cyan_tailwind: "风",
     cyan_gust: "迅",
   };
@@ -769,7 +768,7 @@ export function createBattleApi(ctx) {
     we.consumedThisCast = false;
   }
 
-  function tryWindEnchantExtra(b, source, preferTarget = null) {
+  function tryWindEnchantExtra(b, source, preferTarget = null, opts = {}) {
     const we = source?.windEnchant;
     if (!we) return 0;
     if (!(we.charges > 0)) {
@@ -778,8 +777,9 @@ export function createBattleApi(ctx) {
     }
     if (we.unique && !we.armed) return 0;
     if (we.aoeOnce && we.consumedThisCast) return 0;
-    let foe = preferTarget;
-    if (!foe || foe.hp <= 0 || foe.isHero) {
+    let foe = preferTarget && preferTarget.hp > 0 ? preferTarget : null;
+    // 脉动段：附魔打在脉动同一目标（可友方）；其余默认打敌人
+    if (!foe || (foe.isHero && !opts.allowAlly)) {
       foe = pickLowestEnemy(b) || livingEnemies(b)[0];
     }
     if (!foe || foe.hp <= 0) return 0;
@@ -1084,15 +1084,18 @@ export function createBattleApi(ctx) {
     }
     p.walk += walked;
     if (p.walk >= 10 && !p.lostThisCycle) {
+      // 脉动流失可触发小黄反伤（来源记为治疗者）；勿标 fromReflect
       const lost = dealDamage(unit, p.tickDmg, {
-        fromReflect: true,
         trueDamage: true,
+        skipHitCheck: true,
+        source: healer,
       });
       p.lastLost = lost || p.tickDmg;
       p.lostThisCycle = true;
       if (healer?.windEnchant?.mendPulse || healer?.windEnchant?.unique) {
         const bb = getState().battle;
-        if (bb) tryWindEnchantExtra(bb, healer, null);
+        // 与脉动同一目标结算附魔段（可打到小黄并触发反伤）
+        if (bb) tryWindEnchantExtra(bb, healer, unit, { allowAlly: true });
       }
     }
     if (p.walk >= 20) {

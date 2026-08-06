@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=130";
-import { calcStats } from "./omni/attributes.js?v=130";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=130";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=133";
+import { calcStats } from "./omni/attributes.js?v=133";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=133";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=130";
+} from "./skills.js?v=133";
 import {
   expToNext,
   getSkillLevel,
@@ -17,8 +17,8 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=130";
-import { heroMaxMp } from "./skillMp.js?v=130";
+} from "./progression.js?v=133";
+import { heroMaxMp } from "./skillMp.js?v=133";
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
@@ -80,29 +80,25 @@ export function refreshHeroStats(hero) {
   else hero.mp = Math.max(0, Math.min(hero.maxMp, hero.mp));
 }
 
-/** 小青：补疾斩普攻；风刃改为增益 */
+/** 小青：去掉疾斩；风刃为第一技能（增益） */
 function migrateCyanKit(hero) {
   if (!hero || hero.statsId !== "cyan" || !Array.isArray(hero.skills)) return;
-  const hasStrike = hero.skills.some((s) => s.id === "cyan_strike");
-  if (!hasStrike) {
-    const cutIdx = hero.skills.findIndex((s) => s.id === "cyan_cut");
-    const strike = {
-      id: "cyan_strike",
-      name: "疾斩",
-      kind: "active",
-      style: "melee",
-      level: 1,
-      nums: "",
-      desc: "",
-    };
-    if (cutIdx >= 0) hero.skills.splice(cutIdx, 0, strike);
-    else hero.skills.unshift(strike);
+  const before = hero.skills.length;
+  hero.skills = hero.skills.filter((s) => s.id !== "cyan_strike");
+  if (hero.skillLevels?.cyan_strike != null) {
+    delete hero.skillLevels.cyan_strike;
+  }
+  if (Array.isArray(hero.autoRotation)) {
+    hero.autoRotation = hero.autoRotation.map((id) =>
+      id === "cyan_strike" ? "" : id
+    );
   }
   const cut = hero.skills.find((s) => s.id === "cyan_cut");
   if (cut) {
     cut.style = "buff";
     cut.name = cut.name || "风刃";
   }
+  if (before !== hero.skills.length) refreshSkillTexts(hero);
 }
 
 const DESC = {

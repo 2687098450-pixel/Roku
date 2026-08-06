@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=130";
+import { TICK_SECONDS } from "../core/time.js?v=133";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
@@ -226,7 +226,7 @@ export function loadSavedSettings() {
       yellow: new Set(["yellow_hit", "yellow_slam", "yellow_fortify"]),
       blue: new Set(["blue_bolt", "blue_nova", "blue_freeze", "blue_veil"]),
       orange: new Set(["orange_shot", "orange_wave", "orange_blaze", "orange_stoke"]),
-      cyan: new Set(["cyan_strike", "cyan_cut", "cyan_tailwind", "cyan_gust"]),
+      cyan: new Set(["cyan_cut", "cyan_tailwind", "cyan_gust"]),
     };
     for (const id of Object.keys(data.rotations)) {
       const rot = data.rotations[id];

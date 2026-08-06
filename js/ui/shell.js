@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=130";
+import { $, clamp, styleTag } from "../core/utils.js?v=133";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -53,17 +53,17 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=130";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=130";
-import { setSavedFormation } from "../characters/stats.js?v=130";
-import { resetGameLocalData } from "../core/save.js?v=130";
-import { createAllUniqueItems } from "../loot/drops.js?v=130";
-import { APP_VERSION } from "../core/version.js?v=130";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=130";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=130";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=130";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=130";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=130";
+} from "../characters/omni/index.js?v=133";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=133";
+import { setSavedFormation } from "../characters/stats.js?v=133";
+import { resetGameLocalData } from "../core/save.js?v=133";
+import { createAllUniqueItems } from "../loot/drops.js?v=133";
+import { APP_VERSION } from "../core/version.js?v=133";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=133";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=133";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=133";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=133";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=133";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -280,7 +280,6 @@ export function createUI(ctx) {
     orange_stoke: "薪",
     orange_ember: "烬",
     cyan_cut: "刃",
-    cyan_strike: "斩",
     cyan_tailwind: "风",
     cyan_gust: "迅",
     cyan_swift: "捷",

@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=130";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=130";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=130";
+import { getCharacterStats } from "./stats.js?v=133";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=133";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=133";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -138,9 +138,7 @@ export const SKILL_POWER = {
   orange_stoke: { style: "buff", target: "self", atkMult: 0.22, turns: 3 },
 
   // —— 小青：疾风 ——
-  /** 普通攻击 */
-  cyan_strike: { mult: 1.0, flat: 2, style: "melee" },
-  /** 风刃：为友方下次伤害附魔 */
+  /** 风刃：为友方下次伤害附魔（亦为小青第一技能/普通攻击位） */
   cyan_cut: {
     style: "buff",
     target: "ally",
@@ -991,12 +989,6 @@ export function createOrangeSkills() {
 export function createCyanSkills() {
   const sheet = getCharacterStats("cyan");
   return [
-    makeSkill({
-      id: "cyan_strike",
-      name: "疾斩",
-      kind: "active",
-      style: "melee",
-    }),
     makeSkill({
       id: "cyan_cut",
       name: "风刃",
