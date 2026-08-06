@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=111";
+import { $, clamp, styleTag } from "../core/utils.js?v=112";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -49,17 +49,17 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=111";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=111";
-import { setSavedFormation } from "../characters/stats.js?v=111";
-import { resetGameLocalData } from "../core/save.js?v=111";
-import { createAllUniqueItems } from "../loot/drops.js?v=111";
-import { APP_VERSION } from "../core/version.js?v=111";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=111";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=111";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=111";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=111";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=111";
+} from "../characters/omni/index.js?v=112";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=112";
+import { setSavedFormation } from "../characters/stats.js?v=112";
+import { resetGameLocalData } from "../core/save.js?v=112";
+import { createAllUniqueItems } from "../loot/drops.js?v=112";
+import { APP_VERSION } from "../core/version.js?v=112";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=112";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=112";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=112";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=112";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=112";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -727,13 +727,12 @@ export function createUI(ctx) {
   }
 
   function formatPrimaryHtml(item, compact = false) {
+    if (item?.slot === "ringL" || item?.slot === "ringR") return "";
     const primary = item.primary || {};
     const has = Object.values(primary).some((v) => Number(v) > 0);
     const head = `<div class="equip-section-label">主属性 · 等级 ${itemLevel(item)}</div>`;
     if (!has) {
-      const tip =
-        item.slot === "ringL" || item.slot === "ringR" ? "戒指无主属性" : "无";
-      return `${head}${formatBonusRows({}, compact, tip)}`;
+      return `${head}${formatBonusRows({}, compact, "无")}`;
     }
     return `${head}${formatBonusRows(primary, compact, "无")}`;
   }
