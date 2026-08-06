@@ -1,13 +1,15 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=123";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=123";
+import { $, clamp, irand } from "../core/utils.js?v=130";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=130";
 import {
   refreshHeroStats,
   skillPower,
   skillHealAmount,
   isHealSkill,
   isBuffSkill,
+  isWeaveStatusSkill,
+  applyWeaveEffectBoost,
   scaledSkillDef,
   applyUniqueSkillMods,
   SKILL_POWER,
@@ -20,7 +22,8 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=123";
+  getSkillAiMode,
+} from "../characters/omni/index.js?v=130";
 import {
   gainExp,
   splitExp,
@@ -30,30 +33,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=123";
+} from "../characters/progression.js?v=130";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=123";
-import { buildEncounter } from "../monsters/roster.js?v=123";
+} from "../characters/skills.js?v=130";
+import { buildEncounter } from "../monsters/roster.js?v=130";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=123";
-import { rollBattleLoot } from "../loot/drops.js?v=123";
+} from "../monsters/skills.js?v=130";
+import { rollBattleLoot } from "../loot/drops.js?v=130";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=123";
-import { createTicker } from "../core/time.js?v=123";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=123";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=123";
+} from "../characters/stats.js?v=130";
+import { createTicker } from "../core/time.js?v=130";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=130";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=130";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +70,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=123";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=123";
+} from "./status.js?v=130";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=130";
 
 export function createBattleApi(ctx) {
   const {
@@ -257,6 +260,22 @@ export function createBattleApi(ctx) {
     return livingEnemies(b).filter((e) => e.row === "front");
   }
 
+  function rowEnemies(b, row) {
+    return livingEnemies(b).filter((e) => e.row === row);
+  }
+
+  /** 指定排敌人；该排空则前→中→后回退 */
+  function enemiesForRowPref(b, prefRow) {
+    const order = [prefRow, "front", "mid", "back"].filter(
+      (r, i, arr) => arr.indexOf(r) === i
+    );
+    for (const row of order) {
+      const list = rowEnemies(b, row);
+      if (list.length) return list;
+    }
+    return livingEnemies(b);
+  }
+
   function frontAllies(b) {
     return targetableAllies(b).filter((a) => a.row === "front");
   }
@@ -276,6 +295,25 @@ export function createBattleApi(ctx) {
     return list[irand(0, list.length - 1)];
   }
 
+  function pickMaxStatEnemy(b, key) {
+    const list = livingEnemies(b);
+    if (!list.length) return null;
+    return list
+      .slice()
+      .sort((a, c) => {
+        const va = key === "spd" ? effectiveSpd(a) : a[key] || 0;
+        const vc = key === "spd" ? effectiveSpd(c) : c[key] || 0;
+        return vc - va || (c.hp || 0) - (a.hp || 0);
+      })[0];
+  }
+
+  function pickEnemyBySkillAi(b, hero, skillId) {
+    const mode = getSkillAiMode(hero, skillId);
+    if (mode === "maxAtk") return pickMaxStatEnemy(b, "atk");
+    if (mode === "maxSpd") return pickMaxStatEnemy(b, "spd");
+    return pickRandomFront(b) || livingEnemies(b)[0];
+  }
+
   /** 敌人优先打前排 → 中排 → 后排；无视灵体 */
   function pickAllyTarget(b) {
     const front = frontAllies(b);
@@ -290,6 +328,24 @@ export function createBattleApi(ctx) {
   function pickLowestEnemy(b) {
     const list = livingEnemies(b);
     if (!list.length) return null;
+    return list
+      .slice()
+      .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
+  }
+
+  function pickAllyBySkillAi(b, hero, skillId) {
+    const list = livingAllies(b);
+    if (!list.length) return null;
+    const mode = getSkillAiMode(hero, skillId);
+    if (mode === "maxDef") {
+      return list
+        .slice()
+        .sort(
+          (a, c) =>
+            (c.def || 0) - (a.def || 0) ||
+            a.hp / a.maxHp - c.hp / c.maxHp
+        )[0];
+    }
     return list
       .slice()
       .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
@@ -421,6 +477,7 @@ export function createBattleApi(ctx) {
     orange_blaze: "焚",
     orange_stoke: "薪",
     cyan_cut: "刃",
+    cyan_strike: "斩",
     cyan_tailwind: "风",
     cyan_gust: "迅",
   };
@@ -431,6 +488,7 @@ export function createBattleApi(ctx) {
     if (!box || !hero) return;
     const actives = activeSkills(hero);
     const silenced = isSilenced(unit);
+    const firstFree = !unit.firstSkillDone;
     const basicId = basicAttackId(hero);
     box.innerHTML = actives
       .map((sk) => {
@@ -443,15 +501,17 @@ export function createBattleApi(ctx) {
               : "skill-btn skill";
         const cost = skillMpCost(hero, sk.id);
         const noMp = cost > 0 && !canAffordSkill(hero, sk.id);
-        const locked = silenced && sk.id !== basicId;
+        const locked = silenced && !firstFree && sk.id !== basicId;
         const blocked = locked || noMp;
         const tip = locked
           ? "禁魔中：仅可普通攻击"
-          : noMp
-            ? `蓝不足（需要 ${cost}）`
-            : cost > 0
-              ? `耗蓝 ${cost}`
-              : "不耗蓝";
+          : silenced && firstFree
+            ? "本场首技能不受禁魔"
+            : noMp
+              ? `蓝不足（需要 ${cost}）`
+              : cost > 0
+                ? `耗蓝 ${cost}`
+                : "不耗蓝";
         return `<button type="button" class="${cls}${blocked ? " silenced" : ""}" data-skill="${sk.id}"${locked ? ' data-silenced="1"' : ""}${noMp ? ' data-nomp="1"' : ""} disabled title="${tip}">
           <span class="skill-icon" data-kind="${sk.id}">${icon}</span>
           <span class="skill-name">${sk.name}</span>
@@ -618,7 +678,124 @@ export function createBattleApi(ctx) {
     updateGaugeBars(b);
   }
 
-  function dealDamage(target, power, opts = {}) {
+  function pickMaxAtkAlly(b) {
+    const list = livingAllies(b);
+    if (!list.length) return null;
+    return list
+      .slice()
+      .sort(
+        (a, c) =>
+          effectiveAtk(c) - effectiveAtk(a) || (c.hp || 0) - (a.hp || 0)
+      )[0];
+  }
+
+  /** 规划风刃附魔段数 */
+  function planWindEnchant(casterHero, targetHero, skillId, mods) {
+    const unique = heroHasUnique(casterHero, "cyan_cut_gale");
+    if (!unique) {
+      return { charges: 1, mult: 0.3, aoeOnce: true };
+    }
+    if (
+      skillId === "pink_burst" &&
+      heroHasUnique(targetHero, "pink_burst_echo")
+    ) {
+      return {
+        charges: Math.min(5, 3 + (mods?.hitBonus || 0)),
+        mult: 0.1,
+        aoeOnce: false,
+      };
+    }
+    const hits = Math.max(1, 1 + (mods?.hitBonus || 0));
+    if (isHealSkill(skillId) && heroHasUnique(targetHero, "green_mend_pulse")) {
+      return { charges: 5, mult: 0.1, aoeOnce: false, mendPulse: true };
+    }
+    const def = SKILL_POWER[skillId];
+    const isAoe = !!(
+      def?.hitAllFront ||
+      skillId === "blue_nova" ||
+      def?.stunGauge ||
+      def?.stunTurns
+    );
+    if (isAoe) {
+      if (hits > 1) {
+        return { charges: Math.min(5, hits), mult: 0.1, aoeOnce: true };
+      }
+      return { charges: 1, mult: 1.0, aoeOnce: true };
+    }
+    if (hits > 1) {
+      return { charges: Math.min(5, hits), mult: 0.1, aoeOnce: false };
+    }
+    return { charges: 1, mult: 1.0, aoeOnce: true };
+  }
+
+  function applyWindEnchant(b, caster, target) {
+    if (!caster || !target || target.hp <= 0) return;
+    const hero = actingHero(caster);
+    const unique = heroHasUnique(hero, "cyan_cut_gale");
+    target.windEnchant = {
+      sourceId: caster.id,
+      atk: effectiveAtk(caster),
+      unique: !!unique,
+      armed: false,
+      charges: unique ? 0 : 1,
+      mult: unique ? 0.3 : 0.3,
+      aoeOnce: !unique,
+      consumedThisCast: false,
+      castSkill: null,
+      mendPulse: false,
+    };
+  }
+
+  function armWindEnchantForSkill(b, ally, skillId) {
+    const we = ally?.windEnchant;
+    if (!we || we.armed) return;
+    const caster = findUnitById(b, we.sourceId) || ally;
+    const casterHero = actingHero(caster);
+    const targetHero = actingHero(ally);
+    const mods = sumSkillMods(targetHero?.equip);
+    if (!we.unique) {
+      we.armed = true;
+      we.castSkill = skillId;
+      we.consumedThisCast = false;
+      return;
+    }
+    const plan = planWindEnchant(casterHero, targetHero, skillId, mods);
+    we.charges = plan.charges;
+    we.mult = plan.mult;
+    we.aoeOnce = !!plan.aoeOnce;
+    we.mendPulse = !!plan.mendPulse;
+    we.armed = true;
+    we.castSkill = skillId;
+    we.consumedThisCast = false;
+  }
+
+  function tryWindEnchantExtra(b, source, preferTarget = null) {
+    const we = source?.windEnchant;
+    if (!we) return 0;
+    if (!(we.charges > 0)) {
+      source.windEnchant = null;
+      return 0;
+    }
+    if (we.unique && !we.armed) return 0;
+    if (we.aoeOnce && we.consumedThisCast) return 0;
+    let foe = preferTarget;
+    if (!foe || foe.hp <= 0 || foe.isHero) {
+      foe = pickLowestEnemy(b) || livingEnemies(b)[0];
+    }
+    if (!foe || foe.hp <= 0) return 0;
+    const extra = Math.max(1, Math.floor((we.atk || 1) * (we.mult || 0.3)));
+    we.charges -= 1;
+    if (we.aoeOnce) we.consumedThisCast = true;
+    if (we.charges <= 0) source.windEnchant = null;
+    return dealDamage(foe, extra, {
+      trueDamage: true,
+      skipHitCheck: true,
+      source,
+      fromEnchant: true,
+    });
+  }
+
+    function dealDamage(target, power, opts = {}) {
     if (!target || target.hp <= 0) return 0;
     if (target.spiritForm) return 0;
     if (!opts.trueDamage && !opts.skipHitCheck && opts.source) {
@@ -651,6 +828,17 @@ export function createBattleApi(ctx) {
     recordDamage(opts.source || null, target, raw);
     if (target.hp <= 0 && opts.source && opts.source.id !== target.id) {
       notePinkKill(opts.source);
+    }
+    if (
+      !opts.fromEnchant &&
+      !opts.fromReflect &&
+      opts.source &&
+      opts.source.isHero &&
+      !target.isHero &&
+      raw > 0
+    ) {
+      const b = getState().battle;
+      if (b) tryWindEnchantExtra(b, opts.source, target);
     }
     const unit = document.querySelector(`.battle-unit[data-id="${target.id}"]`);
     if (unit) {
@@ -733,31 +921,41 @@ export function createBattleApi(ctx) {
     if (attacker?.spiritForm) return 0;
     const hero = actingHero(attacker);
     const lv = getSkillLevel(hero, skillId);
-    const def = applyUniqueSkillMods(
+    let def = applyUniqueSkillMods(
       hero,
       skillId,
       scaledSkillDef(skillId, lv) || SKILL_POWER[skillId]
     );
-    const scale =
-      (damageScale || 1) *
-      (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
-    const power = Math.max(
-      1,
-      Math.floor(skillPower(effectiveAtk(attacker), skillId, mods, lv) * scale)
-    );
-    const dealt = dealDamage(target, power, {
-      canCrit: true,
-      critRate: unitCritRate(attacker),
-      critDmg: unitCritDmg(attacker),
-      source: attacker,
-    });
-    if (dealt > 0) {
+    const weave =
+      heroHasUnique(hero, "status_weave_ring") && isWeaveStatusSkill(skillId);
+    if (weave) def = applyWeaveEffectBoost(def, 1.2);
+    let dealt = 0;
+    if (!weave) {
+      const scale =
+        (damageScale || 1) *
+        (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
+      const power = Math.max(
+        1,
+        Math.floor(skillPower(effectiveAtk(attacker), skillId, mods, lv) * scale)
+      );
+      dealt = dealDamage(target, power, {
+        canCrit: true,
+        critRate: unitCritRate(attacker),
+        critDmg: unitCritDmg(attacker),
+        source: attacker,
+      });
+    } else {
+      // 织律：取消瞬伤，仍结算附魔（若有）与状态
+      const b = getState().battle;
+      if (b && !target.isHero) tryWindEnchantExtra(b, attacker, target);
+    }
+    if (dealt > 0 || weave) {
       recordControl(
         attacker,
         tryApplySkillStatuses(attacker, target, def?.apply || {}, mods)
       );
       if (def?.dot) applyMonsterDot(target, attacker, { dot: def.dot });
-      applySelfRecoil(attacker, dealt, def);
+      if (dealt > 0) applySelfRecoil(attacker, dealt, def);
     }
     return dealt;
   }
@@ -892,6 +1090,10 @@ export function createBattleApi(ctx) {
       });
       p.lastLost = lost || p.tickDmg;
       p.lostThisCycle = true;
+      if (healer?.windEnchant?.mendPulse || healer?.windEnchant?.unique) {
+        const bb = getState().battle;
+        if (bb) tryWindEnchantExtra(bb, healer, null);
+      }
     }
     if (p.walk >= 20) {
       const healAmt = Math.max(1, Math.floor(p.lastLost * 2.5));
@@ -902,7 +1104,7 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 均衡灵衡：十字友军共享被动；自身灵体化 */
+  /** 均衡灵衡：全体友军共享被动；自身灵体化 */
   function applyBalanceSpiritEffects(b) {
     for (const ally of b.allies) {
       const hero = heroById(ally.id);
@@ -911,7 +1113,6 @@ export function createBattleApi(ctx) {
       const boost = hero.passiveBoost || {};
       for (const other of b.allies) {
         if (other.id === ally.id) continue;
-        if (!isCrossNeighbor(ally, other)) continue;
         other.atk += boost.atk || 0;
         other.def += boost.def || 0;
         other.spd += boost.spd || 0;
@@ -1049,7 +1250,7 @@ export function createBattleApi(ctx) {
 
   function firstUsableSkill(b, hero) {
     const ally = b.allies?.find((a) => a.id === hero?.id);
-    if (ally && isSilenced(ally)) {
+    if (ally && isSilenced(ally) && ally.firstSkillDone) {
       const basic = basicAttackId(hero);
       if (canUseSkill(b, basic, hero)) return basic;
     }
@@ -1115,22 +1316,25 @@ export function createBattleApi(ctx) {
   async function resolveHeroSkill(b, ally, skillId, opts = {}) {
     const hero = actingHero(ally);
     let used = skillId;
-    if (isSilenced(ally) && used !== basicAttackId(hero)) {
+    const silenceBlocks = isSilenced(ally) && !!ally.firstSkillDone;
+    if (silenceBlocks && used !== basicAttackId(hero)) {
       used = basicAttackId(hero);
     }
     if (!canUseSkill(b, used, hero)) used = firstUsableSkill(b, hero);
-    if (isSilenced(ally)) {
+    if (silenceBlocks) {
       const basic = basicAttackId(hero);
       if (canUseSkill(b, basic, hero)) used = basic;
     }
     if (!used || !canUseSkill(b, used, hero)) return false;
 
     const skillLv = getSkillLevel(hero, used);
-    const def = applyUniqueSkillMods(
+    let def = applyUniqueSkillMods(
       hero,
       used,
       scaledSkillDef(used, skillLv) || SKILL_POWER[used]
     );
+    const weave = heroHasUnique(hero, "status_weave_ring") && isWeaveStatusSkill(used);
+    if (weave) def = applyWeaveEffectBoost(def, 1.2);
     const style = def.style || "melee";
     const mods = sumSkillMods(hero?.equip);
     const hits = Math.max(1, 1 + (mods.hitBonus || 0));
@@ -1143,13 +1347,19 @@ export function createBattleApi(ctx) {
     if (isHealSkill(used) && heroHasUnique(hero, "green_spring_bloom")) {
       fxMeta.shotDuration = 95;
     }
+    if (weave) fxMeta.shotDuration = 95;
 
     tryApplySelfBuffs(ally, mods);
+    armWindEnchantForSkill(b, ally, used);
 
     let appliedBuff = false;
     if (isBuffSkill(used)) {
       const applyBuffTo = (unit) => {
         if (!unit || unit.hp <= 0) return;
+        if (def.windEnchant) {
+          applyWindEnchant(b, ally, unit);
+          return;
+        }
         if (def.atkMult) unit.atkBuff = Math.max(unit.atkBuff || 0, def.atkMult || 0);
         if (def.critDmgBonus) {
           unit.critDmgBonus = Math.max(unit.critDmgBonus || 0, def.critDmgBonus || 0);
@@ -1181,7 +1391,7 @@ export function createBattleApi(ctx) {
         await playSkillAnim("buff", ally.id, primary.id, fxMeta);
         for (const a of list) applyBuffTo(a);
       } else if (def.target === "ally") {
-        const t = pickLowestAlly(b);
+        const t = def.windEnchant ? pickMaxAtkAlly(b) : pickLowestAlly(b);
         if (!t) return false;
         await playSkillAnim("buff", ally.id, t.id, fxMeta);
         applyBuffTo(t);
@@ -1201,7 +1411,10 @@ export function createBattleApi(ctx) {
           applyMendPulse(b, ally, t, healed || amount);
         }
       } else {
-        const t = pickLowestAlly(b);
+        const t =
+          used === "green_mend"
+            ? pickAllyBySkillAi(b, hero, used)
+            : pickLowestAlly(b);
         if (!t) return false;
         const amount = skillHealAmount(ally, used, mods, skillLv, t);
         await playSkillAnim(style, ally.id, t.id, fxMeta);
@@ -1210,11 +1423,19 @@ export function createBattleApi(ctx) {
       }
       applyLifeFlowBuff(b, ally);
       syncHeroHp(b);
-    } else if (def.hitAllFront) {
-      const list = frontEnemies(b);
+    } else if (def.hitAllFront || used === "blue_nova") {
+      const rowPref =
+        used === "blue_nova" ? getSkillAiMode(hero, used) : "front";
+      const list =
+        used === "blue_nova"
+          ? enemiesForRowPref(b, rowPref)
+          : frontEnemies(b).length
+            ? frontEnemies(b)
+            : preferredEnemies(b);
       if (!list.length) return false;
       await playSkillAnim(style, ally.id, list[0].id, fxMeta);
       for (let h = 0; h < hits; h++) {
+        if (ally.windEnchant) ally.windEnchant.consumedThisCast = false;
         for (const t of list) {
           if (t.hp <= 0) continue;
           heroStrike(ally, t, used, mods);
@@ -1230,6 +1451,7 @@ export function createBattleApi(ctx) {
           : Math.max(1, Math.floor((def.stunTurns || 1) * GAUGE_MAX));
       if (ally.spiritForm) stunNeed = Math.max(1, Math.floor(stunNeed * 0.5));
       for (let h = 0; h < hits; h++) {
+        if (ally.windEnchant) ally.windEnchant.consumedThisCast = false;
         for (const t of crossTargets(b, center)) {
           if (!ally.spiritForm) {
             if (t.hp <= 0) continue;
@@ -1250,16 +1472,21 @@ export function createBattleApi(ctx) {
       const t =
         used === "pink_burst"
           ? pickLowestEnemy(b) || livingEnemies(b)[0]
-          : pickRandomFront(b) || livingEnemies(b)[0];
+          : used === "blue_bolt" || used === "blue_freeze"
+            ? pickEnemyBySkillAi(b, hero, used) || livingEnemies(b)[0]
+            : pickRandomFront(b) || livingEnemies(b)[0];
       if (!t) return false;
       await playSkillAnim(style, ally.id, t.id, fxMeta);
       for (let h = 0; h < hits; h++) {
         const cur =
           used === "pink_burst"
             ? pickLowestEnemy(b) || (t.hp > 0 ? t : null)
-            : t.hp > 0
-              ? t
-              : null;
+            : used === "blue_bolt" || used === "blue_freeze"
+              ? pickEnemyBySkillAi(b, hero, used) ||
+                (t.hp > 0 ? t : null)
+              : t.hp > 0
+                ? t
+                : null;
         if (!cur) break;
         heroStrike(ally, cur, used, mods);
       }
@@ -1267,7 +1494,10 @@ export function createBattleApi(ctx) {
 
     // 施加 buff 的当回合不扣持续时间
     if (!appliedBuff) tickUnitBuffs(ally);
-    spendSkillMp(hero, used);
+    if (!opts.freeCast) {
+      spendSkillMp(hero, used);
+      ally.firstSkillDone = true;
+    }
     ally.mp = hero.mp;
     ally.maxMp = hero.maxMp;
     syncHeroHp(b);
@@ -1374,7 +1604,7 @@ export function createBattleApi(ctx) {
 
     const hero = actingHero(unit);
     let { skillId, nextIndex } = nextAutoSkill(hero, unit.rotIndex || 0);
-    if (isSilenced(unit)) skillId = basicAttackId(hero);
+    if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
     unit.rotIndex = nextIndex;
     try {
       await resolveHeroSkill(b, unit, skillId);
@@ -1565,6 +1795,8 @@ export function createBattleApi(ctx) {
       mendPulse: null,
       dot: null,
       killStacks: 0,
+      firstSkillDone: false,
+      windEnchant: null,
       combat: blankCombat(),
     }));
 
@@ -1605,7 +1837,7 @@ export function createBattleApi(ctx) {
       return;
     }
 
-    void runOpeningSpringBloom(state.battle);
+    void runOpeningSkills(state.battle);
   }
 
   /** 队伍里小绿的春芽技能等级；没有小绿则按 1 级 */
@@ -1614,43 +1846,62 @@ export function createBattleApi(ctx) {
     return green ? getSkillLevel(green, "green_bloom") : 1;
   }
 
-  /** 雾林春芽戒：开场 10% 春芽全体治疗 */
-  async function runOpeningSpringBloom(b) {
+  /**
+   * 开场技能：增益 > 治疗 > 伤害
+   * - 强化风刃：开场释放风刃
+   * - 春芽戒：开场 10% 春芽全体治疗
+   */
+  async function runOpeningSkills(b) {
     if (!b || b.ending) return;
-    const casters = (b.allies || []).filter((a) => {
-      if (!a || a.hp <= 0) return false;
-      const hero = actingHero(a);
-      return heroHasUnique(hero, "green_spring_bloom");
-    });
-    if (!casters.length) return;
+    /** @type {{ ally: object, kind: string, prio: number }[]} */
+    const jobs = [];
+    for (const ally of b.allies || []) {
+      if (!ally || ally.hp <= 0) continue;
+      const hero = actingHero(ally);
+      if (heroHasUnique(hero, "cyan_cut_gale")) {
+        jobs.push({ ally, kind: "cyan_cut", prio: 0 });
+      }
+      if (heroHasUnique(hero, "green_spring_bloom")) {
+        jobs.push({ ally, kind: "spring_bloom", prio: 1 });
+      }
+    }
+    if (!jobs.length) return;
+    jobs.sort((a, c) => a.prio - c.prio);
 
     b.busy = true;
     setBattleButtons(false);
     const bloomLv = partyGreenBloomLevel();
     try {
-      for (const ally of casters) {
+      for (const job of jobs) {
+        const ally = job.ally;
         if (!b || b.ending || ally.hp <= 0) continue;
         const hero = actingHero(ally);
-        const mods = sumSkillMods(hero?.equip);
-        const full = skillHealAmount(ally, "green_bloom", mods, bloomLv);
-        const amount = Math.max(1, Math.floor(full * 0.1));
-        const list = livingAllies(b);
-        if (!list.length) continue;
-        const primary = pickLowestAlly(b) || list[0];
-        await playSkillAnim("heal", ally.id, primary.id, {
-          skillId: "green_bloom",
-          statsId: "green",
-          color: hero?.color || ally.color || "",
-          shotDuration: 95,
-        });
-        for (const t of list) {
-          if (t.hp <= 0) continue;
-          const healed = applyHeal(t, amount, { source: ally });
-          applyMendPulse(b, ally, t, healed || amount);
+        if (job.kind === "cyan_cut") {
+          await resolveHeroSkill(b, ally, "cyan_cut", { freeCast: true });
+          continue;
         }
-        applyLifeFlowBuff(b, ally);
-        syncHeroHp(b);
-        renderBattle(b);
+        if (job.kind === "spring_bloom") {
+          const mods = sumSkillMods(hero?.equip);
+          const full = skillHealAmount(ally, "green_bloom", mods, bloomLv);
+          const amount = Math.max(1, Math.floor(full * 0.1));
+          const list = livingAllies(b);
+          if (!list.length) continue;
+          const primary = pickLowestAlly(b) || list[0];
+          await playSkillAnim("heal", ally.id, primary.id, {
+            skillId: "green_bloom",
+            statsId: "green",
+            color: hero?.color || ally.color || "",
+            shotDuration: 95,
+          });
+          for (const t of list) {
+            if (t.hp <= 0) continue;
+            const healed = applyHeal(t, amount, { source: ally });
+            applyMendPulse(b, ally, t, healed || amount);
+          }
+          applyLifeFlowBuff(b, ally);
+          syncHeroHp(b);
+          renderBattle(b);
+        }
       }
     } finally {
       if (b && !b.ending) {

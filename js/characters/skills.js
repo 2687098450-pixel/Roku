@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=123";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=123";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=123";
+import { getCharacterStats } from "./stats.js?v=130";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=130";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=130";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -138,7 +138,15 @@ export const SKILL_POWER = {
   orange_stoke: { style: "buff", target: "self", atkMult: 0.22, turns: 3 },
 
   // —— 小青：疾风 ——
-  cyan_cut: { mult: 1.05, flat: 2, style: "melee" },
+  /** 普通攻击 */
+  cyan_strike: { mult: 1.0, flat: 2, style: "melee" },
+  /** 风刃：为友方下次伤害附魔 */
+  cyan_cut: {
+    style: "buff",
+    target: "ally",
+    windEnchant: true,
+    windEnchantMult: 0.3,
+  },
   cyan_tailwind: {
     style: "buff",
     target: "all",
@@ -241,6 +249,44 @@ export function isHealSkill(skillId) {
 
 export function isBuffSkill(skillId) {
   return SKILL_POWER[skillId]?.style === "buff";
+}
+
+/** 织律戒：增益 / 带控制·减速·持续伤害的减益技 */
+export function isWeaveStatusSkill(skillId) {
+  const s = SKILL_POWER[skillId];
+  if (!s) return false;
+  if (s.style === "buff") return true;
+  if (s.apply || s.stunGauge != null || s.stunTurns != null || s.dot) return true;
+  return false;
+}
+
+/** 织律：效果强度 ×1.2（浅拷贝） */
+export function applyWeaveEffectBoost(def, mult = 1.2) {
+  if (!def || !(mult > 0) || mult === 1) return def;
+  const out = { ...def };
+  if (def.apply) out.apply = { ...def.apply };
+  if (def.dot) out.dot = { ...def.dot };
+  const scale = (v) =>
+    v == null ? v : +((Number(v) || 0) * mult).toFixed(4);
+  if (out.atkMult != null) out.atkMult = scale(out.atkMult);
+  if (out.defMult != null) out.defMult = scale(out.defMult);
+  if (out.critDmgBonus != null) out.critDmgBonus = scale(out.critDmgBonus);
+  if (out.hastePower != null) out.hastePower = scale(out.hastePower);
+  if (out.dodgePower != null) out.dodgePower = scale(out.dodgePower);
+  if (out.hitUpPower != null) out.hitUpPower = scale(out.hitUpPower);
+  if (out.windEnchantMult != null) out.windEnchantMult = scale(out.windEnchantMult);
+  if (out.stunGauge != null) out.stunGauge = Math.round(out.stunGauge * mult);
+  if (out.stunTurns != null) out.stunTurns = Math.max(1, Math.round(out.stunTurns * mult));
+  if (out.apply?.slow != null) out.apply.slow = scale(out.apply.slow);
+  if (out.apply?.stunGauge != null) {
+    out.apply.stunGauge = Math.round(out.apply.stunGauge * mult);
+  }
+  if (out.dot) {
+    if (out.dot.mult != null) out.dot.mult = scale(out.dot.mult);
+    if (out.dot.flat != null) out.dot.flat = Math.round(out.dot.flat * mult);
+    if (out.dot.gauge != null) out.dot.gauge = Math.round(out.dot.gauge * mult);
+  }
+  return out;
 }
 
 /** 反伤系数（随等级）；战斗与面板共用 */
@@ -420,6 +466,20 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
         desc,
       };
     }
+    if (s.windEnchant) {
+      const pct = Math.round((s.windEnchantMult || 0.3) * 100);
+      const unique = !!opts.windUnique;
+      if (unique) {
+        return {
+          nums: `附魔整段 · 段伤攻×10%（最多5）· 单段攻×100%`,
+          desc: `为攻击最高的友方附魔下次技能：多段技每段追加小青攻击×${skVal("10%")}（最多${skVal(5)}段）；单次伤害（含群伤一次结算）追加攻击×${skVal("100%")}。开局自动释放。`,
+        };
+      }
+      return {
+        nums: `附魔下次伤害 · 攻×${skVal(pct + "%")}`,
+        desc: `为攻击最高的友方附魔：其下次造成伤害时，额外造成一次小青攻击×${skVal(pct + "%")} 的伤害。`,
+      };
+    }
     if (defPct && !atkPct && !hastePct && !dodgePct) {
       const desc = `自身防御+${skVal(defPct + "%")}，持续 ${turns} 回合。`;
       return { nums: `防御+${skVal(defPct + "%")} · ${turns}回合`, desc };
@@ -582,7 +642,7 @@ export function buildSkillText(hero, skillId, level = 1) {
     const nums = formatBoostNums(boosted);
     let desc = `永久属性：${nums}。`;
     if (skillId === "boost" && heroHasUnique(hero, "omni_balance_spirit")) {
-      desc += `十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
+      desc += `全体友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。`;
     } else if (skillId === "green_life" && heroHasUnique(hero, "green_life_flow")) {
       desc += `治疗时提升友军伤害。`;
     }
@@ -653,6 +713,8 @@ export function buildSkillText(hero, skillId, level = 1) {
     casts,
     pinkEcho,
     def: uniqueDef,
+    windUnique:
+      skillId === "cyan_cut" && heroHasUnique(hero, "cyan_cut_gale"),
   });
   if (isHealSkill(skillId) && heroHasUnique(hero, "green_mend_pulse")) {
     return {
@@ -930,10 +992,16 @@ export function createCyanSkills() {
   const sheet = getCharacterStats("cyan");
   return [
     makeSkill({
+      id: "cyan_strike",
+      name: "疾斩",
+      kind: "active",
+      style: "melee",
+    }),
+    makeSkill({
       id: "cyan_cut",
       name: "风刃",
       kind: "active",
-      style: "melee",
+      style: "buff",
     }),
     makeSkill({
       id: "cyan_tailwind",

@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=123";
+import { $, clamp, styleTag } from "../core/utils.js?v=130";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -50,17 +50,20 @@ import {
   refreshSkillTexts,
   buildSkillText,
   skillMpCost,
-} from "../characters/omni/index.js?v=123";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=123";
-import { setSavedFormation } from "../characters/stats.js?v=123";
-import { resetGameLocalData } from "../core/save.js?v=123";
-import { createAllUniqueItems } from "../loot/drops.js?v=123";
-import { APP_VERSION } from "../core/version.js?v=123";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=123";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=123";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=123";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=123";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=123";
+  skillAiOptions,
+  getSkillAiMode,
+  setSkillAiMode,
+} from "../characters/omni/index.js?v=130";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=130";
+import { setSavedFormation } from "../characters/stats.js?v=130";
+import { resetGameLocalData } from "../core/save.js?v=130";
+import { createAllUniqueItems } from "../loot/drops.js?v=130";
+import { APP_VERSION } from "../core/version.js?v=130";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=130";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=130";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=130";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=130";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=130";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -182,7 +185,9 @@ export function createUI(ctx) {
     syncCaptainFlags(state);
     renderFormation();
     refreshExploreHud();
-    if (detailHeroId) openDetail(detailHeroId);
+    // 仅当角色详情当前正打开时刷新；阵容里点 ★ 不应跳详情
+    const detailOpen = !$("detailModal")?.classList.contains("hidden");
+    if (detailOpen && detailHeroId) openDetail(detailHeroId);
     bumpSave();
   }
 
@@ -275,6 +280,7 @@ export function createUI(ctx) {
     orange_stoke: "薪",
     orange_ember: "烬",
     cyan_cut: "刃",
+    cyan_strike: "斩",
     cyan_tailwind: "风",
     cyan_gust: "迅",
     cyan_swift: "捷",
@@ -1472,18 +1478,46 @@ export function createUI(ctx) {
     const hitRate = Math.round((hero.hitRate ?? 1) * 1000) / 10;
     const dodgeRate = Math.round((hero.dodgeRate ?? 0.05) * 1000) / 10;
     const capNote = hero.isCaptain ? " · 队长+10%" : "";
+    const atkFull = hero.atkFull ?? hero.atk;
+    const sAtk = Number(hero.atkScale);
+    const atkScale = sAtk === 0.5 || sAtk === 0.75 || sAtk === 1 ? sAtk : 1;
+    const atkRow = `<li class="stat-atk-scale" title="基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote} · 满攻${atkFull}">
+            <span>攻击</span>
+            <b>${hero.atk}</b>
+            <div class="atk-scale-opts" role="group" aria-label="攻击倍率">
+              ${[0.5, 0.75, 1]
+                .map(
+                  (s) =>
+                    `<button type="button" class="atk-scale-btn${
+                      s === atkScale ? " on" : ""
+                    }" data-atk-scale="${s}">${Math.round(s * 100)}%</button>`
+                )
+                .join("")}
+            </div>
+          </li>`;
     $("statList").innerHTML = [
-      ["生命", `${Math.ceil(hero.hp)} / ${hero.maxHp}`, `基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}`],
-      ["攻击", String(hero.atk), `基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote}`],
-      ["防御", String(hero.def), `基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}`],
-      ["速度", String(hero.spd), `基础${hero.base.spd} + 装备${eq.spd}${capNote}`],
-      ["暴击率", `${critRate}%`, `默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%`],
-      ["暴击伤害", `${critDmg}%`, `默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%`],
-      ["命中", `${hitRate}%`, `默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%`],
-      ["闪避", `${dodgeRate}%`, `默认 5% + 装备 ${Math.round((eq.dodgeRate || 0) * 1000) / 10}%`],
-    ]
-      .map(([label, val, tip]) => `<li title="${tip}"><span>${label}</span><b>${val}</b></li>`)
-      .join("");
+      `<li title="基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
+      atkRow,
+      `<li title="基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}"><span>防御</span><b>${hero.def}</b></li>`,
+      `<li title="基础${hero.base.spd} + 装备${eq.spd}${capNote}"><span>速度</span><b>${hero.spd}</b></li>`,
+      `<li title="默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%"><span>暴击率</span><b>${critRate}%</b></li>`,
+      `<li title="默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%"><span>暴击伤害</span><b>${critDmg}%</b></li>`,
+      `<li title="默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%"><span>命中</span><b>${hitRate}%</b></li>`,
+      `<li title="默认 5% + 装备 ${Math.round((eq.dodgeRate || 0) * 1000) / 10}%"><span>闪避</span><b>${dodgeRate}%</b></li>`,
+    ].join("");
+
+    $("statList")?.querySelectorAll("[data-atk-scale]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const s = Number(btn.dataset.atkScale);
+        if (s !== 0.5 && s !== 0.75 && s !== 1) return;
+        hero.atkScale = s;
+        refreshHeroStats(hero);
+        openDetail(hero.id);
+        refreshExploreHud();
+        bumpSave();
+      });
+    });
 
     const spEl = $("detailSkillPoints");
     if (spEl) spEl.textContent = String(hero.skillPoints ?? 0);
@@ -1498,9 +1532,10 @@ export function createUI(ctx) {
         const typeLine =
           s.kind === "passive"
             ? "被动"
-            : `${skillKindLabel(s)}${s.style ? ` · ${styleTag(s.style)}` : ""}`;
-        const lvLabel =
-          lv > baseLv ? `等级 ${lv}（加点${baseLv}）` : `等级 ${lv}`;
+            : s.style === "buff"
+              ? "增益"
+              : "主动";
+        const lvLabel = `lv${lv}`;
         return `<li class="skill-item" data-skill="${s.id}">
           <div class="skill-row">
             <button type="button" class="skill-open" data-skill="${s.id}">
@@ -1539,11 +1574,39 @@ export function createUI(ctx) {
   function openSkillDetail(heroId, skillId) {
     hideSkillHoldPreview();
     const hero = getState().party.find((h) => h.id === heroId);
-    const skill = hero?.skills?.find((s) => s.id === skillId);
+    const skills = hero?.skills || [];
+    const skill = skills.find((s) => s.id === skillId);
     const title = $("skillDetailTitle");
     const body = $("skillDetailBody");
     const modal = $("skillDetailModal");
+    const prevBtn = $("btnSkillDetailPrev");
+    const nextBtn = $("btnSkillDetailNext");
     if (!hero || !skill || !body || !modal) return;
+
+    const idx = skills.findIndex((s) => s.id === skillId);
+    const canNav = skills.length > 1;
+    if (prevBtn) {
+      prevBtn.disabled = !canNav;
+      prevBtn.classList.toggle("off", !canNav);
+      prevBtn.onclick = canNav
+        ? () => {
+            const n = skills.length;
+            const next = skills[(idx - 1 + n) % n];
+            openSkillDetail(hero.id, next.id);
+          }
+        : null;
+    }
+    if (nextBtn) {
+      nextBtn.disabled = !canNav;
+      nextBtn.classList.toggle("off", !canNav);
+      nextBtn.onclick = canNav
+        ? () => {
+            const n = skills.length;
+            const next = skills[(idx + 1) % n];
+            openSkillDetail(hero.id, next.id);
+          }
+        : null;
+    }
 
     const lv = getSkillLevel(hero, skill.id);
     const baseLv = getBaseSkillLevel(hero, skill.id);
@@ -1568,6 +1631,24 @@ export function createUI(ctx) {
       lv > baseLv
         ? `实际 ${lv} · 加点 ${baseLv} / ${MAX_SKILL_LEVEL}`
         : `加点 ${baseLv} / ${MAX_SKILL_LEVEL}`;
+    const aiOpts = skillAiOptions(skill.id);
+    const aiMode = aiOpts ? getSkillAiMode(hero, skill.id) : null;
+    const aiBlock = aiOpts
+      ? `<div class="skill-detail-ai">
+          <div class="skill-detail-ai-lab">自动目标</div>
+          <div class="skill-detail-ai-opts">
+            ${aiOpts
+              .map(
+                (o) =>
+                  `<button type="button" class="skill-ai-btn${
+                    o.id === aiMode ? " on" : ""
+                  }" data-ai="${o.id}">${o.label}</button>`
+              )
+              .join("")}
+          </div>
+        </div>`
+      : "";
+
     body.innerHTML = `
       <div class="skill-detail-top">
         <div class="skill-detail-ico ${skillIcoClass(skill)}">${skillFace(skill)}</div>
@@ -1584,11 +1665,21 @@ export function createUI(ctx) {
           ? `<div class="skill-detail-next"><span class="skill-detail-next-lab">下一级</span>${nextLine}</div>`
           : ""
       }
+      ${aiBlock}
       <div class="skill-detail-actions">
         <button type="button" class="skill-detail-up${canUp ? "" : " off"}" id="btnSkillDetailUp" ${canUp ? "" : "disabled"}>
           ${baseLv >= MAX_SKILL_LEVEL ? "加点已满" : canUp ? `升级（技能点 ${points}）` : "技能点不足"}
         </button>
       </div>`;
+
+    body.querySelectorAll("[data-ai]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (setSkillAiMode(hero, skill.id, btn.dataset.ai)) {
+          bumpSave();
+          openSkillDetail(hero.id, skill.id);
+        }
+      });
+    });
 
     const up = body.querySelector("#btnSkillDetailUp");
     if (up) {
@@ -2008,13 +2099,14 @@ export function createUI(ctx) {
     });
     pool.querySelectorAll("[data-captain]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         setCaptain(btn.dataset.captain);
       });
     });
     pool.querySelectorAll("[data-pool]").forEach((card) => {
       card.addEventListener("click", (e) => {
-        if (e.target.closest("[data-revive],[data-captain]")) return;
+        if (e.target.closest("[data-revive],[data-captain],.form-captain-btn")) return;
         const id = card.dataset.pool;
         const hero = state.party.find((h) => h.id === id);
         if (hero && isHeroDead(hero)) {

@@ -14,10 +14,11 @@ import {
   rebuildEquipStats,
   refreshSkillTexts,
   expToNext,
-} from "../characters/omni/index.js?v=123";
-import { createPatrolMonster } from "../monsters/slime.js?v=123";
-import { createBoss } from "../monsters/boss.js?v=123";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=123";
+  normalizeSkillAi,
+} from "../characters/omni/index.js?v=130";
+import { createPatrolMonster } from "../monsters/slime.js?v=130";
+import { createBoss } from "../monsters/boss.js?v=130";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=130";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -81,6 +82,14 @@ function serializeHero(hero) {
     autoRotation: Array.isArray(hero.autoRotation)
       ? [...hero.autoRotation]
       : undefined,
+    skillAi:
+      hero.skillAi && typeof hero.skillAi === "object"
+        ? { ...hero.skillAi }
+        : undefined,
+    atkScale: (() => {
+      const s = Number(hero.atkScale);
+      return s === 0.5 || s === 0.75 || s === 1 ? s : 1;
+    })(),
     equip: serializeEquip(hero.equip),
   };
 }
@@ -105,6 +114,15 @@ function applyHeroSave(hero, data) {
   if (data.critDmg != null) hero.critDmg = data.critDmg;
   if (Array.isArray(data.autoRotation) && data.autoRotation.length) {
     hero.autoRotation = [...data.autoRotation];
+  }
+  if (data.skillAi && typeof data.skillAi === "object") {
+    hero.skillAi = normalizeSkillAi(data.skillAi);
+  } else if (!hero.skillAi) {
+    hero.skillAi = {};
+  }
+  {
+    const s = Number(data.atkScale);
+    hero.atkScale = s === 0.5 || s === 0.75 || s === 1 ? s : 1;
   }
   if (data.equip) hero.equip = reviveEquip(data.equip);
   refreshSkillTexts(hero);

@@ -1,6 +1,6 @@
 /** 全能：自动战斗逻辑（顺序数据在 characters/stats.js） */
 
-import { getAutoRotation, setAutoRotation } from "../stats.js?v=123";
+import { getAutoRotation, setAutoRotation } from "../stats.js?v=130";
 
 const STATS_ID = "omni";
 
@@ -12,7 +12,7 @@ const BASIC_ATTACK_BY_STATS = {
   yellow: "yellow_hit",
   blue: "blue_bolt",
   orange: "orange_shot",
-  cyan: "cyan_cut",
+  cyan: "cyan_strike",
 };
 
 export function basicAttackId(hero) {

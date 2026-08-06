@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=123";
-import { getFloorDef } from "../map/floors.js?v=123";
+} from "../characters/omni/equipment.js?v=130";
+import { getFloorDef } from "../map/floors.js?v=130";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -139,6 +139,28 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       skillOwner: "cyan",
       uniqueText: "强化疾风",
       desc: "深渊门廊爪兽掉落。唯一词条强化小青「疾风」；仅小青装备时生效。",
+    },
+    {
+      name: "深渊风刃戒",
+      slot: "ringL",
+      base: { atk: 4, spd: 2 },
+      icon: "ring.png",
+      kind: "Boss",
+      uniqueId: "cyan_cut_gale",
+      skillOwner: "cyan",
+      uniqueText: "强化风刃",
+      desc: "深渊门廊爪兽掉落。唯一词条强化小青「风刃」整段附魔并开局释放；仅小青装备时生效。",
+    },
+    {
+      name: "深渊织律戒",
+      slot: "ringR",
+      base: { hp: 14, atk: 2 },
+      icon: "ring.png",
+      kind: "Boss",
+      uniqueId: "status_weave_ring",
+      skillOwner: "",
+      uniqueText: "织律",
+      desc: "深渊门廊爪兽掉落。增益/减益取消瞬伤、效果+20%、动画加速。任意职业可触发。",
     },
   ],
 };

@@ -6,6 +6,8 @@ export {
   skillHealAmount,
   isHealSkill,
   isBuffSkill,
+  isWeaveStatusSkill,
+  applyWeaveEffectBoost,
   scaledSkillDef,
   applyUniqueSkillMods,
   refreshSkillTexts,
@@ -21,4 +23,4 @@ export {
   previewReflectDamage,
   calcReflectEnemyDamage,
   applyReflectAllyUnique,
-} from "../skills.js?v=123";
+} from "../skills.js?v=130";

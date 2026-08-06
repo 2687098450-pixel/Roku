@@ -22,6 +22,7 @@ export const MONSTER_STATS = {
     exp: 1,
     gold: 8,
     unlockFloor: 1,
+    aiRole: "tank",
   },
   bat: {
     id: "bat",
@@ -35,6 +36,7 @@ export const MONSTER_STATS = {
     exp: 2,
     gold: 11,
     unlockFloor: 2,
+    aiRole: "dps",
   },
   goblin: {
     id: "goblin",
@@ -48,6 +50,7 @@ export const MONSTER_STATS = {
     exp: 2,
     gold: 15,
     unlockFloor: 3,
+    aiRole: "dps",
   },
   mushroom: {
     id: "mushroom",
@@ -61,6 +64,7 @@ export const MONSTER_STATS = {
     exp: 3,
     gold: 20,
     unlockFloor: 5,
+    aiRole: "support",
   },
   golem: {
     id: "golem",
@@ -74,6 +78,7 @@ export const MONSTER_STATS = {
     exp: 4,
     gold: 28,
     unlockFloor: 7,
+    aiRole: "tank",
   },
   wisp: {
     id: "wisp",
@@ -87,6 +92,7 @@ export const MONSTER_STATS = {
     exp: 4,
     gold: 24,
     unlockFloor: 8,
+    aiRole: "support",
   },
   skeleton: {
     id: "skeleton",
@@ -100,6 +106,7 @@ export const MONSTER_STATS = {
     exp: 5,
     gold: 32,
     unlockFloor: 12,
+    aiRole: "tank",
   },
   spider: {
     id: "spider",
@@ -113,6 +120,7 @@ export const MONSTER_STATS = {
     exp: 6,
     gold: 38,
     unlockFloor: 15,
+    aiRole: "dps",
   },
   wolf: {
     id: "wolf",
@@ -126,6 +134,7 @@ export const MONSTER_STATS = {
     exp: 6,
     gold: 44,
     unlockFloor: 18,
+    aiRole: "dps",
   },
   harpy: {
     id: "harpy",
@@ -139,6 +148,7 @@ export const MONSTER_STATS = {
     exp: 7,
     gold: 50,
     unlockFloor: 22,
+    aiRole: "dps",
   },
   knight: {
     id: "knight",
@@ -152,6 +162,7 @@ export const MONSTER_STATS = {
     exp: 9,
     gold: 60,
     unlockFloor: 25,
+    aiRole: "tank",
   },
   mage: {
     id: "mage",
@@ -165,6 +176,7 @@ export const MONSTER_STATS = {
     exp: 9,
     gold: 66,
     unlockFloor: 28,
+    aiRole: "support",
   },
   ogre: {
     id: "ogre",
@@ -178,6 +190,7 @@ export const MONSTER_STATS = {
     exp: 11,
     gold: 78,
     unlockFloor: 32,
+    aiRole: "tank",
   },
   shadow: {
     id: "shadow",
@@ -191,6 +204,7 @@ export const MONSTER_STATS = {
     exp: 12,
     gold: 86,
     unlockFloor: 35,
+    aiRole: "dps",
   },
   frost: {
     id: "frost",
@@ -204,6 +218,7 @@ export const MONSTER_STATS = {
     exp: 13,
     gold: 94,
     unlockFloor: 40,
+    aiRole: "support",
   },
   demon: {
     id: "demon",
@@ -217,6 +232,7 @@ export const MONSTER_STATS = {
     exp: 15,
     gold: 110,
     unlockFloor: 45,
+    aiRole: "dps",
   },
   dragon: {
     id: "dragon",
@@ -230,6 +246,7 @@ export const MONSTER_STATS = {
     exp: 18,
     gold: 130,
     unlockFloor: 48,
+    aiRole: "dps",
   },
   boss: {
     id: "boss",
@@ -243,6 +260,7 @@ export const MONSTER_STATS = {
     exp: 12,
     gold: 80,
     unlockFloor: 1,
+    aiRole: "dps",
   },
 
   // —— 十种层固定主题 Boss（循环 1～10 / 11～20 …）——
@@ -258,6 +276,7 @@ export const MONSTER_STATS = {
     exp: 14,
     gold: 88,
     unlockFloor: 1,
+    aiRole: "dps",
   },
   boss_sand: {
     id: "boss_sand",
@@ -271,6 +290,7 @@ export const MONSTER_STATS = {
     exp: 14,
     gold: 90,
     unlockFloor: 1,
+    aiRole: "tank",
   },
   boss_tide: {
     id: "boss_tide",
@@ -284,6 +304,7 @@ export const MONSTER_STATS = {
     exp: 15,
     gold: 96,
     unlockFloor: 1,
+    aiRole: "dps",
   },
   boss_harbor: {
     id: "boss_harbor",
@@ -297,6 +318,7 @@ export const MONSTER_STATS = {
     exp: 15,
     gold: 98,
     unlockFloor: 1,
+    aiRole: "tank",
   },
   boss_mist: {
     id: "boss_mist",
@@ -310,6 +332,7 @@ export const MONSTER_STATS = {
     exp: 16,
     gold: 105,
     unlockFloor: 1,
+    aiRole: "support",
   },
   boss_reef: {
     id: "boss_reef",
@@ -323,6 +346,7 @@ export const MONSTER_STATS = {
     exp: 16,
     gold: 108,
     unlockFloor: 1,
+    aiRole: "support",
   },
   boss_dual: {
     id: "boss_dual",
@@ -336,6 +360,7 @@ export const MONSTER_STATS = {
     exp: 17,
     gold: 112,
     unlockFloor: 1,
+    aiRole: "tank",
   },
   boss_ruin: {
     id: "boss_ruin",
@@ -349,6 +374,7 @@ export const MONSTER_STATS = {
     exp: 17,
     gold: 115,
     unlockFloor: 1,
+    aiRole: "dps",
   },
   boss_saw: {
     id: "boss_saw",
@@ -362,6 +388,7 @@ export const MONSTER_STATS = {
     exp: 18,
     gold: 118,
     unlockFloor: 1,
+    aiRole: "dps",
   },
   boss_claw: {
     id: "boss_claw",
@@ -375,6 +402,7 @@ export const MONSTER_STATS = {
     exp: 20,
     gold: 130,
     unlockFloor: 1,
+    aiRole: "dps",
   },
 };
 

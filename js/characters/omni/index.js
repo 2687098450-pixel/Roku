@@ -50,13 +50,15 @@ export {
   MAX_EQUIP_LEVEL,
   UPGRADEABLE_RARITIES,
   rebuildEquipStats,
-} from "./equipment.js?v=123";
+} from "./equipment.js?v=130";
 export {
   SKILL_POWER,
   skillPower,
   skillHealAmount,
   isHealSkill,
   isBuffSkill,
+  isWeaveStatusSkill,
+  applyWeaveEffectBoost,
   scaledSkillDef,
   applyUniqueSkillMods,
   refreshSkillTexts,
@@ -67,7 +69,7 @@ export {
   createHeroSkills,
   attrPassiveSkillId,
   scaledPassiveBoost,
-} from "./skills.js?v=123";
+} from "./skills.js?v=130";
 export {
   heroMaxMp,
   skillMpCost,
@@ -76,7 +78,7 @@ export {
   isSelfBuffSkill,
   HERO_MAX_MP,
   SKILL_MP_COST,
-} from "../skillMp.js?v=123";
+} from "../skillMp.js?v=130";
 export {
   gainExp,
   splitExp,
@@ -93,7 +95,7 @@ export {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   MAX_SKILL_LEVEL,
-} from "../progression.js?v=123";
+} from "../progression.js?v=130";
 export {
   ensureRotation,
   nextAutoSkill,
@@ -102,7 +104,15 @@ export {
   basicAttackId,
   isEmptyAutoSlot,
   resolveAutoSkillId,
-} from "./autoAttack.js?v=123";
+} from "./autoAttack.js?v=130";
+export {
+  SKILL_AI_OPTIONS,
+  SKILL_AI_DEFAULTS,
+  skillAiOptions,
+  getSkillAiMode,
+  setSkillAiMode,
+  normalizeSkillAi,
+} from "../skillAi.js?v=130";
 export {
   refreshHeroStats,
   createOmniHero,
@@ -129,5 +139,5 @@ export {
   SLENDER_RATIO,
   diamondSlenderRatio,
   isSlenderFemale,
-} from "../createHero.js?v=123";
-export { BASE, PASSIVE_BOOST } from "./attributes.js?v=123";
+} from "../createHero.js?v=130";
+export { BASE, PASSIVE_BOOST } from "./attributes.js?v=130";

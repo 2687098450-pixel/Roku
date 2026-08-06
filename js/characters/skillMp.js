@@ -4,8 +4,8 @@
  * - 其余主动技耗蓝；满蓝约可打完「所有耗蓝技能」三轮（小粉偏高耗）
  */
 
-import { SKILL_POWER } from "./skills.js?v=123";
-import { basicAttackId } from "./omni/autoAttack.js?v=123";
+import { SKILL_POWER } from "./skills.js?v=130";
+import { basicAttackId } from "./omni/autoAttack.js?v=130";
 
 /** 各英雄满蓝 */
 export const HERO_MAX_MP = {
@@ -34,6 +34,7 @@ export const SKILL_MP_COST = {
   orange_blaze: 25,
   cyan_tailwind: 20,
   cyan_gust: 18,
+  cyan_cut: 16,
 };
 
 export function heroMaxMp(statsId) {

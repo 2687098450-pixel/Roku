@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=123" />
+  <link rel="stylesheet" href="css/style.css?v=130" />
 </head>
 <body>
   <div id="app">
@@ -52,7 +52,7 @@
         </div>
         <div class="top-place">
           <strong id="placeName">阳光海岛</strong>
-          <span id="placeFloor">1层 v1.23</span>
+          <span id="placeFloor">1层 v1.25</span>
         </div>
         <button type="button" class="top-mobs" id="btnFloorMobs" title="本层怪物信息" aria-label="本层怪物信息">
           <i class="mob-ico" aria-hidden="true"></i>
@@ -223,7 +223,11 @@
           <h2 id="skillDetailTitle">技能</h2>
           <button type="button" class="icon-close" id="closeSkillDetail">×</button>
         </div>
-        <div id="skillDetailBody" class="skill-detail-body"></div>
+        <div class="skill-detail-main">
+          <button type="button" class="skill-detail-nav prev" id="btnSkillDetailPrev" aria-label="上一个技能">‹</button>
+          <div id="skillDetailBody" class="skill-detail-body"></div>
+          <button type="button" class="skill-detail-nav next" id="btnSkillDetailNext" aria-label="下一个技能">›</button>
+        </div>
       </div>
     </div>
 
@@ -371,6 +375,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=123"></script>
+  <script type="module" src="js/main.js?v=130"></script>
 </body>
 </html>

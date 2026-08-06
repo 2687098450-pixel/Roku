@@ -1,20 +1,20 @@
 /**
  * 怪物工厂 + 遭遇编队
- * - 小怪遭遇：混合类型，最多 9 只（3×3）
- * - Boss：后排中央 + 其余格位小怪
+ * - 小怪遭遇：混合类型，最多 9 只（3×3）；站位按 aiRole（坦前/辅中/输出后）
+ * - Boss：多在后排中央；坦克 Boss 偶发前排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=123";
+import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=130";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=123";
+} from "./skills.js?v=130";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=123";
-import { createBoss } from "./boss.js?v=123";
+} from "../characters/progression.js?v=130";
+import { createBoss } from "./boss.js?v=130";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -122,28 +122,101 @@ export function trashPackCount(floor, rnd = Math.random) {
   return lo + Math.floor(rnd() * (hi - lo + 1));
 }
 
-/** 小怪站位：3×3，前排 → 中排 → 后排 */
-export function assignTrashSlots(n) {
-  const order = [
-    ["front", 0],
-    ["front", 1],
-    ["front", 2],
-    ["mid", 0],
-    ["mid", 1],
-    ["mid", 2],
-    ["back", 0],
-    ["back", 1],
-    ["back", 2],
-  ];
+function aiRoleOf(kind) {
+  try {
+    return getMonsterStats(kind)?.aiRole || "dps";
+  } catch {
+    return "dps";
+  }
+}
+
+function preferredRowForRole(role) {
+  if (role === "tank") return "front";
+  if (role === "support") return "mid";
+  return "back";
+}
+
+function shuffleCols(rnd = Math.random) {
+  return [0, 1, 2].sort(() => rnd() - 0.5);
+}
+
+/**
+ * 按 AI 角色分配站位：防御前排、状态/治疗中排、攻击后排。
+ * 允许全同角色 / 缺某一类；溢出填空排。blocked 为不可占用格（如 Boss 位）。
+ * @param {string[]} kinds
+ * @param {{ blocked?: { row: string, col: number }[], rnd?: () => number }} [opts]
+ * @returns {{ row: string, col: number, kind: string, idx: number }[]}
+ */
+export function assignSlotsByRoles(kinds, opts = {}) {
+  const rnd = opts.rnd || Math.random;
+  const blocked = new Set(
+    (opts.blocked || []).map((p) => `${p.row}:${p.col}`)
+  );
+  const capacity = { front: 3, mid: 3, back: 3 };
+  for (const key of blocked) {
+    const row = key.split(":")[0];
+    if (capacity[row] != null) capacity[row] = Math.max(0, capacity[row] - 1);
+  }
+
+  /** @type {{ kind: string, role: string, idx: number }[]} */
+  const entries = kinds.map((kind, idx) => ({
+    kind,
+    role: aiRoleOf(kind),
+    idx,
+  }));
+
+  /** @type {{ front: typeof entries, mid: typeof entries, back: typeof entries }} */
+  const queues = { front: [], mid: [], back: [] };
+  const overflow = [];
+
+  for (const e of entries) {
+    const pref = preferredRowForRole(e.role);
+    if (queues[pref].length < capacity[pref]) queues[pref].push(e);
+    else overflow.push(e);
+  }
+
+  const rowOrder = ["front", "mid", "back"];
+  for (const e of overflow) {
+    const room = rowOrder.find((r) => queues[r].length < capacity[r]);
+    if (room) queues[room].push(e);
+  }
+
+  // 空排有容量时，从人数最多的排挪一只，避免全挤一排
+  for (const empty of rowOrder) {
+    if (capacity[empty] <= 0 || queues[empty].length > 0) continue;
+    const donor = rowOrder
+      .filter((r) => r !== empty && queues[r].length > 1)
+      .sort((a, b) => queues[b].length - queues[a].length)[0];
+    if (donor) queues[empty].push(queues[donor].pop());
+  }
+
+  /** @type {{ row: string, col: number, kind: string, idx: number }[]} */
   const slots = [];
-  for (let i = 0; i < Math.min(n, 9); i++) {
-    slots.push({ row: order[i][0], col: order[i][1] });
+  for (const row of rowOrder) {
+    const freeCols = shuffleCols(rnd).filter(
+      (c) => !blocked.has(`${row}:${c}`)
+    );
+    const q = queues[row];
+    for (let i = 0; i < q.length && i < freeCols.length; i++) {
+      slots.push({
+        row,
+        col: freeCols[i],
+        kind: q[i].kind,
+        idx: q[i].idx,
+      });
+    }
   }
   return slots;
 }
 
+/** 小怪站位：兼容旧调用（仅按数量前→中→后） */
+export function assignTrashSlots(n) {
+  const kinds = Array.from({ length: Math.min(n, 9) }, () => "slime");
+  return assignSlotsByRoles(kinds).map(({ row, col }) => ({ row, col }));
+}
+
 /**
- * Boss 编队：boss 后排中央；其余格位可加小怪
+ * Boss 编队：boss 通常后排中央；坦克 Boss 偶发前排中央
  * 总数（含 boss）最多 9
  */
 export function bossAddCount(floor, rnd = Math.random) {
@@ -153,19 +226,19 @@ export function bossAddCount(floor, rnd = Math.random) {
   return minAdds + Math.floor(rnd() * (maxAdds - minAdds + 1));
 }
 
-/** Boss 小怪站位：前排满 → 中排 → 后排左右（中央留给 Boss） */
-export function assignBossAddSlots(n) {
-  const order = [
-    ["front", 0],
-    ["front", 1],
-    ["front", 2],
-    ["mid", 0],
-    ["mid", 1],
-    ["mid", 2],
-    ["back", 0],
-    ["back", 2],
-  ];
-  return order.slice(0, Math.min(n, 8)).map(([row, col]) => ({ row, col }));
+/** Boss 站位：默认后排中央；坦克 Boss ~28% 前排中央 */
+export function pickBossSlot(bossKind, rnd = Math.random) {
+  const role = aiRoleOf(bossKind);
+  if (role === "tank" && rnd() < 0.28) return { row: "front", col: 1 };
+  return { row: "back", col: 1 };
+}
+
+/** Boss 小怪站位（兼容旧调用） */
+export function assignBossAddSlots(n, bossSlot = { row: "back", col: 1 }) {
+  const kinds = Array.from({ length: Math.min(n, 8) }, () => "slime");
+  return assignSlotsByRoles(kinds, { blocked: [bossSlot] }).map(
+    ({ row, col }) => ({ row, col })
+  );
 }
 
 function battleReady(unit, extras = {}) {
@@ -188,6 +261,7 @@ function battleReady(unit, extras = {}) {
 
 /**
  * 从地图触碰怪生成战斗编队
+ * 站位偏好：防御前排、状态/治疗中排、攻击后排；Boss 多在后排中央（坦克 Boss 偶发前排）
  * @returns {{ enemies: object[], primary: object }}
  */
 export function buildEncounter(touched, floor, scale) {
@@ -202,38 +276,73 @@ export function buildEncounter(touched, floor, scale) {
   const touchedKind = touched.kind || touched.type || "slime";
 
   if (isBoss) {
+    const bossKind = touched.kind || touched.type || "boss";
+    const bossSlot = pickBossSlot(bossKind);
     const boss = battleReady(
       cloneForBattle(touched, {
-        row: "back",
-        col: 1,
+        row: bossSlot.row,
+        col: bossSlot.col,
         worldRef: touched,
         isBoss: true,
         role: "boss",
-        kind: touched.kind || touched.type || "boss",
+        kind: bossKind,
         hp: touched.hp,
         maxHp: touched.maxHp,
       })
     );
     const adds = bossAddCount(floor);
-    const slots = assignBossAddSlots(adds);
+    let addKinds = [];
+    for (let i = 0; i < adds; i++) addKinds.push(pickTrashType(floor));
+    // 坦克 Boss 站前排时，尽量给后排配输出小怪
+    if (bossSlot.row === "front") {
+      const pool = trashTypesForFloor(floor);
+      const dpsPool = pool.filter((t) => t.aiRole === "dps").map((t) => t.id);
+      if (dpsPool.length) {
+        addKinds = addKinds.map((k, i) =>
+          i < Math.ceil(adds * 0.6)
+            ? dpsPool[Math.floor(Math.random() * dpsPool.length)]
+            : k
+        );
+      }
+    }
+    const slots = assignSlotsByRoles(addKinds, { blocked: [bossSlot] });
     const extras = slots.map((slot) => {
-      const kind = pickTrashType(floor);
-      const m = createMonster(kind, { scale: s * 0.85, role: "trash", floor });
-      return battleReady(cloneForBattle(m, { ...slot, worldRef: null, isBoss: false }));
+      const m = createMonster(slot.kind, { scale: s * 0.85, role: "trash", floor });
+      return battleReady(
+        cloneForBattle(m, {
+          row: slot.row,
+          col: slot.col,
+          worldRef: null,
+          isBoss: false,
+        })
+      );
     });
     return { enemies: [boss, ...extras], primary: boss };
   }
 
   const count = trashPackCount(floor);
-  const slots = assignTrashSlots(count);
-  const kinds = [touchedKind];
+  let kinds = [touchedKind];
   for (let i = 1; i < count; i++) kinds.push(pickTrashType(floor));
 
-  const enemies = slots.map((slot, i) => {
-    if (i === 0) {
+  // 约 15% 同构编队（全防/全攻/全支援），其余混合
+  if (Math.random() < 0.15) {
+    const theme = ["tank", "support", "dps"][Math.floor(Math.random() * 3)];
+    const themed = trashTypesForFloor(floor)
+      .filter((t) => t.aiRole === theme)
+      .map((t) => t.id);
+    if (themed.length) {
+      kinds = kinds.map(() => themed[Math.floor(Math.random() * themed.length)]);
+      kinds[0] = touchedKind; // 主怪种类仍保留触碰的那只
+    }
+  }
+
+  const slots = assignSlotsByRoles(kinds);
+  const enemies = slots.map((slot) => {
+    if (slot.idx === 0) {
       return battleReady(
         cloneForBattle(touched, {
-          ...slot,
+          row: slot.row,
+          col: slot.col,
           worldRef: touched,
           kind: touchedKind,
           name: touched.name,
@@ -244,10 +353,17 @@ export function buildEncounter(touched, floor, scale) {
         })
       );
     }
-    const m = createMonster(kinds[i], { scale: s, role: "trash", floor });
-    return battleReady(cloneForBattle(m, { ...slot, worldRef: null, isBoss: false }));
+    const m = createMonster(slot.kind, { scale: s, role: "trash", floor });
+    return battleReady(
+      cloneForBattle(m, {
+        row: slot.row,
+        col: slot.col,
+        worldRef: null,
+        isBoss: false,
+      })
+    );
   });
-  return { enemies, primary: enemies[0] };
+  return { enemies, primary: enemies.find((e) => e.worldRef === touched) || enemies[0] };
 }
 
 /** 地图刷怪：按层权重选类型 */

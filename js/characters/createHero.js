@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=123";
-import { calcStats } from "./omni/attributes.js?v=123";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=123";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=130";
+import { calcStats } from "./omni/attributes.js?v=130";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=130";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=123";
+} from "./skills.js?v=130";
 import {
   expToNext,
   getSkillLevel,
@@ -17,8 +17,8 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=123";
-import { heroMaxMp } from "./skillMp.js?v=123";
+} from "./progression.js?v=130";
+import { heroMaxMp } from "./skillMp.js?v=130";
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
@@ -49,6 +49,7 @@ export function refreshHeroStats(hero) {
     hero.basePassiveBoost = { ...(hero.passiveBoost || {}) };
   }
   migratePinkKit(hero);
+  migrateCyanKit(hero);
   const attrId = attrPassiveSkillId(hero.statsId);
   if (attrId) {
     hero.passiveBoost = scaledPassiveBoost(
@@ -60,7 +61,12 @@ export function refreshHeroStats(hero) {
   const stats = calcStats(hero.base, hero.passiveBoost, eq, hero.level || 1);
   const mult = hero.isCaptain ? 1.1 : 1;
   hero.maxHp = Math.max(1, Math.floor(stats.maxHp * mult));
-  hero.atk = Math.max(1, Math.floor(stats.atk * mult));
+  const atkFull = Math.max(1, Math.floor(stats.atk * mult));
+  hero.atkFull = atkFull;
+  const s = Number(hero.atkScale);
+  const atkScale = s === 0.5 || s === 0.75 || s === 1 ? s : 1;
+  hero.atkScale = atkScale;
+  hero.atk = Math.max(1, Math.floor(atkFull * atkScale));
   hero.def = Math.max(0, Math.floor(stats.def * mult));
   hero.spd = Math.max(1, Math.floor(stats.spd * mult));
   hero.maxMp = heroMaxMp(hero.statsId);
@@ -72,6 +78,31 @@ export function refreshHeroStats(hero) {
   else hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
   if (hero.mp == null) hero.mp = hero.maxMp;
   else hero.mp = Math.max(0, Math.min(hero.maxMp, hero.mp));
+}
+
+/** 小青：补疾斩普攻；风刃改为增益 */
+function migrateCyanKit(hero) {
+  if (!hero || hero.statsId !== "cyan" || !Array.isArray(hero.skills)) return;
+  const hasStrike = hero.skills.some((s) => s.id === "cyan_strike");
+  if (!hasStrike) {
+    const cutIdx = hero.skills.findIndex((s) => s.id === "cyan_cut");
+    const strike = {
+      id: "cyan_strike",
+      name: "疾斩",
+      kind: "active",
+      style: "melee",
+      level: 1,
+      nums: "",
+      desc: "",
+    };
+    if (cutIdx >= 0) hero.skills.splice(cutIdx, 0, strike);
+    else hero.skills.unshift(strike);
+  }
+  const cut = hero.skills.find((s) => s.id === "cyan_cut");
+  if (cut) {
+    cut.style = "buff";
+    cut.name = cut.name || "风刃";
+  }
 }
 
 const DESC = {
@@ -110,6 +141,8 @@ export function createHero(statsId) {
     equip: createDefaultEquip(statsId),
     skills: createHeroSkills(statsId),
     autoRotation: getAutoRotation(statsId),
+    skillAi: {},
+    atkScale: 1,
     hp: 0,
     maxHp: 0,
   };

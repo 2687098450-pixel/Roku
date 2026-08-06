@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=123";
+import { scaleGoldGain } from "../../core/economy.js?v=130";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -195,7 +195,7 @@ export const UNIQUE_SKILL_IDS = {
     skillId: "boost",
     name: "强化均衡",
     detail:
-      "强化全能「均衡」：十字友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。仅全能装备时生效。",
+      "强化全能「均衡」：全体友军共享属性；自身灵体（不造成/不受伤害）；震地眩晕减半。仅全能装备时生效。",
   },
   green_life_flow: {
     owner: "green",
@@ -240,6 +240,18 @@ export const UNIQUE_SKILL_IDS = {
     name: "强化疾风",
     detail:
       "强化小青「疾风」：全队增速更强、更久，并附加命中提升。仅小青装备时生效。",
+  },
+  cyan_cut_gale: {
+    owner: "cyan",
+    skillId: "cyan_cut",
+    name: "强化风刃",
+    detail:
+      "强化小青「风刃」：附魔友方下次整段技能——多段每段追加小青攻击×10%（最多5段）；单次伤害（含群伤一次结算）追加攻击×100%。开局自动释放风刃。仅小青装备时生效。",
+  },
+  status_weave_ring: {
+    name: "织律之戒",
+    detail:
+      "增益与减益类技能取消瞬伤；效果强度+20%；大幅缩短该类技能动画（与春芽戒同级）。任意职业可触发。",
   },
 };
 
