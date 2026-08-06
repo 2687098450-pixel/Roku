@@ -14,10 +14,10 @@ import {
   rebuildEquipStats,
   refreshSkillTexts,
   expToNext,
-} from "../characters/omni/index.js?v=113";
-import { createPatrolMonster } from "../monsters/slime.js?v=113";
-import { createBoss } from "../monsters/boss.js?v=113";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=113";
+} from "../characters/omni/index.js?v=114";
+import { createPatrolMonster } from "../monsters/slime.js?v=114";
+import { createBoss } from "../monsters/boss.js?v=114";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=114";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;

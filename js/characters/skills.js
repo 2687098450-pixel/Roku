@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=113";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=113";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=113";
+import { getCharacterStats } from "./stats.js?v=114";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=114";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=114";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -89,12 +89,12 @@ export const SKILL_POWER = {
   },
   /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)
    *  默认只反击伤害来源；唯一强化后打全场
-   *  对友：1 级 60%，每级 -10%；≤ -10% 时改为治疗 |比例|×对敌伤害，并造成 1 真实伤害
+   *  对友：1 级 60%，每级 -5%；≤ -10% 时改为治疗 |比例|×对敌伤害，并造成 1 真实伤害
    */
   yellow_reflect: {
     reflectPctPerLevel: 0.1,
     allyRatioBase: 0.6,
-    allyRatioStep: -0.1,
+    allyRatioStep: -0.05,
   },
 
   // —— 小蓝：霜语 ——
@@ -249,12 +249,12 @@ export function getReflectParams(skillLevel = 1) {
   const s = scaledSkillDef("yellow_reflect", rank) || SKILL_POWER.yellow_reflect;
   const per = s.reflectPctPerLevel ?? 0.1;
   const base = s.allyRatioBase ?? 0.6;
-  const step = s.allyRatioStep ?? -0.1;
-  // 用百分数取整，避免 0.6-0.6 变成 -0
+  const step = s.allyRatioStep ?? -0.05;
+  // 用百分数取整，避免浮点误差
   const allyPct = Math.round((base + (rank - 1) * step) * 100);
   return {
     reflectMult: s.reflectMult ?? +(per * rank).toFixed(3),
-    /** 1 级 60%，每级 -10%；≤ -10% 时治疗 */
+    /** 1 级 60%，每级 -5%；≤ -10% 时治疗 */
     allyRatio: allyPct / 100,
   };
 }

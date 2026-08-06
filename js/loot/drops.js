@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=113";
-import { getFloorDef } from "../map/floors.js?v=113";
+} from "../characters/omni/equipment.js?v=114";
+import { getFloorDef } from "../map/floors.js?v=114";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
