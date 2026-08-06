@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=135";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=135";
+import { $, clamp, irand } from "../core/utils.js?v=136";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=136";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=135";
+} from "../characters/omni/index.js?v=136";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=135";
+} from "../characters/progression.js?v=136";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=135";
-import { buildEncounter } from "../monsters/roster.js?v=135";
+} from "../characters/skills.js?v=136";
+import { buildEncounter } from "../monsters/roster.js?v=136";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=135";
-import { rollBattleLoot } from "../loot/drops.js?v=135";
+} from "../monsters/skills.js?v=136";
+import { rollBattleLoot } from "../loot/drops.js?v=136";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=135";
-import { createTicker } from "../core/time.js?v=135";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=135";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=135";
+} from "../characters/stats.js?v=136";
+import { createTicker } from "../core/time.js?v=136";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=136";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=136";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=135";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=135";
+} from "./status.js?v=136";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=136";
 
 export function createBattleApi(ctx) {
   const {
@@ -1086,35 +1086,35 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 行动条词条：推进时按累计回复生命/蓝量 */
+  /** 行动条词条：推进时按累计回血；回蓝改为每次出手结算 */
   function applyGaugeRegen(unit, walked) {
     if (!unit?.isHero || !(walked > 0) || unit.hp <= 0) return;
     const hero = actingHero(unit);
     if (!hero) return;
     const mods = sumSkillMods(hero.equip);
     const hpPer = mods?.gaugeHpPer10 || 0;
-    const mpPer = mods?.gaugeMpPer10 || 0;
-    if (!(hpPer > 0) && !(mpPer > 0)) return;
+    if (!(hpPer > 0)) return;
     if (!unit.gaugeRegen) unit.gaugeRegen = { hp: 0, mp: 0 };
-    if (hpPer > 0) {
-      unit.gaugeRegen.hp += walked;
-      while (unit.gaugeRegen.hp >= 10) {
-        unit.gaugeRegen.hp -= 10;
-        const amt = Math.max(1, Math.floor((unit.maxHp || 1) * hpPer));
-        applyHeal(unit, amt, { source: unit });
-      }
+    unit.gaugeRegen.hp += walked;
+    while (unit.gaugeRegen.hp >= 10) {
+      unit.gaugeRegen.hp -= 10;
+      const amt = Math.max(1, Math.floor((unit.maxHp || 1) * hpPer));
+      applyHeal(unit, amt, { source: unit });
     }
-    if (mpPer > 0) {
-      unit.gaugeRegen.mp += walked;
-      while (unit.gaugeRegen.mp >= 10) {
-        unit.gaugeRegen.mp -= 10;
-        const gain = Math.max(1, Math.floor(mpPer));
-        const maxMp = hero.maxMp || unit.maxMp || 0;
-        hero.mp = Math.min(maxMp, (hero.mp || 0) + gain);
-        unit.mp = hero.mp;
-        unit.maxMp = maxMp;
-      }
-    }
+  }
+
+  /** 行动回蓝：每次轮到行动时回复 */
+  function applyActMpRegen(unit) {
+    if (!unit?.isHero || unit.hp <= 0) return;
+    const hero = actingHero(unit);
+    if (!hero) return;
+    const mods = sumSkillMods(hero.equip);
+    const gain = Math.max(0, Math.floor(mods?.gaugeMpOnAct || 0));
+    if (!(gain > 0)) return;
+    const maxMp = hero.maxMp || unit.maxMp || 0;
+    hero.mp = Math.min(maxMp, (hero.mp || 0) + gain);
+    unit.mp = hero.mp;
+    unit.maxMp = maxMp;
   }
 
   function advanceMendPulse(b, unit, walked) {
@@ -1674,6 +1674,7 @@ export function createBattleApi(ctx) {
     b.waitingPlayer = false;
     setBattleButtons(false);
     unit.gauge = 0;
+    if (unit.isHero) applyActMpRegen(unit);
 
     if (unit.isHero) {
       if (!b.auto) {

@@ -1,40 +1,31 @@
 /**
  * 英雄蓝条消耗
  * - 普通攻击 / 被动 / 自身单体增益：不耗蓝
- * - 其余主动技耗蓝；满蓝约可打完「所有耗蓝技能」三轮（小粉偏高耗）
+ * - 其余主动技：10 / 15 两档
  */
 
-import { SKILL_POWER } from "./skills.js?v=135";
-import { basicAttackId } from "./omni/autoAttack.js?v=135";
+import { SKILL_POWER } from "./skills.js?v=136";
+import { basicAttackId } from "./omni/autoAttack.js?v=136";
 
-/** 各英雄满蓝 */
+/** 各英雄满蓝（统一 100） */
 export const HERO_MAX_MP = {
-  omni: 144,
-  pink: 126,
-  green: 135,
-  yellow: 60,
-  blue: 174,
-  orange: 129,
-  cyan: 114,
+  omni: 100,
+  pink: 100,
+  green: 100,
+  yellow: 100,
+  blue: 100,
+  orange: 100,
+  cyan: 100,
 };
 
-/** 技能固定耗蓝（未列出则走默认） */
+/** 15 档：高耗技能；其余耗蓝技能默认 10 */
 export const SKILL_MP_COST = {
-  radiant: 15,
-  quake: 36,
-  omni_bless: 15,
-  pink_barrage: 42,
-  green_mend: 20,
-  green_bloom: 25,
-  yellow_slam: 20,
-  blue_nova: 18,
-  blue_freeze: 22,
-  blue_veil: 18,
-  orange_wave: 18,
-  orange_blaze: 25,
-  cyan_tailwind: 20,
-  cyan_gust: 18,
-  cyan_cut: 16,
+  quake: 15,
+  pink_barrage: 15,
+  green_bloom: 15,
+  blue_freeze: 15,
+  orange_blaze: 15,
+  cyan_tailwind: 15,
 };
 
 export function heroMaxMp(statsId) {
@@ -56,9 +47,8 @@ export function skillMpCost(hero, skillId) {
   if (SKILL_MP_COST[skillId] != null) return SKILL_MP_COST[skillId];
   const def = SKILL_POWER[skillId];
   if (!def) return 0;
-  if (def.style === "heal") return 20;
-  if (def.style === "buff") return 18;
-  return 16;
+  // 有实装的主动技默认 10；未知定义不扣
+  return 10;
 }
 
 export function canAffordSkill(hero, skillId) {
