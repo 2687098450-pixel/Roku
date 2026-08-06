@@ -3154,6 +3154,12 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   font-weight: 800;
   color: #c06818;
 }
+.skill-detail-mp {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #3a7a9a;
+}
 .skill-detail-nums {
   font-size: 16px;
   font-weight: 700;

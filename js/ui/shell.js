@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=115";
+import { $, clamp, styleTag } from "../core/utils.js?v=116";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -49,17 +49,18 @@ import {
   isHeroDead,
   refreshSkillTexts,
   buildSkillText,
-} from "../characters/omni/index.js?v=115";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=115";
-import { setSavedFormation } from "../characters/stats.js?v=115";
-import { resetGameLocalData } from "../core/save.js?v=115";
-import { createAllUniqueItems } from "../loot/drops.js?v=115";
-import { APP_VERSION } from "../core/version.js?v=115";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=115";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=115";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=115";
-import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=115";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=115";
+  skillMpCost,
+} from "../characters/omni/index.js?v=116";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=116";
+import { setSavedFormation } from "../characters/stats.js?v=116";
+import { resetGameLocalData } from "../core/save.js?v=116";
+import { createAllUniqueItems } from "../loot/drops.js?v=116";
+import { APP_VERSION } from "../core/version.js?v=116";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=116";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=116";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=116";
+import { scaleGoldGain, scaleExpGain } from "../core/economy.js?v=116";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=116";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1162,6 +1163,12 @@ export function createUI(ctx) {
     delete el.dataset.skill;
   }
 
+  function skillMpLine(hero, skill) {
+    if (!skill || skill.kind === "passive") return "不耗蓝";
+    const cost = skillMpCost(hero, skill.id);
+    return cost > 0 ? `耗蓝 ${cost}` : "不耗蓝";
+  }
+
   function showSkillHoldPreview(hero, skillId) {
     const skill = hero?.skills?.find((s) => s.id === skillId);
     const el = $("skillHoldPreview");
@@ -1178,7 +1185,7 @@ export function createUI(ctx) {
       : `加点 ${baseLv}/${MAX_SKILL_LEVEL}`;
     el.innerHTML = `
       <div class="shp-name">${skill.name}</div>
-      <div class="shp-meta">${typeLine} · ${lvLine}</div>
+      <div class="shp-meta">${typeLine} · ${lvLine} · ${skillMpLine(hero, skill)}</div>
       <p class="shp-desc">${skill.desc || skill.nums || ""}</p>`;
     el.dataset.skill = skillId;
     el.classList.remove("hidden");
@@ -1253,6 +1260,8 @@ export function createUI(ctx) {
       actives
         .map((s) => {
           const on = !emptyOn && s.id === currentId;
+          const mp = skillMpCost(hero, s.id);
+          const mpNote = mp > 0 ? ` · 耗蓝${mp}` : "";
           return `<button type="button" class="skill-pick-item ${on ? "on" : ""}" data-skill="${s.id}">
           <div class="skill-pick-head">
             <div class="skill-pick-ico">${s.style === "heal" ? "愈" : s.style === "ranged" ? "远" : "近"}</div>
@@ -1261,7 +1270,7 @@ export function createUI(ctx) {
                 <span class="stag">${styleTag(s.style)}</span>
                 ${on ? '<span class="stag current">当前</span>' : ""}
               </div>
-              <div class="skill-pick-nums">${s.nums || ""}</div>
+              <div class="skill-pick-nums">${s.nums || ""}${mpNote}</div>
             </div>
           </div>
         </button>`;
@@ -1544,6 +1553,7 @@ export function createUI(ctx) {
       skill.kind === "passive"
         ? "被动技能"
         : `${skillKindLabel(skill)}${skill.style ? ` · ${styleTag(skill.style)}` : ""}`;
+    const mpLine = skillMpLine(hero, skill);
 
     if (title) title.textContent = skill.name;
     refreshSkillTexts(hero);
@@ -1565,6 +1575,7 @@ export function createUI(ctx) {
           <div class="skill-detail-name">${skill.name}</div>
           <div class="skill-detail-type">${typeLine}</div>
           <div class="skill-detail-lv">${lvLine}</div>
+          <div class="skill-detail-mp">${mpLine}</div>
         </div>
       </div>
       ${cur ? `<div class="skill-detail-nums">${cur}</div>` : ""}
