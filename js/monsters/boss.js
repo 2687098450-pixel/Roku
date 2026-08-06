@@ -1,13 +1,14 @@
 /** 关卡出口守护 Boss（按层固定主题 kind） */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED } from "./stats.js?v=118";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=123";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=118";
-import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=118";
+} from "./skills.js?v=123";
+import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=123";
+import { floorHasUniqueBossLoot } from "../loot/drops.js?v=123";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -23,7 +24,7 @@ export function createBoss({
   const cf = combatFloor || floor;
   const s = Math.max(1, scale) * 1.55 * bossMilestoneMult(floor);
   const hp = Math.floor(sheet.hp * s);
-  const atk = Math.floor(sheet.atk * s);
+  const atk = Math.max(1, Math.floor(sheet.atk * s * MONSTER_ATK_MULT));
   const def = Math.floor(sheet.def * s);
   const spd = Math.max(
     8,
@@ -53,6 +54,7 @@ export function createBoss({
     gold: Math.max(1, Math.round((sheet.gold || 80) * (0.9 + scale * 0.5))),
     floor,
     combatFloor: cf,
+    hasUniqueLoot: floorHasUniqueBossLoot(floor),
     row: "back",
     col: 1,
     skillIds,

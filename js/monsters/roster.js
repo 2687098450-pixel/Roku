@@ -4,17 +4,17 @@
  * - Boss：后排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor } from "./stats.js?v=118";
+import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=123";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=118";
+} from "./skills.js?v=123";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=118";
-import { createBoss } from "./boss.js?v=118";
+} from "../characters/progression.js?v=123";
+import { createBoss } from "./boss.js?v=123";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -60,7 +60,7 @@ export function createMonster(kind, opts = {}) {
     y: opts.y ?? 0,
     hp: scaleStat(base.hp, scale),
     maxHp: scaleStat(base.hp, scale),
-    atk: scaleStat(base.atk, scale),
+    atk: Math.max(1, Math.round(scaleStat(base.atk, scale) * MONSTER_ATK_MULT)),
     def: scaleStat(base.def, scale),
     spd: Math.max(4, Math.round(base.spd + (scale - 1) * 2)),
     exp: Math.max(1, Math.round((base.exp || 1) * (0.9 + scale * 0.35))),

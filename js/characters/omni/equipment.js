@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=118";
+import { scaleGoldGain } from "../../core/economy.js?v=123";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -213,7 +213,12 @@ export const UNIQUE_SKILL_IDS = {
   green_mend_pulse: {
     name: "强化治疗脉动",
     detail:
-      "任意治疗效果都会给目标附加 200 行动条脉动——行动条每累计走 10，流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。穿戴者治疗技能说明会同步标注。",
+      "任意治疗效果都会给目标附加 200 行动条脉动——按治疗者行动条推进：每累计走 10，目标流失约等于本次治疗量 20% 的血；再累计走到 20，按刚流失量的 2.5 倍回血。与「雾林春芽戒」为孪生掉落。穿戴者治疗技能说明会同步标注。",
+  },
+  green_spring_bloom: {
+    name: "开场春芽",
+    detail:
+      "开场自动释放一次 10% 效果的「春芽绽放」全体治疗（任意职业可触发）。治疗量按队伍中小绿的春芽技能等级结算，施法者用自身攻击。穿戴时大幅缩短治疗技能动画。与「雾林脉动戒」为孪生掉落。",
   },
   blue_freeze_lock: {
     owner: "blue",
@@ -416,8 +421,11 @@ function fillUniqueAffixSlots(item) {
   const max = affixCountForRarity(item.rarity || "red", item.slot);
   if (!Array.isArray(item.affixes)) item.affixes = [];
   if (item.affixes.length >= max) return;
+  const ring = isRingSlot(item.slot);
   const used = new Set(
-    item.affixes.filter((a) => a.type === "stat" && a.key).map((a) => a.key)
+    ring
+      ? []
+      : item.affixes.filter((a) => a.type === "stat" && a.key).map((a) => a.key)
   );
   const preferDps =
     item.slot === "weapon" ||
@@ -430,8 +438,12 @@ function fillUniqueAffixSlots(item) {
     item.skillOwner === "yellow";
   const rng = seededRng(`${item.uniqueId}|${item.slot}|affix`);
   while (item.affixes.length < max) {
-    const key = pickStatForAffix(used, { preferDps, preferTank: !preferDps && preferTank }, rng);
-    used.add(key);
+    const key = pickStatForAffix(
+      used,
+      { preferDps, preferTank: !preferDps && preferTank },
+      rng
+    );
+    if (!ring) used.add(key);
     item.affixes.push(makeStatAffix(key, rollStatValue(key, itemLevel(item), rng)));
   }
 }
@@ -797,14 +809,19 @@ function pickStatForAffix(usedStats, opts, rng) {
 
 /**
  * 按品质数量随机词条
+ * 戒指：允许同名属性/状态词条重复（攻防速、附带眩晕等可叠多条）
  * @param {number} count
  * @param {number} level
- * @param {{ allowSkill?: boolean, forcedSkillMods?: object, preferDps?: boolean, preferTank?: boolean, rng?: () => number, rarity?: string, slot?: string }} [opts]
+ * @param {{ allowSkill?: boolean, forcedSkillMods?: object, preferDps?: boolean, preferTank?: boolean, rng?: () => number, rarity?: string, slot?: string, allowDuplicateAffixes?: boolean }} [opts]
  */
 export function rollAffixes(count, level, opts = {}) {
   const n = Math.max(0, Math.floor(count || 0));
   const L = Math.max(1, level || 1);
   const rng = opts.rng || Math.random;
+  const allowDup =
+    opts.allowDuplicateAffixes != null
+      ? !!opts.allowDuplicateAffixes
+      : isRingSlot(opts.slot);
   const affixes = [];
   const usedStats = new Set();
   const usedSkills = new Set();
@@ -815,23 +832,26 @@ export function rollAffixes(count, level, opts = {}) {
   }
 
   while (affixes.length < n) {
+    const skillChance = opts.forcedSkillMods ? 0.18 : allowDup ? 0.36 : 0.32;
     const wantSkill =
       !!opts.allowSkill &&
-      usedSkills.size < SKILL_AFFIX_POOL.length &&
-      rng() < (opts.forcedSkillMods ? 0.18 : 0.32);
+      (allowDup || usedSkills.size < SKILL_AFFIX_POOL.length) &&
+      rng() < skillChance;
 
     if (wantSkill) {
-      const pool = SKILL_AFFIX_POOL.filter((s) => !usedSkills.has(s.id));
+      const pool = allowDup
+        ? SKILL_AFFIX_POOL.slice()
+        : SKILL_AFFIX_POOL.filter((s) => !usedSkills.has(s.id));
       if (pool.length) {
         const pick = pool[Math.floor(rng() * pool.length)];
-        usedSkills.add(pick.id);
+        if (!allowDup) usedSkills.add(pick.id);
         affixes.push(skillAffixFromMods(pick.skillMods, pick.text));
         continue;
       }
     }
 
-    const key = pickStatForAffix(usedStats, opts, rng);
-    usedStats.add(key);
+    const key = pickStatForAffix(allowDup ? new Set() : usedStats, opts, rng);
+    if (!allowDup) usedStats.add(key);
     affixes.push(makeStatAffix(key, rollStatValue(key, L, rng)));
   }
 

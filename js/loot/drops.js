@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=118";
-import { getFloorDef } from "../map/floors.js?v=118";
+} from "../characters/omni/equipment.js?v=123";
+import { getFloorDef } from "../map/floors.js?v=123";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -75,7 +75,18 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "green_mend_pulse",
       skillOwner: "",
       uniqueText: "强化治疗脉动",
-      desc: "雾林树妖掉落。任意治疗附加 200 行动条脉动。",
+      desc: "雾林树妖掉落。与春芽戒孪生。任意治疗附加 200 行动条脉动（按治疗者行动条推进）。",
+    },
+    {
+      name: "雾林春芽戒",
+      slot: "ringR",
+      base: { hp: 12, atk: 2 },
+      icon: "ring.png",
+      kind: "Boss",
+      uniqueId: "green_spring_bloom",
+      skillOwner: "",
+      uniqueText: "开场春芽",
+      desc: "雾林树妖掉落。与脉动戒孪生。开场释放 10% 春芽治疗；大幅缩短治疗动画。任意职业可触发。",
     },
   ],
   6: [
@@ -131,6 +142,13 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     },
   ],
 };
+
+/** 该展示层 Boss 是否掉唯一红装 */
+export function floorHasUniqueBossLoot(floor) {
+  const f = Math.max(1, Math.floor(floor || 1));
+  const list = UNIQUE_BOSS_BY_FLOOR[f];
+  return Array.isArray(list) && list.some((t) => t && t.uniqueId);
+}
 
 const BOSS_LOOT_BY_FLOOR = {
   1: [

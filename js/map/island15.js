@@ -3,7 +3,7 @@
 import {
   preloadMonsterImages,
   drawMonsterSprite,
-} from "../monsters/visuals.js?v=118";
+} from "../monsters/visuals.js?v=123";
 
 export { preloadMonsterImages };
 
@@ -507,6 +507,68 @@ export function drawPatrolLine(ctx, m, T) {
   ctx.setLineDash([]);
 }
 
+/** Boss 头上对话框（像说话） */
+function drawBossSpeechBubble(ctx, tipX, tipY, text, T) {
+  const fontSize = Math.max(12, Math.round(T * 0.2));
+  ctx.save();
+  ctx.font = `800 ${fontSize}px "Nunito", "PingFang SC", "Microsoft YaHei", sans-serif`;
+  const padX = Math.max(8, T * 0.1);
+  const padY = Math.max(5, T * 0.06);
+  const tw = ctx.measureText(text).width;
+  const bw = tw + padX * 2;
+  const bh = fontSize + padY * 2;
+  const bx = tipX - bw / 2;
+  const by = tipY - bh - T * 0.12;
+  const r = Math.min(10, bh * 0.45);
+  const tailH = Math.max(6, T * 0.08);
+
+  // soft shadow
+  ctx.fillStyle = "rgba(40, 28, 16, 0.18)";
+  roundRectPath(ctx, bx + 1.5, by + 2, bw, bh, r);
+  ctx.fill();
+
+  // bubble body
+  ctx.fillStyle = "#fffaf0";
+  ctx.strokeStyle = "rgba(90, 62, 36, 0.45)";
+  ctx.lineWidth = 1.5;
+  roundRectPath(ctx, bx, by, bw, bh, r);
+  ctx.fill();
+  ctx.stroke();
+
+  // tail pointing to boss
+  const mid = tipX;
+  ctx.beginPath();
+  ctx.moveTo(mid - tailH * 0.7, by + bh - 0.5);
+  ctx.lineTo(mid, by + bh + tailH);
+  ctx.lineTo(mid + tailH * 0.7, by + bh - 0.5);
+  ctx.closePath();
+  ctx.fillStyle = "#fffaf0";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(mid - tailH * 0.7, by + bh - 0.5);
+  ctx.lineTo(mid, by + bh + tailH);
+  ctx.lineTo(mid + tailH * 0.7, by + bh - 0.5);
+  ctx.strokeStyle = "rgba(90, 62, 36, 0.45)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#5a3e24";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, tipX, by + bh / 2 + 0.5);
+  ctx.restore();
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
 /** 按相机视野绘制可见格子与单位（playerPos 可为小数用于平滑移动） */
 export function drawMap(ctx, map, view, entities) {
   const {
@@ -563,7 +625,17 @@ export function drawMap(ctx, map, view, entities) {
     if (!inView(cam, T, m.x, m.y)) return;
     const bob = Math.sin(time * 3 + i) * 2;
     const size = m.isBoss ? T * 0.52 : T * 0.38;
-    drawMonsterSprite(ctx, m.x * T + T / 2, m.y * T + T / 2 + bob, size, m);
+    const cx = m.x * T + T / 2;
+    const cy = m.y * T + T / 2 + bob;
+    drawMonsterSprite(ctx, cx, cy, size, m);
+    if (!m.isBoss || !m.hasUniqueLoot) return;
+    const dist = Math.max(
+      Math.abs(m.x - logic.x),
+      Math.abs(m.y - logic.y)
+    );
+    if (dist <= 3) {
+      drawBossSpeechBubble(ctx, cx, cy - size * 0.72, "我这里有好东西", T);
+    }
   });
 
   const pbob = Math.sin(time * 3 + 1) * 2;

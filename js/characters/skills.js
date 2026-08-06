@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=118";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=118";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=118";
+import { getCharacterStats } from "./stats.js?v=123";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=123";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=123";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -87,9 +87,9 @@ export const SKILL_POWER = {
     defMult: 0.45,
     turns: 3,
   },
-  /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)
+  /** 被动反伤：对敌 = 防御×(等级×10%)×(1+攻击÷防御)，至少 1
    *  默认只反击伤害来源；唯一强化后打全场
-   *  对友：1 级 60%，每级 -5%；≤ -10% 时改为治疗 |比例|×对敌伤害，并造成 1 真实伤害
+   *  对友：1 级 60%，每级 -5%；≤ -10% 时改为治疗 |比例|×对敌伤害（至少 1）
    */
   yellow_reflect: {
     reflectPctPerLevel: 0.1,
@@ -324,7 +324,6 @@ export function previewReflectDamage(hero) {
   if (allyRatio > 0) ally = Math.max(1, Math.floor(enemy * allyRatio));
   else if (allyRatio < 0) {
     allyHeal = Math.max(1, Math.floor(enemy * Math.abs(allyRatio)));
-    ally = 1; // 真实伤害
   }
   return { enemy, ally, allyHeal, ...p, allyRatio, hasShield };
 }
@@ -500,10 +499,12 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
   const effects = statusEffectNotes(s, scale);
   const recoilPct =
     s.selfRecoilPct != null ? Math.round(s.selfRecoilPct * 100) : 0;
+  // nums 用短标签；desc 只写完整自伤说明，避免「自伤15%」再说一遍
+  const numsEffects = effects.slice();
   if (recoilPct > 0) {
-    effects.push(`自伤${skVal(recoilPct + "%")}`);
+    numsEffects.push(`自伤${skVal(recoilPct + "%")}`);
   }
-  const effectStr = effects.length ? ` · ${effects.join(" · ")}` : "";
+  const effectStr = numsEffects.length ? ` · ${numsEffects.join(" · ")}` : "";
   const descEffects = effects.length ? `，${effects.join("，")}` : "";
   const recoilNote =
     recoilPct > 0
@@ -602,7 +603,7 @@ export function buildSkillText(hero, skillId, level = 1) {
     const pct = Math.round(p.reflectMult * 100);
     const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
     const allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
-    const enemyFormula = `防御力×${skVal(pct + "%")}×(1+攻击÷防御)`;
+    const enemyFormula = `防御力×${skVal(pct + "%")}×(1+攻击÷防御)（至少${skVal(1)}）`;
     if (!hasUnique) {
       return {
         nums: `反击来源 · ${enemyFormula}`,
@@ -615,14 +616,14 @@ export function buildSkillText(hero, skillId, level = 1) {
     } else if (allyRatio === 0) {
       allyText = `对友方无溅射`;
     } else {
-      allyText = `治疗友方 该伤害×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}，并造成 ${skVal(1)} 真实伤害`;
+      allyText = `治疗友方 该伤害×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}（至少${skVal(1)}）`;
     }
     const nums =
       allyRatio > 0
         ? `全体 · 敌${enemyFormula} · 友×${skVal(Math.round(allyRatio * 100) + "%")}`
         : allyRatio === 0
           ? `全体 · 敌${enemyFormula} · 友无溅射`
-          : `全体 · 敌${enemyFormula} · 友治疗×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}+${skVal(1)}真伤`;
+          : `全体 · 敌${enemyFormula} · 友治疗×${skVal(Math.round(Math.abs(allyRatio) * 100) + "%")}`;
     const desc = `受伤时，对全体其他单位生效：敌人 ${enemyFormula}，${allyText}。`;
     return { nums, desc };
   }
@@ -656,7 +657,7 @@ export function buildSkillText(hero, skillId, level = 1) {
   if (isHealSkill(skillId) && heroHasUnique(hero, "green_mend_pulse")) {
     return {
       nums: `${nums} · 治疗后脉动`,
-      desc: `${desc}装备脉动戒：治疗附加 200 行动条脉动（走10流失约治疗量20%真伤，走20按流失×2.5回血）。`,
+      desc: `${desc}装备脉动戒：治疗附加 200 行动条脉动（按治疗者行动条：走10流失约治疗量20%真伤，走20按流失×2.5回血）。`,
     };
   }
   return { nums, desc };

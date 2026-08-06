@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=118";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=118";
+import { $, clamp, irand } from "../core/utils.js?v=123";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=123";
 import {
   refreshHeroStats,
   skillPower,
@@ -20,7 +20,7 @@ import {
   skillMpCost,
   canAffordSkill,
   spendSkillMp,
-} from "../characters/omni/index.js?v=118";
+} from "../characters/omni/index.js?v=123";
 import {
   gainExp,
   splitExp,
@@ -30,30 +30,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=118";
+} from "../characters/progression.js?v=123";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=118";
-import { buildEncounter } from "../monsters/roster.js?v=118";
+} from "../characters/skills.js?v=123";
+import { buildEncounter } from "../monsters/roster.js?v=123";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=118";
-import { rollBattleLoot } from "../loot/drops.js?v=118";
+} from "../monsters/skills.js?v=123";
+import { rollBattleLoot } from "../loot/drops.js?v=123";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=118";
-import { createTicker } from "../core/time.js?v=118";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=118";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=118";
+} from "../characters/stats.js?v=123";
+import { createTicker } from "../core/time.js?v=123";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=123";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=123";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -67,8 +67,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=118";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=118";
+} from "./status.js?v=123";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=123";
 
 export function createBattleApi(ctx) {
   const {
@@ -682,7 +682,8 @@ export function createBattleApi(ctx) {
     const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
     let allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
     const enemyDmg = reflectBaseDamage(victim);
-    const enemyHitIds = [];
+    /** @type {{ id: string, opacity: number }[]} */
+    const fxHits = [];
 
     const units = battleUnits(b).filter(
       (u) => u && u.hp > 0 && u.id !== victim.id
@@ -692,6 +693,12 @@ export function createBattleApi(ctx) {
       ? units
       : units.filter((u) => source && u.id === source.id);
 
+    /** 友军飞针透明度：伤害/治疗比例越低越透明，仍可见 */
+    const allyFxOpacity = (ratio) => {
+      const r = Math.abs(Number(ratio) || 0);
+      return Math.max(0.22, Math.min(0.85, 0.18 + r * 0.95));
+    };
+
     for (const u of targets) {
       const isAlly = !!u.isHero;
       if (!isAlly) {
@@ -700,7 +707,7 @@ export function createBattleApi(ctx) {
           trueDamage: true,
           source: victim,
         });
-        enemyHitIds.push(u.id);
+        fxHits.push({ id: u.id, opacity: 1 });
         continue;
       }
       if (allyRatio > 0) {
@@ -710,18 +717,15 @@ export function createBattleApi(ctx) {
           trueDamage: true,
           source: victim,
         });
+        fxHits.push({ id: u.id, opacity: allyFxOpacity(allyRatio) });
       } else if (allyRatio < 0) {
         const healAmt = Math.max(1, Math.floor(enemyDmg * Math.abs(allyRatio)));
         applyHeal(u, healAmt, { source: victim });
         applyMendPulse(b, victim, u, healAmt);
-        dealDamage(u, 1, {
-          fromReflect: true,
-          trueDamage: true,
-          source: victim,
-        });
+        fxHits.push({ id: u.id, opacity: allyFxOpacity(allyRatio) });
       }
     }
-    if (enemyHitIds.length) playReflectSpikes(victim.id, enemyHitIds);
+    if (fxHits.length) playReflectSpikes(victim.id, fxHits);
     syncHeroHp(b);
   }
 
@@ -838,10 +842,10 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 治愈戒：任意治疗后附加 200 行动条脉动 */
+  /** 治愈戒：任意治疗后附加 200 行动条脉动（按治疗者行动条推进） */
   function applyMendPulse(b, healer, target, healedAmount) {
     const hero = actingHero(healer);
-    if (!heroHasUnique(hero, "green_mend_pulse") || !target) return;
+    if (!heroHasUnique(hero, "green_mend_pulse") || !target || !healer) return;
     const tickDmg = Math.max(1, Math.floor(Math.max(1, healedAmount) * 0.2));
     target.mendPulse = {
       remain: 200,
@@ -850,14 +854,29 @@ export function createBattleApi(ctx) {
       lostThisCycle: false,
       lastLost: 0,
       tickDmg,
-      healerId: healer?.id || null,
+      healerId: healer.id,
     };
+  }
+
+  /** 治疗者走行动条时，推进其施加的所有愈合脉冲 */
+  function advanceMendPulsesFromHealer(b, healer, walked) {
+    if (!healer?.id || !(walked > 0)) return;
+    for (const u of battleUnits(b)) {
+      if (u?.mendPulse?.healerId === healer.id) {
+        advanceMendPulse(b, u, walked);
+      }
+    }
   }
 
   function advanceMendPulse(b, unit, walked) {
     const p = unit?.mendPulse;
     if (!p || unit.hp <= 0) {
       if (unit) unit.mendPulse = null;
+      return;
+    }
+    const healer = findUnitById(b, p.healerId);
+    if (!healer || healer.hp <= 0) {
+      unit.mendPulse = null;
       return;
     }
     p.bar = (p.bar || 0) + walked;
@@ -876,7 +895,6 @@ export function createBattleApi(ctx) {
     }
     if (p.walk >= 20) {
       const healAmt = Math.max(1, Math.floor(p.lastLost * 2.5));
-      const healer = findUnitById(b, p.healerId);
       applyHeal(unit, healAmt, { source: healer || null });
       p.walk -= 20;
       p.lostThisCycle = false;
@@ -1122,6 +1140,9 @@ export function createBattleApi(ctx) {
       statsId: hero?.statsId || "",
       color: hero?.color || ally.color || "",
     };
+    if (isHealSkill(used) && heroHasUnique(hero, "green_spring_bloom")) {
+      fxMeta.shotDuration = 95;
+    }
 
     tryApplySelfBuffs(ally, mods);
 
@@ -1440,13 +1461,12 @@ export function createBattleApi(ctx) {
         if (isStunned(u)) {
           tickStatuses(u, walk);
           advanceUnitDot(b, u, walk);
-          if (u.mendPulse) advanceMendPulse(b, u, walk);
           continue;
         }
         tickStatuses(u, walk);
         const spd = effectiveSpd(u);
         u.gauge += spd;
-        if (u.mendPulse) advanceMendPulse(b, u, spd);
+        advanceMendPulsesFromHealer(b, u, spd);
         advanceUnitDot(b, u, spd);
         if (u.gauge >= GAUGE_MAX) {
           u.gauge = GAUGE_MAX;
@@ -1582,6 +1602,63 @@ export function createBattleApi(ctx) {
       !mortalAllies(state.battle).length
     ) {
       void endBattle("lose");
+      return;
+    }
+
+    void runOpeningSpringBloom(state.battle);
+  }
+
+  /** 队伍里小绿的春芽技能等级；没有小绿则按 1 级 */
+  function partyGreenBloomLevel() {
+    const green = (getState().party || []).find((h) => h?.statsId === "green");
+    return green ? getSkillLevel(green, "green_bloom") : 1;
+  }
+
+  /** 雾林春芽戒：开场 10% 春芽全体治疗 */
+  async function runOpeningSpringBloom(b) {
+    if (!b || b.ending) return;
+    const casters = (b.allies || []).filter((a) => {
+      if (!a || a.hp <= 0) return false;
+      const hero = actingHero(a);
+      return heroHasUnique(hero, "green_spring_bloom");
+    });
+    if (!casters.length) return;
+
+    b.busy = true;
+    setBattleButtons(false);
+    const bloomLv = partyGreenBloomLevel();
+    try {
+      for (const ally of casters) {
+        if (!b || b.ending || ally.hp <= 0) continue;
+        const hero = actingHero(ally);
+        const mods = sumSkillMods(hero?.equip);
+        const full = skillHealAmount(ally, "green_bloom", mods, bloomLv);
+        const amount = Math.max(1, Math.floor(full * 0.1));
+        const list = livingAllies(b);
+        if (!list.length) continue;
+        const primary = pickLowestAlly(b) || list[0];
+        await playSkillAnim("heal", ally.id, primary.id, {
+          skillId: "green_bloom",
+          statsId: "green",
+          color: hero?.color || ally.color || "",
+          shotDuration: 95,
+        });
+        for (const t of list) {
+          if (t.hp <= 0) continue;
+          const healed = applyHeal(t, amount, { source: ally });
+          applyMendPulse(b, ally, t, healed || amount);
+        }
+        applyLifeFlowBuff(b, ally);
+        syncHeroHp(b);
+        renderBattle(b);
+      }
+    } finally {
+      if (b && !b.ending) {
+        b.busy = false;
+        setBattleButtons(false);
+        $("btnFlee").disabled = false;
+        $("btnAuto").disabled = false;
+      }
     }
   }
 

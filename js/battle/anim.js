@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=118";
+import { $, wait } from "../core/utils.js?v=123";
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();
@@ -158,28 +158,37 @@ export async function animMelee(attackerId, targetId, profile = {}) {
 }
 
 /**
- * 小黄反伤：每次对敌人造成伤害时，从自身射出小飞针打到目标（不阻塞战斗）
+ * 小黄反伤：从自身射出小飞针打到目标（不阻塞战斗）
  * @param {string} fromId
- * @param {string[]} toIds 仅敌人
+ * @param {Array<string|{id:string,opacity?:number}>} toHits 敌人/友军；友军可带透明度
  */
-export function playReflectSpikes(fromId, toIds) {
+export function playReflectSpikes(fromId, toHits) {
   const field = fieldRect();
   const fromEl =
     document.querySelector(`[data-wrap="${fromId}"]`) ||
     document.querySelector(`.battle-unit[data-id="${fromId}"]`);
-  if (!field || !fromEl || !toIds?.length) return;
+  const hits = (toHits || [])
+    .map((h) =>
+      typeof h === "string"
+        ? { id: h, opacity: 1 }
+        : { id: h?.id, opacity: h?.opacity != null ? h.opacity : 1 }
+    )
+    .filter((h) => h.id);
+  if (!field || !fromEl || !hits.length) return;
 
   const a = toField(centerOf(fromEl), field);
   const aura = spawnFx("fx-reflect-aura theme-yellow", a.x, a.y);
   if (aura) wait(320).then(() => aura.remove());
 
-  toIds.forEach((tid, i) => {
-    const targetEl = document.querySelector(`.battle-unit[data-id="${tid}"]`);
+  hits.forEach((hit, i) => {
+    const targetEl = document.querySelector(`.battle-unit[data-id="${hit.id}"]`);
     if (!targetEl) return;
+    const opacity = Math.max(0.18, Math.min(1, Number(hit.opacity) || 1));
     const t = toField(centerOf(targetEl), field);
     wait(i * 36).then(async () => {
       const needle = spawnFx("fx-needle theme-yellow", a.x, a.y);
       if (!needle) return;
+      needle.style.opacity = String(opacity);
       const rot = angleDeg(a, t);
       needle.style.transform = `rotate(${rot}deg) scaleX(0.85)`;
       await wait(12);
@@ -193,10 +202,15 @@ export function playReflectSpikes(fromId, toIds) {
       await wait(40);
       needle.remove();
       const prick = spawnFx("fx-needle-hit theme-yellow", t.x, t.y);
-      if (prick) wait(280).then(() => prick.remove());
-      targetEl.classList.remove("hit");
-      void targetEl.offsetWidth;
-      targetEl.classList.add("hit");
+      if (prick) {
+        prick.style.opacity = String(opacity);
+        wait(280).then(() => prick.remove());
+      }
+      if (opacity >= 0.45) {
+        targetEl.classList.remove("hit");
+        void targetEl.offsetWidth;
+        targetEl.classList.add("hit");
+      }
     });
   });
 }
@@ -276,16 +290,18 @@ async function animVolley(attackerId, targetId, profile) {
 
 async function animHeal(attackerId, targetId, profile) {
   const theme = profile.theme || "green";
+  const duration = profile.duration ?? 300;
   const hit = await flyProjectile(
     attackerId,
     targetId,
     `fx-bolt shape-heal theme-${theme}`,
-    300
+    duration
   );
   if (!hit) return;
   hit.el.remove();
   const ring = spawnFx(`fx-impact impact-heal theme-${theme}`, hit.t.x, hit.t.y);
-  if (ring) wait(420).then(() => ring.remove());
+  const linger = Math.max(140, Math.floor(duration * 1.2));
+  if (ring) wait(linger).then(() => ring.remove());
 }
 
 async function animHealBloom(attackerId, targetId, profile) {
@@ -294,13 +310,16 @@ async function animHealBloom(attackerId, targetId, profile) {
   const targetEl = document.querySelector(`.battle-unit[data-id="${targetId}"]`);
   if (!field || !targetEl) return;
   const t = toField(centerOf(targetEl), field);
+  const duration = profile.duration ?? 300;
+  const petalMs = Math.max(160, Math.floor(duration * 1.4));
   for (let i = 0; i < 3; i++) {
     const petal = spawnFx(`fx-petal theme-green`, t.x, t.y);
     if (!petal) continue;
     petal.style.setProperty("--dx", `${(i - 1) * 28}px`);
     petal.style.setProperty("--dy", `${-18 - i * 10}px`);
-    wait(500).then(() => petal.remove());
+    wait(petalMs).then(() => petal.remove());
   }
+  if (duration < 200) await wait(Math.max(40, duration * 0.35));
 }
 
 async function animBuffRing(attackerId, profile) {
