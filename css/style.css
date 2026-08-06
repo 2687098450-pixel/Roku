@@ -16,7 +16,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* 全站统一滚动条：暖色圆角轨道 + 琥珀滑块 */
+/* 全站统一滚动条：暖色圆角轨道 + 琥珀滑块（轨道两端圆角完整，不被裁切） */
 .modal-card,
 .equip-preview-body,
 .equip-pick-list,
@@ -27,7 +27,8 @@
 .bag-sell-rarities,
 .tab-pane,
 .skill-scroll,
-.auto-slots {
+.auto-slots,
+.form-pool {
   scrollbar-width: thin;
   scrollbar-color: var(--scroll-thumb) var(--scroll-track);
   -webkit-overflow-scrolling: touch;
@@ -43,9 +44,27 @@
 .bag-sell-rarities::-webkit-scrollbar,
 .tab-pane::-webkit-scrollbar,
 .skill-scroll::-webkit-scrollbar,
-.auto-slots::-webkit-scrollbar {
+.auto-slots::-webkit-scrollbar,
+.form-pool::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+}
+
+.modal-card::-webkit-scrollbar-button,
+.equip-preview-body::-webkit-scrollbar-button,
+.equip-pick-list::-webkit-scrollbar-button,
+.skill-pick-list::-webkit-scrollbar-button,
+.skill-detail-body::-webkit-scrollbar-button,
+.bag-grid::-webkit-scrollbar-button,
+.warp-floor-list::-webkit-scrollbar-button,
+.bag-sell-rarities::-webkit-scrollbar-button,
+.tab-pane::-webkit-scrollbar-button,
+.skill-scroll::-webkit-scrollbar-button,
+.auto-slots::-webkit-scrollbar-button,
+.form-pool::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .modal-card::-webkit-scrollbar-track,
@@ -58,10 +77,11 @@
 .bag-sell-rarities::-webkit-scrollbar-track,
 .tab-pane::-webkit-scrollbar-track,
 .skill-scroll::-webkit-scrollbar-track,
-.auto-slots::-webkit-scrollbar-track {
+.auto-slots::-webkit-scrollbar-track,
+.form-pool::-webkit-scrollbar-track {
   background: var(--scroll-track);
   border-radius: 999px;
-  margin: 6px;
+  margin: 4px 8px;
   border: 1px solid var(--scroll-ink);
 }
 
@@ -75,7 +95,8 @@
 .bag-sell-rarities::-webkit-scrollbar-thumb,
 .tab-pane::-webkit-scrollbar-thumb,
 .skill-scroll::-webkit-scrollbar-thumb,
-.auto-slots::-webkit-scrollbar-thumb {
+.auto-slots::-webkit-scrollbar-thumb,
+.form-pool::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #f0c070, var(--scroll-thumb));
   border-radius: 999px;
   border: 2px solid var(--scroll-track);
@@ -93,7 +114,8 @@
 .bag-sell-rarities::-webkit-scrollbar-thumb:active,
 .tab-pane::-webkit-scrollbar-thumb:active,
 .skill-scroll::-webkit-scrollbar-thumb:active,
-.auto-slots::-webkit-scrollbar-thumb:active {
+.auto-slots::-webkit-scrollbar-thumb:active,
+.form-pool::-webkit-scrollbar-thumb:active {
   background: #d4923f;
 }
 
@@ -4208,15 +4230,10 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 2px 8px;
+  overflow-y: hidden;
+  padding: 4px 4px 12px;
   flex: 0 0 auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.form-pool::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  min-width: 0;
 }
 
 .form-pool-card {
