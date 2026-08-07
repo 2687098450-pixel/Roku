@@ -2371,6 +2371,31 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   cursor: default;
 }
 
+.equip-btn.affix-replace {
+  background: linear-gradient(180deg, #e8c878, #d4a84b);
+  color: #5a3e18;
+  box-shadow: 0 3px 0 #a07828;
+}
+
+.equip-btn.affix-replace:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #a07828;
+}
+
+.equip-pick-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: stretch;
+}
+
+.equip-pick-footer .equip-btn {
+  width: 100%;
+}
+
+.equip-pick-footer:has([hidden]) {
+  display: none;
+}
+
 .modal-card.equip-pick-card {
   width: min(400px, calc(100% - 24px));
   max-height: min(78vh, 640px);

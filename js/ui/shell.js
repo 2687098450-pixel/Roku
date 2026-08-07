@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=142";
+import { $, clamp, styleTag } from "../core/utils.js?v=143";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -56,22 +56,32 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=142";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=142";
-import { setSavedFormation } from "../characters/stats.js?v=142";
-import { resetGameLocalData } from "../core/save.js?v=142";
-import { createAllUniqueItems } from "../loot/drops.js?v=142";
-import { APP_VERSION } from "../core/version.js?v=142";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=142";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=142";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=142";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=142";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=142";
+} from "../characters/omni/index.js?v=143";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=143";
+import { setSavedFormation } from "../characters/stats.js?v=143";
+import { resetGameLocalData } from "../core/save.js?v=143";
+import { createAllUniqueItems } from "../loot/drops.js?v=143";
+import { APP_VERSION } from "../core/version.js?v=143";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=143";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=143";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=143";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=143";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=143";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
-} from "../characters/seals.js?v=142";
+} from "../characters/seals.js?v=143";
+import {
+  isAffixItem,
+  toolSortPriority,
+  affixDisplayName,
+  affixDisplayDetail,
+  canReplaceEquipAffix,
+  replaceEquipAffix,
+  condenseEquipAffix,
+  AFFIX_CONDENSE_USE_ID,
+} from "../characters/affixItems.js?v=143";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -98,8 +108,12 @@ export function createUI(ctx) {
   let sellRarities = new Set();
   /** 手机拨号缓冲 */
   let phoneDigits = "";
-  /** 背包：items | seals */
-  let bagTab = "items";
+  /** 背包：equips | tools | seals */
+  let bagTab = "equips";
+  /** 词条替换流程 */
+  let affixReplacePick = null;
+  /** 词条凝炼流程 */
+  let affixCondensePick = null;
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
@@ -107,6 +121,7 @@ export function createUI(ctx) {
     tool: "道具",
     equip: "装备",
     seal: "印章",
+    affix: "词条",
   };
 
   function isEquipItem(it) {
@@ -322,6 +337,10 @@ export function createUI(ctx) {
 
   function closeEquipPick() {
     $("equipPickModal")?.classList.add("hidden");
+    setEquipPickConfirm(false);
+    affixReplacePick = null;
+    affixCondensePick = null;
+    devourPick = null;
   }
 
   function closeEquipPreview() {
@@ -645,11 +664,13 @@ export function createUI(ctx) {
     sellOne = false,
     upgrade = false,
     devour = false,
+    affixReplace = false,
   } = {}) {
     const btnReplace = $("btnReplace");
     const btnSellOne = $("btnSellOne");
     const btnUpgrade = $("btnUpgradeEquip");
     const btnDevour = $("btnDevourEquip");
+    const btnAffixReplace = $("btnAffixReplace");
     const actions = btnReplace?.parentElement;
     if (btnReplace) btnReplace.hidden = !replace;
     if (btnSellOne) btnSellOne.hidden = !sellOne;
@@ -664,9 +685,25 @@ export function createUI(ctx) {
         btnDevour.textContent = "吞噬";
       }
     }
-    if (actions) {
-      actions.hidden = !replace && !sellOne && !upgrade && !devour;
+    if (btnAffixReplace) {
+      btnAffixReplace.hidden = !affixReplace;
+      if (affixReplace) {
+        btnAffixReplace.disabled = false;
+        btnAffixReplace.textContent = "词条替换";
+      }
     }
+    if (actions) {
+      actions.hidden =
+        !replace && !sellOne && !upgrade && !devour && !affixReplace;
+    }
+  }
+
+  function setEquipPickConfirm(visible, label = "确定") {
+    const btn = $("btnEquipPickConfirm");
+    if (!btn) return;
+    btn.hidden = !visible;
+    btn.textContent = label;
+    btn.onclick = null;
   }
 
   function currentPreviewItem() {
@@ -782,6 +819,7 @@ export function createUI(ctx) {
       return;
     }
     devourPick = { host, selected: [], mats };
+    setEquipPickConfirm(false);
     const title = $("equipPickTitle");
     const sub = $("equipPickSub");
     const list = $("equipPickList");
@@ -884,6 +922,332 @@ export function createUI(ctx) {
         openBagItemPreview(idx);
       }
     }
+    refreshExploreHud();
+    bumpSave();
+  }
+
+  function toastMsg(text, ms = 2400) {
+    const toast = $("lootToast");
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.remove("hidden");
+    clearTimeout(toast._flowTimer);
+    toast._flowTimer = setTimeout(() => toast.classList.add("hidden"), ms);
+  }
+
+  function listBagAffixItems() {
+    const inv = getState().inventory || [];
+    return inv
+      .map((it, invIndex) => ({ it, invIndex }))
+      .filter(({ it }) => isAffixItem(it));
+  }
+
+  function reopenCurrentEquipPreview() {
+    if (equipEdit?.source === "hero") {
+      const hero = currentEquipHero();
+      if (hero) openEquipPreview(hero, equipEdit.slotKey);
+    } else if (equipEdit?.source === "bag") {
+      openBagItemPreview(equipEdit.invIndex);
+    }
+  }
+
+  /** 红装：词条替换 — 先选背包词条，再选装备词条位，确定 */
+  function openAffixReplaceFlow() {
+    const host = currentPreviewItem();
+    if (!host || normalizeRarity(host.rarity) !== "red") return;
+    const bagAffixes = listBagAffixItems();
+    if (!bagAffixes.length) {
+      toastMsg("背包没有可替换的词条（可用词条凝炼器从红装凝炼）");
+      return;
+    }
+    affixReplacePick = {
+      host,
+      bagAffixIndex: -1,
+      bagAffix: null,
+      targetIndex: -1,
+    };
+    affixCondensePick = null;
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    const list = $("equipPickList");
+    if (title) title.textContent = "选择替换词条";
+    if (sub) {
+      sub.textContent =
+        "从背包选择一条词条，将替换红装上的一条已有词条（被替换的消失）";
+    }
+    setEquipPickConfirm(false);
+    list.innerHTML = bagAffixes
+      .map(
+        ({ it, invIndex }) =>
+          `<button type="button" class="equip-pick-item" data-affix-inv="${invIndex}">
+            <div class="equip-pick-top">
+              <b>${it.name}</b>
+              <span class="stag kind">词条</span>
+            </div>
+            <div class="equip-preview-rarity">${(it.desc || "").slice(0, 42)}</div>
+            <span class="equip-pick-cta">选择</span>
+          </button>`
+      )
+      .join("");
+    list.querySelectorAll("[data-affix-inv]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const invIndex = Number(btn.dataset.affixInv);
+        const it = getState().inventory?.[invIndex];
+        if (!isAffixItem(it)) return;
+        affixReplacePick.bagAffixIndex = invIndex;
+        affixReplacePick.bagAffix = it.affix;
+        openAffixReplaceTargetPick();
+      });
+    });
+    $("equipPickModal")?.classList.remove("hidden");
+  }
+
+  function openAffixReplaceTargetPick() {
+    const flow = affixReplacePick;
+    if (!flow?.host || !flow.bagAffix) return;
+    const host = flow.host;
+    const list = $("equipPickList");
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    if (title) title.textContent = "选择被替换词条";
+    if (sub) {
+      sub.textContent = `将装上「${affixDisplayName(flow.bagAffix)}」· 点选要替换掉的词条后确定`;
+    }
+    const affixes = host.affixes || [];
+    const render = () => {
+      list.innerHTML = affixes
+        .map((a, i) => {
+          const on = flow.targetIndex === i;
+          const tag =
+            a?.type === "unique" || a?.uniqueId
+              ? "唯一"
+              : a?.id === "cast_echo" || a?.id === "skill_level"
+                ? "特殊"
+                : `词条${i + 1}`;
+          return `<button type="button" class="equip-pick-item${on ? " on" : ""}" data-target="${i}">
+            <div class="equip-pick-top">
+              <b>${affixDisplayName(a)}</b>
+              <span class="stag kind">${tag}</span>
+            </div>
+            <div class="equip-preview-rarity">${(a?.detail || a?.text || "").slice(0, 40)}</div>
+            <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
+          </button>`;
+        })
+        .join("");
+      list.querySelectorAll("[data-target]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          flow.targetIndex = Number(btn.dataset.target);
+          render();
+          syncAffixReplaceConfirm();
+        });
+      });
+      syncAffixReplaceConfirm();
+    };
+    render();
+  }
+
+  function syncAffixReplaceConfirm() {
+    const flow = affixReplacePick;
+    const ok = !!(flow && flow.targetIndex >= 0 && flow.bagAffix);
+    setEquipPickConfirm(ok, "确定替换");
+    const btn = $("btnEquipPickConfirm");
+    if (btn && ok) {
+      btn.onclick = () => confirmAffixReplace();
+    }
+  }
+
+  function confirmAffixReplace() {
+    const flow = affixReplacePick;
+    if (!flow?.host || !flow.bagAffix || flow.targetIndex < 0) return;
+    const check = canReplaceEquipAffix(
+      flow.host,
+      flow.targetIndex,
+      flow.bagAffix
+    );
+    if (!check.ok) {
+      toastMsg(check.reason || "无法替换");
+      if (check.forceIndex != null) {
+        flow.targetIndex = check.forceIndex;
+        openAffixReplaceTargetPick();
+      }
+      return;
+    }
+    const inv = getState().inventory || [];
+    const bagItem = inv[flow.bagAffixIndex];
+    if (!isAffixItem(bagItem)) {
+      toastMsg("词条已不存在");
+      return;
+    }
+    const r = replaceEquipAffix(flow.host, flow.targetIndex, flow.bagAffix);
+    if (!r.ok) {
+      toastMsg(r.reason || "替换失败");
+      return;
+    }
+    inv.splice(flow.bagAffixIndex, 1);
+    affixReplacePick = null;
+    setEquipPickConfirm(false);
+    $("equipPickModal")?.classList.add("hidden");
+    toastMsg(`已替换为「${affixDisplayName(r.affix)}」`);
+    if (equipEdit?.source === "hero") {
+      const hero = currentEquipHero();
+      if (hero) {
+        refreshHeroStats(hero);
+        refreshSkillTexts(hero);
+        openDetail(hero.id, { keepEquip: true });
+        openEquipPreview(hero, equipEdit.slotKey);
+      }
+    } else {
+      reopenCurrentEquipPreview();
+    }
+    renderBag();
+    refreshExploreHud();
+    bumpSave();
+  }
+
+  /** 词条凝炼器：选红装 → 选词条 → 确定 */
+  function openAffixCondenseFlow(toolInvIndex) {
+    const inv = getState().inventory || [];
+    const tool = inv[toolInvIndex];
+    if (!tool || tool.useId !== AFFIX_CONDENSE_USE_ID) return;
+    if ((tool.qty || 1) < 1) {
+      toastMsg("凝炼器数量不足");
+      return;
+    }
+    const reds = inv
+      .map((it, invIndex) => ({ it, invIndex }))
+      .filter(
+        ({ it, invIndex }) =>
+          invIndex !== toolInvIndex &&
+          isEquipItem(it) &&
+          normalizeRarity(it.rarity) === "red" &&
+          (it.affixes || []).length > 0
+      );
+    if (!reds.length) {
+      toastMsg("背包里没有可凝炼的红装");
+      return;
+    }
+    affixCondensePick = {
+      toolInvIndex,
+      equipInvIndex: -1,
+      host: null,
+      targetIndex: -1,
+    };
+    affixReplacePick = null;
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    const list = $("equipPickList");
+    if (title) title.textContent = "选择红装";
+    if (sub) sub.textContent = "凝炼后该装备消失，所选词条进入背包";
+    setEquipPickConfirm(false);
+    list.innerHTML = reds
+      .map(({ it, invIndex }) => {
+        const info = rarityInfo(it.rarity);
+        return `<button type="button" class="equip-pick-item" data-red-inv="${invIndex}">
+          <div class="equip-pick-top">
+            <b>${it.name}</b>
+            <span class="stag rarity-tag rarity-${info.id}">${info.label}</span>
+          </div>
+          <div class="equip-preview-rarity">Lv${itemLevel(it)} · 词条 ${(it.affixes || []).length}</div>
+          <span class="equip-pick-cta">选择</span>
+        </button>`;
+      })
+      .join("");
+    list.querySelectorAll("[data-red-inv]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const invIndex = Number(btn.dataset.redInv);
+        const host = getState().inventory?.[invIndex];
+        if (!host) return;
+        affixCondensePick.equipInvIndex = invIndex;
+        affixCondensePick.host = host;
+        affixCondensePick.targetIndex = -1;
+        openAffixCondenseTargetPick();
+      });
+    });
+    hideEquipAffixDetail();
+    $("equipPreviewModal")?.classList.add("hidden");
+    $("equipPickModal")?.classList.remove("hidden");
+  }
+
+  function openAffixCondenseTargetPick() {
+    const flow = affixCondensePick;
+    if (!flow?.host) return;
+    const list = $("equipPickList");
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    if (title) title.textContent = "选择凝炼词条";
+    if (sub) {
+      sub.textContent = `装备「${flow.host.name}」将消失 · 选一条词条后确定`;
+    }
+    const affixes = flow.host.affixes || [];
+    const render = () => {
+      list.innerHTML = affixes
+        .map((a, i) => {
+          const on = flow.targetIndex === i;
+          const tag =
+            a?.type === "unique" || a?.uniqueId
+              ? "唯一"
+              : a?.id === "cast_echo" || a?.id === "skill_level"
+                ? "特殊"
+                : `词条${i + 1}`;
+          return `<button type="button" class="equip-pick-item${on ? " on" : ""}" data-target="${i}">
+            <div class="equip-pick-top">
+              <b>${affixDisplayName(a)}</b>
+              <span class="stag kind">${tag}</span>
+            </div>
+            <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
+          </button>`;
+        })
+        .join("");
+      list.querySelectorAll("[data-target]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          flow.targetIndex = Number(btn.dataset.target);
+          render();
+        });
+      });
+      const ok = flow.targetIndex >= 0;
+      setEquipPickConfirm(ok, "确定凝炼");
+      const btn = $("btnEquipPickConfirm");
+      if (btn && ok) btn.onclick = () => confirmAffixCondense();
+    };
+    render();
+  }
+
+  function confirmAffixCondense() {
+    const flow = affixCondensePick;
+    if (!flow || flow.targetIndex < 0) return;
+    const state = getState();
+    const inv = state.inventory || [];
+    const tool = inv[flow.toolInvIndex];
+    const host = inv[flow.equipInvIndex];
+    if (!tool || tool.useId !== AFFIX_CONDENSE_USE_ID || !host) {
+      toastMsg("物品状态已变化");
+      return;
+    }
+    const r = condenseEquipAffix(host, flow.targetIndex);
+    if (!r.ok) {
+      toastMsg(r.reason || "凝炼失败");
+      return;
+    }
+    const eqI = inv.indexOf(host);
+    if (eqI >= 0) inv.splice(eqI, 1);
+    const toolNow =
+      inv.find((it) => it === tool) ||
+      inv.find((it) => it && it.useId === AFFIX_CONDENSE_USE_ID);
+    if (toolNow) {
+      if ((toolNow.qty || 1) > 1) toolNow.qty = (toolNow.qty || 1) - 1;
+      else {
+        const ti = inv.indexOf(toolNow);
+        if (ti >= 0) inv.splice(ti, 1);
+      }
+    }
+    inv.push(r.item);
+    affixCondensePick = null;
+    setEquipPickConfirm(false);
+    $("equipPickModal")?.classList.add("hidden");
+    toastMsg(`凝炼得到「${r.item.name}」`);
+    bagTab = "tools";
+    syncBagTabs();
+    renderBag();
     refreshExploreHud();
     bumpSave();
   }
@@ -1090,6 +1454,7 @@ export function createUI(ctx) {
       sellOne: false,
       upgrade: !!(item && canUpgradeEquip(item)),
       devour: !!(item && normalizeRarity(item.rarity) === "red"),
+      affixReplace: !!(item && normalizeRarity(item.rarity) === "red"),
     });
 
     if (!item) {
@@ -1129,6 +1494,7 @@ export function createUI(ctx) {
         sellOne: true,
         upgrade: canUpgradeEquip(item),
         devour: normalizeRarity(item.rarity) === "red",
+        affixReplace: normalizeRarity(item.rarity) === "red",
       });
       body.innerHTML = renderEquipItemBody(item, { price: true });
       bindUniqueAffixTaps(body);
@@ -1154,17 +1520,43 @@ export function createUI(ctx) {
       body.querySelector("#btnEquipSeal")?.addEventListener("click", () => {
         openSealEquipHeroPick(invIndex);
       });
+    } else if (isAffixItem(item)) {
+      if (title) title.textContent = "词条";
+      setPreviewActions({ replace: false, sellOne: false });
+      const a = item.affix;
+      body.innerHTML = `
+        <div class="equip-preview-top">
+          <div class="equip-preview-ico empty misc" style="--tint:${item.tint || "#c9a227"}">
+            <i class="bag-ico preview-ball" aria-hidden="true"></i>
+          </div>
+          <div class="equip-preview-meta">
+            <div class="equip-preview-name-row">
+              <span class="equip-preview-name">${item.name}</span>
+              <span class="stag kind">词条</span>
+            </div>
+            <div class="equip-preview-rarity">用于红装「词条替换」</div>
+          </div>
+        </div>
+        <p class="equip-preview-desc">${item.desc || affixDisplayDetail(a)}</p>`;
     } else {
       if (title) title.textContent = MISC_KIND_LABEL[item.kind] || "物品";
       const isWarp = item.useId === "warp_refresh";
       const isPhone = item.useId === "phone_dial";
+      const isCondense = item.useId === AFFIX_CONDENSE_USE_ID;
       setPreviewActions({ replace: false, sellOne: false });
       const kindLabel = MISC_KIND_LABEL[item.kind] || "道具";
       const useBtn = isWarp
         ? `<button type="button" class="equip-btn replace" id="btnUseWarp">选择楼层传送</button>`
         : isPhone
           ? `<button type="button" class="equip-btn replace" id="btnUsePhone">打开拨号</button>`
-          : "";
+          : isCondense
+            ? `<button type="button" class="equip-btn affix-replace" id="btnUseCondense">凝炼红装词条</button>`
+            : "";
+      const rarityLine = isWarp || isPhone
+        ? "可重复使用"
+        : isCondense
+          ? `数量 ×${item.qty ?? 1} · 消耗品`
+          : `数量 ×${item.qty ?? 1}`;
       body.innerHTML = `
         <div class="equip-preview-top">
           <div class="equip-preview-ico empty misc" style="--tint:${item.tint || "#ddd"}">
@@ -1175,9 +1567,7 @@ export function createUI(ctx) {
               <span class="equip-preview-name">${item.name}</span>
               <span class="stag kind">${kindLabel}</span>
             </div>
-            <div class="equip-preview-rarity">${
-              isWarp || isPhone ? "可重复使用" : `数量 ×${item.qty ?? 1}`
-            }</div>
+            <div class="equip-preview-rarity">${rarityLine}</div>
           </div>
         </div>
         <p class="equip-preview-desc">${
@@ -1191,6 +1581,9 @@ export function createUI(ctx) {
         ${useBtn}`;
       body.querySelector("#btnUseWarp")?.addEventListener("click", openWarpPicker);
       body.querySelector("#btnUsePhone")?.addEventListener("click", openPhoneDial);
+      body.querySelector("#btnUseCondense")?.addEventListener("click", () =>
+        openAffixCondenseFlow(invIndex)
+      );
     }
     hideEquipAffixDetail();
     $("equipPreviewModal").classList.remove("hidden");
@@ -1267,6 +1660,7 @@ export function createUI(ctx) {
     const list = inv
       .map((it, index) => ({ it, index }))
       .filter(({ it }) => isSealItem(it));
+    setEquipPickConfirm(false);
     const title = $("equipPickTitle");
     const sub = $("equipPickSub");
     const box = $("equipPickList");
@@ -1300,6 +1694,7 @@ export function createUI(ctx) {
     const state = getState();
     const item = state.inventory?.[invIndex];
     if (!isSealItem(item)) return;
+    setEquipPickConfirm(false);
     const title = $("equipPickTitle");
     const sub = $("equipPickSub");
     const box = $("equipPickList");
@@ -1347,6 +1742,7 @@ export function createUI(ctx) {
     const hero = currentEquipHero();
     if (!hero || !equipEdit) return;
     const { slotKey } = equipEdit;
+    setEquipPickConfirm(false);
     const title = $("equipPickTitle");
     const sub = $("equipPickSub");
     const list = $("equipPickList");
@@ -2093,7 +2489,7 @@ export function createUI(ctx) {
     if (canOpenParty && !canOpenParty()) return;
     closeModals();
     setMode("menu");
-    bagTab = "items";
+    bagTab = "equips";
     syncBagTabs();
     $("bagModal").classList.remove("hidden");
     renderBag();
@@ -2106,7 +2502,8 @@ export function createUI(ctx) {
   }
 
   function setBagTab(tab) {
-    bagTab = tab === "seals" ? "seals" : "items";
+    if (tab === "seals" || tab === "tools" || tab === "equips") bagTab = tab;
+    else bagTab = "equips";
     syncBagTabs();
     renderBag();
   }
@@ -2239,25 +2636,23 @@ export function createUI(ctx) {
     const items = (state.inventory || []).filter(Boolean);
     const equips = [];
     const seals = [];
-    const misc = [];
+    const tools = [];
     for (const it of items) {
       if (isSealItem(it)) seals.push(it);
       else if (isEquipItem(it)) equips.push(it);
-      else misc.push(it);
+      else tools.push(it);
     }
     equips.sort(compareEquipByRarityLevel);
     seals.sort((a, b) =>
       String(a.name || "").localeCompare(String(b.name || ""), "zh")
     );
-    // 道具优先于装备；道具内：消耗品 → 道具 → 其余
-    const kindOrder = { consumable: 0, tool: 1, material: 2 };
-    misc.sort((a, b) => {
-      const ka = kindOrder[a.kind] ?? 9;
-      const kb = kindOrder[b.kind] ?? 9;
-      if (ka !== kb) return ka - kb;
+    tools.sort((a, b) => {
+      const pa = toolSortPriority(a);
+      const pb = toolSortPriority(b);
+      if (pa !== pb) return pa - pb;
       return String(a.name || "").localeCompare(String(b.name || ""), "zh");
     });
-    state.inventory = [...misc, ...seals, ...equips];
+    state.inventory = [...tools, ...seals, ...equips];
     renderBag();
     bumpSave();
     const btn = $("btnBagSort");
@@ -2275,17 +2670,21 @@ export function createUI(ctx) {
     }
   }
 
+  function bagItemMatchesTab(it) {
+    if (!it) return false;
+    if (bagTab === "seals") return isSealItem(it);
+    if (bagTab === "equips") return isEquipItem(it) && !isSealItem(it);
+    // tools：非装备、非印章
+    return !isEquipItem(it) && !isSealItem(it);
+  }
+
   function renderBag() {
     const grid = $("bagGrid");
     if (!grid) return;
     const all = getState().inventory || [];
     const indexed = all
       .map((it, index) => ({ it, index }))
-      .filter(({ it }) => {
-        if (!it) return false;
-        const seal = isSealItem(it);
-        return bagTab === "seals" ? seal : !seal;
-      });
+      .filter(({ it }) => bagItemMatchesTab(it));
     const cells = [];
     for (let i = 0; i < BAG_SLOTS; i++) {
       const entry = indexed[i];
@@ -2297,12 +2696,13 @@ export function createUI(ctx) {
       const invIndex = entry.index;
       const equip = isEquipItem(it);
       const seal = isSealItem(it);
+      const affix = isAffixItem(it);
       const qty =
         equip && it.level != null
           ? `<em>lv${it.level}</em>`
           : it.qty > 1
             ? `<em>×${it.qty}</em>`
-            : !equip && !seal
+            : !equip && !seal && !affix
               ? `<em>×${it.qty ?? 1}</em>`
               : "";
       const icon = itemIconUrl(it);
@@ -2310,6 +2710,7 @@ export function createUI(ctx) {
       const rarityCls = rarity ? ` rarity-${rarity}` : "";
       const miscCls = !equip && !icon ? " misc" : "";
       const sealCls = seal ? " seal-item" : "";
+      const affixCls = affix ? " seal-item" : "";
       const shortName =
         !equip && !icon
           ? `<span class="bag-name">${(it.name || "").slice(0, 4)}</span>`
@@ -2323,10 +2724,12 @@ export function createUI(ctx) {
           : "";
       const kindHint = seal
         ? "印章"
-        : !equip
-          ? MISC_KIND_LABEL[it.kind] || "道具"
-          : `${rarityLabel(rarity)}装`;
-      cells.push(`<button type="button" class="bag-slot clickable${icon ? " has-icon" : ""}${rarityCls}${miscCls}${sealCls}" data-inv="${invIndex}" title="${it.name} · ${kindHint}" style="--tint:${it.tint || rarityInfo(it.rarity).color};--rarity:${rarityInfo(it.rarity).color}">
+        : affix
+          ? "词条"
+          : !equip
+            ? MISC_KIND_LABEL[it.kind] || "道具"
+            : `${rarityLabel(rarity)}装`;
+      cells.push(`<button type="button" class="bag-slot clickable${icon ? " has-icon" : ""}${rarityCls}${miscCls}${sealCls}${affixCls}" data-inv="${invIndex}" title="${it.name} · ${kindHint}" style="--tint:${it.tint || rarityInfo(it.rarity).color};--rarity:${rarityInfo(it.rarity).color}">
         ${icoHtml}
         ${shortName}
         ${rareMark}
@@ -2609,6 +3012,7 @@ export function createUI(ctx) {
     });
     $("btnUpgradeEquip")?.addEventListener("click", doUpgradeEquip);
     $("btnDevourEquip")?.addEventListener("click", openDevourPick);
+    $("btnAffixReplace")?.addEventListener("click", openAffixReplaceFlow);
     $("btnBagSell")?.addEventListener("click", openBagSell);
     $("btnBagSort")?.addEventListener("click", sortBagInventory);
     $("btnConfirmSell")?.addEventListener("click", confirmBagSell);

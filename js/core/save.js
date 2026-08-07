@@ -15,11 +15,12 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=142";
-import { createPatrolMonster } from "../monsters/slime.js?v=142";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=142";
-import { digFloorSecretPath } from "../map/dungeon.js?v=142";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=142";
+} from "../characters/omni/index.js?v=143";
+import { createPatrolMonster } from "../monsters/slime.js?v=143";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=143";
+import { digFloorSecretPath } from "../map/dungeon.js?v=143";
+import { mergeStackableTools } from "../characters/affixItems.js?v=143";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=143";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -342,10 +343,12 @@ export function sanitizeInventory(state) {
   const equips = [];
   for (const it of inv) {
     if (it.kind === "seal" || it.sealId) seals.push(it);
-    else if (it.slot || it.kind === "equip" || it.rarity) equips.push(it);
+    else if (it.kind === "affix" || it.affix) tools.push(it);
+    else if (it.slot || it.kind === "equip" || (it.rarity && it.kind !== "tool"))
+      equips.push(it);
     else tools.push(it);
   }
-  state.inventory = [...tools, ...seals, ...equips];
+  state.inventory = mergeStackableTools([...tools, ...seals, ...equips]);
 }
 
 export function saveProgress(state) {

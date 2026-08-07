@@ -3,7 +3,7 @@
 import {
   preloadMonsterImages,
   drawMonsterSprite,
-} from "../monsters/visuals.js?v=142";
+} from "../monsters/visuals.js?v=143";
 
 export { preloadMonsterImages };
 

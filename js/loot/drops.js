@@ -9,9 +9,10 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=142";
-import { makeFoolSeal } from "../characters/seals.js?v=142";
-import { getFloorDef } from "../map/floors.js?v=142";
+} from "../characters/omni/equipment.js?v=143";
+import { makeFoolSeal } from "../characters/seals.js?v=143";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=143";
+import { getFloorDef } from "../map/floors.js?v=143";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -761,6 +762,11 @@ export function rollBossLoot(monster, opts = {}) {
     if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
     else drops.push(rollBossNormalItem(display, power));
     return drops;
+  }
+
+  // 10 层主 Boss：词条凝炼器
+  if (display === 10 && monster?.isBoss && !monster?.isHiddenBoss) {
+    drops.push(makeAffixCondenser(1));
   }
 
   const want = Math.random() < 0.5 ? 2 : 3;

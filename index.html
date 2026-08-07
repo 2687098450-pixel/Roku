@@ -33,7 +33,7 @@
   <meta name="theme-color" content="#fff4e0" />
   <title>魔窟 · 探索</title>
   <!-- 不用 Google Fonts：国内 WiFi / pad 上常被拦，易被浏览器报「网络出错」 -->
-  <link rel="stylesheet" href="css/style.css?v=142" />
+  <link rel="stylesheet" href="css/style.css?v=143" />
 </head>
 <body>
   <div id="app">
@@ -245,6 +245,7 @@
         <div class="equip-preview-actions">
           <button type="button" class="equip-btn upgrade" id="btnUpgradeEquip" hidden>升级</button>
           <button type="button" class="equip-btn devour" id="btnDevourEquip" hidden>吞噬</button>
+          <button type="button" class="equip-btn affix-replace" id="btnAffixReplace" hidden>词条替换</button>
           <button type="button" class="equip-btn sell-one" id="btnSellOne" hidden>出售</button>
           <button type="button" class="equip-btn replace" id="btnReplace">更换</button>
         </div>
@@ -260,6 +261,9 @@
         </div>
         <p id="equipPickSub" class="equip-pick-sub"></p>
         <div id="equipPickList" class="equip-pick-list"></div>
+        <div class="equip-pick-footer">
+          <button type="button" class="equip-btn replace" id="btnEquipPickConfirm" hidden>确定</button>
+        </div>
       </div>
     </div>
 
@@ -271,7 +275,8 @@
           <button type="button" class="icon-close" id="closeBag">×</button>
         </div>
         <div class="bag-tabs" role="tablist" aria-label="背包分类">
-          <button type="button" class="bag-tab on" data-bag-tab="items" id="bagTabItems">物品</button>
+          <button type="button" class="bag-tab on" data-bag-tab="equips" id="bagTabEquips">装备</button>
+          <button type="button" class="bag-tab" data-bag-tab="tools" id="bagTabTools">道具</button>
           <button type="button" class="bag-tab" data-bag-tab="seals" id="bagTabSeals">印章</button>
         </div>
         <div id="bagGrid" class="bag-grid" aria-label="物品栏"></div>
@@ -382,6 +387,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=142"></script>
+  <script type="module" src="js/main.js?v=143"></script>
 </body>
 </html>
