@@ -6,7 +6,7 @@
 import {
   bossControlEffectMult,
   isSpecialBossFloor,
-} from "../monsters/bossKinds.js?v=157";
+} from "../monsters/bossKinds.js?v=158";
 
 export const DEFAULT_STATUS_GAUGE = 50;
 export const DEFAULT_HIT_RATE = 1;

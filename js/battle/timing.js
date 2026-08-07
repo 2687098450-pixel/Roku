@@ -4,6 +4,9 @@ export const DOT_TICK_SECONDS = 0.3;
 export const ANIM_FAST_MS = 180;
 export const ANIM_SLOW_MS = 420;
 
+/** 流畅模式：走位间隔（秒，受战斗倍速缩放）；与行动条无关 */
+export const MOVE_STEP_SECONDS = 0.22;
+
 /** 旧行动条 gauge → 持续秒数：(gauge/50)*3，至少 1.2s */
 export function dotDurationSec(gauge) {
   const g = Math.max(0, Number(gauge) || 50);
