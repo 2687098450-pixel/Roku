@@ -1,6 +1,6 @@
 /** 经验、升级、技能点（无循环依赖） */
 
-import { scaleExpGain } from "../core/economy.js?v=165";
+import { scaleExpGain } from "../core/economy.js?v=166";
 
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%
@@ -43,6 +43,7 @@ export function expToNext(level) {
   return Math.max(1, Math.floor(6 + lv * 3.5 + lv * lv * 0.6));
 }
 
+/** @deprecated 旧四维成长；保留给兼容调用 */
 export function levelStatBonus(level) {
   const L = Math.max(0, Math.floor(level || 1) - 1);
   return {
@@ -50,6 +51,17 @@ export function levelStatBonus(level) {
     atk: L * 1,
     def: Math.floor(L * 0.4),
     spd: Math.floor(L * 0.2),
+  };
+}
+
+/** 升级：每级加力/智/敏（按角色 growth） */
+export function levelPrimaryBonus(level, growth = null) {
+  const L = Math.max(0, Math.floor(level || 1) - 1);
+  const g = growth || { str: 1, int: 1, agi: 1 };
+  return {
+    str: L * Math.max(0, Number(g.str) || 0),
+    int: L * Math.max(0, Number(g.int) || 0),
+    agi: L * Math.max(0, Number(g.agi) || 0),
   };
 }
 

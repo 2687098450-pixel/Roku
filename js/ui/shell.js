@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=165";
+import { $, clamp, styleTag } from "../core/utils.js?v=166";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -57,23 +57,23 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=165";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=165";
-import { setSavedFormation } from "../characters/stats.js?v=165";
-import { resetGameLocalData } from "../core/save.js?v=165";
-import { createAllUniqueItems } from "../loot/drops.js?v=165";
-import { APP_VERSION } from "../core/version.js?v=165";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=165";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=165";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=165";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=165";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=165";
+} from "../characters/omni/index.js?v=166";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=166";
+import { setSavedFormation } from "../characters/stats.js?v=166";
+import { resetGameLocalData } from "../core/save.js?v=166";
+import { createAllUniqueItems } from "../loot/drops.js?v=166";
+import { APP_VERSION } from "../core/version.js?v=166";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=166";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=166";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=166";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=166";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=166";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
   sealIconUrl,
-} from "../characters/seals.js?v=165";
+} from "../characters/seals.js?v=166";
 import {
   isAffixItem,
   toolSortPriority,
@@ -84,7 +84,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=165";
+} from "../characters/affixItems.js?v=166";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -2228,7 +2228,7 @@ export function createUI(ctx) {
       heroHasFoolSeal(hero) && (sSpd === 0 || sSpd === 0.5 || sSpd === 1)
         ? sSpd
         : 1;
-    const atkRow = `<li class="stat-atk-scale" title="基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote} · 满攻${atkFull}">
+    const atkRow = `<li class="stat-atk-scale" title="普攻攻击 · 满攻${atkFull}${capNote}">
             <span>攻击</span>
             <b>${hero.atk}</b>
             <div class="atk-scale-opts" role="group" aria-label="攻击倍率">
@@ -2259,7 +2259,7 @@ export function createUI(ctx) {
             </div>
           </li>`;
     const spdRow = heroHasFoolSeal(hero)
-      ? `<li class="stat-atk-scale" title="基础${hero.base.spd} + 装备${eq.spd}${capNote} · 满速${spdFull} · 愚人印章可调档">
+      ? `<li class="stat-atk-scale" title="满速${spdFull}${capNote} · 愚人印章可调档">
             <span>速度</span>
             <b>${hero.spd}</b>
             <div class="atk-scale-opts" role="group" aria-label="速度倍率">
@@ -2273,13 +2273,16 @@ export function createUI(ctx) {
                 .join("")}
             </div>
           </li>`
-      : `<li title="基础${hero.base.spd} + 装备${eq.spd}${capNote}"><span>速度</span><b>${hero.spd}</b></li>`;
+      : `<li title="速度${capNote}"><span>速度</span><b>${hero.spd}</b></li>`;
     $("statList").innerHTML = [
-      `<li title="基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
+      `<li title="力${hero.str || 0} · 智${hero.int || 0} · 敏${hero.agi || 0}"><span>力 / 智 / 敏</span><b>${hero.str || 0} / ${hero.int || 0} / ${hero.agi || 0}</b></li>`,
+      `<li title="生命${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
       atkRow,
-      `<li title="基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}"><span>防御</span><b>${hero.def}</b></li>`,
+      `<li title="技能与治疗强度（主要来自智）"><span>技能强度</span><b>${hero.skillAtk ?? hero.atk}</b></li>`,
+      `<li title="防御${capNote}"><span>防御</span><b>${hero.def}</b></li>`,
       spdRow,
-      `<li title="默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%"><span>暴击率</span><b>${critRate}%</b></li>`,
+      `<li title="蓝量主要来自智"><span>蓝量</span><b>${hero.mp ?? 0} / ${hero.maxMp ?? 0}</b></li>`,
+      `<li title="默认 10% + 敏加成 + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%"><span>暴击率</span><b>${critRate}%</b></li>`,
       `<li title="默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%"><span>暴击伤害</span><b>${critDmg}%</b></li>`,
       `<li title="默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%"><span>命中</span><b>${hitRate}%</b></li>`,
       dodgeRow,

@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=165";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=165";
+import { $, clamp, irand } from "../core/utils.js?v=166";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=166";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=165";
-import { mergeStackableTools } from "../characters/affixItems.js?v=165";
+} from "../characters/omni/index.js?v=166";
+import { mergeStackableTools } from "../characters/affixItems.js?v=166";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=165";
+} from "../characters/progression.js?v=166";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=165";
-import { buildEncounter } from "../monsters/roster.js?v=165";
+} from "../characters/skills.js?v=166";
+import { buildEncounter } from "../monsters/roster.js?v=166";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=165";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=165";
+} from "../monsters/skills.js?v=166";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=166";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=165";
-import { createTicker } from "../core/time.js?v=165";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=165";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=165";
+} from "../characters/stats.js?v=166";
+import { createTicker } from "../core/time.js?v=166";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=166";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=166";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=165";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=165";
+} from "./status.js?v=166";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=166";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,7 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=165";
+} from "./timing.js?v=166";
 import {
   boardDist,
   boardXY,
@@ -99,7 +99,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=165";
+} from "./grid.js?v=166";
 
 export function createBattleApi(ctx) {
   const {
@@ -979,6 +979,15 @@ export function createBattleApi(ctx) {
     return Math.max(1, Math.floor((unit.atk || 0) * (1 + (unit.atkBuff || 0))));
   }
 
+  /** 技能/治疗吃智向强度；普攻仍吃 atk */
+  function effectiveSkillAtk(unit, skillId) {
+    const hero = unit?.isHero ? actingHero(unit) : null;
+    const basic = hero ? basicAttackId(hero) : null;
+    if (skillId && basic && skillId === basic) return effectiveAtk(unit);
+    const raw = unit?.skillAtk ?? hero?.skillAtk ?? unit?.atk ?? 0;
+    return Math.max(1, Math.floor(raw * (1 + (unit?.atkBuff || 0))));
+  }
+
   function effectiveDef(unit) {
     return Math.max(0, Math.floor((unit.def || 0) * (1 + (unit.defBuff || 0))));
   }
@@ -1393,7 +1402,10 @@ export function createBattleApi(ctx) {
         (mods?.hitDamageMult != null ? mods.hitDamageMult : 1);
       const power = Math.max(
         1,
-        Math.floor(skillPower(effectiveAtk(attacker), skillId, mods, lv) * scale)
+        Math.floor(
+          skillPower(effectiveSkillAtk(attacker, skillId), skillId, mods, lv) *
+            scale
+        )
       );
       dealt = dealDamage(target, power, {
         canCrit: true,
@@ -1437,7 +1449,10 @@ export function createBattleApi(ctx) {
     const damageScale = 0.5 * hitScale;
     const shotPower = Math.max(
       1,
-      Math.floor(skillPower(effectiveAtk(ally), skillId, mods, skillLv) * damageScale)
+      Math.floor(
+        skillPower(effectiveSkillAtk(ally, skillId), skillId, mods, skillLv) *
+          damageScale
+      )
     );
     let remaining = 3 + (mods.hitBonus || 0);
     while (remaining > 0) {
@@ -2502,6 +2517,7 @@ export function createBattleApi(ctx) {
       maxMp: hero.maxMp,
       mp: hero.mp,
       atk: hero.atk,
+      skillAtk: hero.skillAtk ?? hero.atk,
       def: hero.def,
       spd: hero.spd,
       critRate: hero.critRate ?? DEFAULT_CRIT_RATE,

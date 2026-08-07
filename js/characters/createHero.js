@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=165";
-import { calcStats } from "./omni/attributes.js?v=165";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=165";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=166";
+import { calcStats } from "./omni/attributes.js?v=166";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=166";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=165";
+} from "./skills.js?v=166";
 import {
   expToNext,
   getSkillLevel,
@@ -17,9 +17,30 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=165";
-import { heroMaxMp } from "./skillMp.js?v=165";
-import { normalizeSpdScale } from "./seals.js?v=165";
+} from "./progression.js?v=166";
+import { normalizeSpdScale } from "./seals.js?v=166";
+import { readPrimary } from "./primary.js?v=166";
+
+/** 旧存档四维 → 力智敏（按角色表重写底座） */
+function migrateHeroPrimary(hero) {
+  if (!hero) return;
+  const sheet = getCharacterStats(hero.statsId || "omni");
+  const base = hero.base || {};
+  if (base.str == null && (base.hp != null || base.atk != null)) {
+    hero.base = { ...sheet.base };
+  } else {
+    hero.base = readPrimary(base);
+  }
+  const pass = hero.basePassiveBoost || hero.passiveBoost || {};
+  if (pass.str == null && (pass.hp != null || pass.atk != null)) {
+    hero.basePassiveBoost = { ...sheet.passiveBoost };
+  } else if (!hero.basePassiveBoost) {
+    hero.basePassiveBoost = readPrimary(pass);
+  } else {
+    hero.basePassiveBoost = readPrimary(hero.basePassiveBoost);
+  }
+  hero.growth = sheet.growth ? { ...sheet.growth } : { str: 1, int: 1, agi: 1 };
+}
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
@@ -46,6 +67,7 @@ function migratePinkKit(hero) {
 }
 
 export function refreshHeroStats(hero) {
+  migrateHeroPrimary(hero);
   if (!hero.basePassiveBoost) {
     hero.basePassiveBoost = { ...(hero.passiveBoost || {}) };
   }
@@ -57,9 +79,21 @@ export function refreshHeroStats(hero) {
       hero.basePassiveBoost,
       getSkillLevel(hero, attrId)
     );
+  } else {
+    hero.passiveBoost = readPrimary(hero.basePassiveBoost);
   }
   const eq = sumEquipBonus(hero.equip);
-  const stats = calcStats(hero.base, hero.passiveBoost, eq, hero.level || 1);
+  const sheet = getCharacterStats(hero.statsId || "omni");
+  const stats = calcStats(
+    hero.base,
+    hero.passiveBoost,
+    eq,
+    hero.level || 1,
+    hero.growth || sheet.growth
+  );
+  hero.str = stats.primary.str;
+  hero.int = stats.primary.int;
+  hero.agi = stats.primary.agi;
   const mult = hero.isCaptain ? 1.1 : 1;
   hero.maxHp = Math.max(1, Math.floor(stats.maxHp * mult));
   const atkFull = Math.max(1, Math.floor(stats.atk * mult));
@@ -68,6 +102,7 @@ export function refreshHeroStats(hero) {
   const atkScale = s === 0.5 || s === 0.75 || s === 1 ? s : 1;
   hero.atkScale = atkScale;
   hero.atk = Math.max(1, Math.floor(atkFull * atkScale));
+  hero.skillAtk = Math.max(1, Math.floor(stats.skillAtk * mult));
   hero.def = Math.max(0, Math.floor(stats.def * mult));
   const spdFull = Math.max(1, Math.floor(stats.spd * mult));
   hero.spdFull = spdFull;
@@ -75,8 +110,11 @@ export function refreshHeroStats(hero) {
   hero.spdScale = spdScale;
   hero.spd = Math.max(0, Math.floor(spdFull * spdScale));
   if (hero.spd < 1 && spdScale > 0) hero.spd = 1;
-  hero.maxMp = heroMaxMp(hero.statsId);
-  hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
+  hero.maxMp = Math.max(40, Math.floor(stats.maxMp));
+  hero.critRate = Math.min(
+    0.85,
+    DEFAULT_CRIT_RATE + (stats.critRateFromAgi || 0) + (eq.critRate || 0)
+  );
   hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
   hero.hitRate = Math.min(1.6, DEFAULT_HIT_RATE + (eq.hitRate || 0));
   const dodgeFull = Math.min(0.55, DEFAULT_DODGE_RATE + (eq.dodgeRate || 0));
@@ -146,6 +184,7 @@ export function createHero(statsId) {
     base: { ...sheet.base },
     basePassiveBoost: { ...sheet.passiveBoost },
     passiveBoost: { ...sheet.passiveBoost },
+    growth: sheet.growth ? { ...sheet.growth } : { str: 1, int: 1, agi: 1 },
     equip: createDefaultEquip(statsId),
     skills: createHeroSkills(statsId),
     autoRotation: getAutoRotation(statsId),
@@ -280,7 +319,17 @@ export function normalizeFormation(state, slots = FORMATION_SLOTS) {
 }
 
 export function combatPower(hero) {
-  return Math.floor(hero.maxHp * 0.35 + hero.atk * 18 + hero.def * 12 + hero.spd * 6);
+  const skill = hero.skillAtk ?? hero.atk;
+  return Math.floor(
+    hero.maxHp * 0.35 +
+      hero.atk * 10 +
+      skill * 10 +
+      hero.def * 12 +
+      hero.spd * 6 +
+      (hero.str || 0) * 2 +
+      (hero.int || 0) * 2 +
+      (hero.agi || 0) * 2
+  );
 }
 
 /** 菱形主体色：与角色表 color 一致（不再提亮） */

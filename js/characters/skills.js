@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=165";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=165";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=165";
+import { getCharacterStats } from "./stats.js?v=166";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=166";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=166";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -231,7 +231,7 @@ export function skillHealAmount(caster, skillId, mods = null, skillLevel = 1, ta
   const s = scaledSkillDef(skillId, skillLevel);
   if (!s) return 0;
   let v = s.healFlat || 0;
-  const atk = Math.max(0, caster?.atk ?? 0);
+  const atk = Math.max(0, caster?.skillAtk ?? caster?.atk ?? 0);
   if (s.healAtkMult) v += Math.floor(atk * s.healAtkMult);
   else if (s.healMult) v += Math.floor(atk * s.healMult);
   // 仅单体：加被治疗者生命百分比
@@ -628,7 +628,7 @@ export function attrPassiveSkillId(statsId) {
   return null;
 }
 
-/** 属性被动随等级成长：每级约 +10% 基础被动，且非 0 项每级至少 +1（避免小数四舍五入看不出变化） */
+/** 属性被动随等级成长：每级约 +10% 基础被动，且非 0 项每级至少 +1 */
 export function scaledPassiveBoost(baseBoost = {}, level = 1) {
   const lv = Math.max(1, Math.floor(level || 1));
   const grow = (v) => {
@@ -638,20 +638,33 @@ export function scaledPassiveBoost(baseBoost = {}, level = 1) {
     const per = Math.max(1, Math.round(base * 0.1));
     return base + (lv - 1) * per;
   };
+  // 新：力智敏；旧存档四维会在 migrate 时换成三维
+  if (baseBoost.str != null || baseBoost.int != null || baseBoost.agi != null) {
+    return {
+      str: grow(baseBoost.str),
+      int: grow(baseBoost.int),
+      agi: grow(baseBoost.agi),
+    };
+  }
   return {
-    hp: grow(baseBoost.hp),
-    atk: grow(baseBoost.atk),
-    def: grow(baseBoost.def),
-    spd: grow(baseBoost.spd),
+    str: grow(baseBoost.hp ? Math.max(1, Math.round(baseBoost.hp / 5)) : 0),
+    int: grow(baseBoost.atk || 0),
+    agi: grow(baseBoost.spd || 0),
   };
 }
 
 function formatBoostNums(boost) {
   const parts = [];
-  if (boost.hp) parts.push(`生命+${boost.hp}`);
-  if (boost.atk) parts.push(`攻击+${boost.atk}`);
-  if (boost.def) parts.push(`防御+${boost.def}`);
-  if (boost.spd) parts.push(`速度+${boost.spd}`);
+  if (boost.str) parts.push(`力+${boost.str}`);
+  if (boost.int) parts.push(`智+${boost.int}`);
+  if (boost.agi) parts.push(`敏+${boost.agi}`);
+  // 兼容旧文案字段
+  if (!parts.length) {
+    if (boost.hp) parts.push(`生命+${boost.hp}`);
+    if (boost.atk) parts.push(`攻击+${boost.atk}`);
+    if (boost.def) parts.push(`防御+${boost.def}`);
+    if (boost.spd) parts.push(`速度+${boost.spd}`);
+  }
   return parts.join(" ") || "—";
 }
 

@@ -1,21 +1,16 @@
 /**
  * 全部角色属性总表（后续新角色也写在这里）
  *
- * 行动条规则：
- * - 满值 GAUGE_MAX = 100
- * - 游戏时间单位见 core/time.js：每 0.1 秒为一跳
- * - 速度 = 每一跳往行动条增加的点数
- * - 例：速度 20 → 100/20 = 5 跳 → 0.5 秒行动一次
- *
- * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
+ * 成长用 力/智/敏，再换算成生命/攻防速/技能强度/蓝。
+ * 行动条：满值 GAUGE_MAX=100；速度=每 0.1 秒涨条点数。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=165";
+import { TICK_SECONDS } from "../core/time.js?v=166";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
 
-/** 角色默认速度（点 / 0.1秒） */
+/** 角色默认速度参考（换算后大约落在这附近） */
 export const DEFAULT_HERO_SPEED = 20;
 
 /** 默认经典槽；启动选节奏后由 setCharacterSettingsKey 切换 */
@@ -37,8 +32,8 @@ export function setCharacterSettingsKey(key) {
 }
 
 /**
- * 角色基础属性表
- * id 与角色目录对应，如 omni → characters/omni/
+ * base / passiveBoost / growth 均为 力智敏
+ * growth = 每升 1 级增加的三维
  */
 export const CHARACTER_STATS = {
   omni: {
@@ -48,19 +43,9 @@ export const CHARACTER_STATS = {
     gender: "male",
     color: "#3cb86a",
     shape: "diamond",
-    base: {
-      hp: 66,
-      atk: 9,
-      def: 4,
-      spd: DEFAULT_HERO_SPEED,
-    },
-    passiveBoost: {
-      hp: 11,
-      atk: 2,
-      def: 1,
-      spd: 0,
-    },
-    // 空 = 普通攻击；默认全空
+    base: { str: 12, int: 11, agi: 14 },
+    passiveBoost: { str: 2, int: 2, agi: 1 },
+    growth: { str: 1, int: 1, agi: 1 },
     autoRotation: ["", "", "", "", ""],
   },
   pink: {
@@ -70,18 +55,9 @@ export const CHARACTER_STATS = {
     gender: "female",
     color: "#ff7eb3",
     shape: "diamond",
-    base: {
-      hp: 46,
-      atk: 12,
-      def: 2,
-      spd: DEFAULT_HERO_SPEED + 3,
-    },
-    passiveBoost: {
-      hp: 3,
-      atk: 4,
-      def: 0,
-      spd: 3,
-    },
+    base: { str: 6, int: 14, agi: 20 },
+    passiveBoost: { str: 0, int: 2, agi: 4 },
+    growth: { str: 0, int: 1, agi: 2 },
     autoRotation: ["", "", "", "", ""],
   },
   green: {
@@ -91,18 +67,9 @@ export const CHARACTER_STATS = {
     gender: "female",
     color: "#8fdf8a",
     shape: "diamond",
-    base: {
-      hp: 64,
-      atk: 5,
-      def: 3,
-      spd: DEFAULT_HERO_SPEED - 1,
-    },
-    passiveBoost: {
-      hp: 16,
-      atk: 0,
-      def: 1,
-      spd: 0,
-    },
+    base: { str: 9, int: 18, agi: 9 },
+    passiveBoost: { str: 2, int: 4, agi: 0 },
+    growth: { str: 1, int: 2, agi: 0 },
     autoRotation: ["", "", "", "", ""],
   },
   yellow: {
@@ -112,18 +79,9 @@ export const CHARACTER_STATS = {
     gender: "male",
     color: "#e8c044",
     shape: "diamond",
-    base: {
-      hp: 88,
-      atk: 6,
-      def: 9,
-      spd: DEFAULT_HERO_SPEED - 2,
-    },
-    passiveBoost: {
-      hp: 14,
-      atk: 0,
-      def: 5,
-      spd: 0,
-    },
+    base: { str: 20, int: 5, agi: 6 },
+    passiveBoost: { str: 5, int: 0, agi: 0 },
+    growth: { str: 2, int: 0, agi: 0 },
     autoRotation: ["", "", "", "", ""],
   },
   blue: {
@@ -133,18 +91,9 @@ export const CHARACTER_STATS = {
     gender: "female",
     color: "#6eb6ff",
     shape: "diamond",
-    base: {
-      hp: 58,
-      atk: 7,
-      def: 4,
-      spd: DEFAULT_HERO_SPEED - 1,
-    },
-    passiveBoost: {
-      hp: 8,
-      atk: 1,
-      def: 2,
-      spd: 0,
-    },
+    base: { str: 8, int: 16, agi: 11 },
+    passiveBoost: { str: 1, int: 3, agi: 1 },
+    growth: { str: 0, int: 2, agi: 1 },
     autoRotation: ["", "", "", "", ""],
   },
   orange: {
@@ -154,18 +103,9 @@ export const CHARACTER_STATS = {
     gender: "male",
     color: "#ff8a3d",
     shape: "diamond",
-    base: {
-      hp: 60,
-      atk: 10,
-      def: 3,
-      spd: DEFAULT_HERO_SPEED,
-    },
-    passiveBoost: {
-      hp: 6,
-      atk: 3,
-      def: 0,
-      spd: 1,
-    },
+    base: { str: 10, int: 14, agi: 12 },
+    passiveBoost: { str: 1, int: 3, agi: 1 },
+    growth: { str: 1, int: 1, agi: 1 },
     autoRotation: ["", "", "", "", ""],
   },
   cyan: {
@@ -175,18 +115,9 @@ export const CHARACTER_STATS = {
     gender: "female",
     color: "#3dceb0",
     shape: "diamond",
-    base: {
-      hp: 55,
-      atk: 8,
-      def: 3,
-      spd: DEFAULT_HERO_SPEED + 2,
-    },
-    passiveBoost: {
-      hp: 5,
-      atk: 1,
-      def: 0,
-      spd: 2,
-    },
+    base: { str: 7, int: 12, agi: 18 },
+    passiveBoost: { str: 0, int: 2, agi: 3 },
+    growth: { str: 0, int: 1, agi: 2 },
     autoRotation: ["", "", "", "", ""],
   },
 };
@@ -194,7 +125,7 @@ export const CHARACTER_STATS = {
 /** 自动战斗模式 0=关 1=1x 2=1.5x 3=2x（跨刷新保存） */
 let battleAutoMode = 0;
 
-/** 战斗阵容：statsId 或 null，长度 6（跨刷新保存） */
+/** 战斗阵容：statsId 或 null，长度 9（跨刷新保存） */
 let savedFormation = null;
 
 function readStorage() {
@@ -257,7 +188,9 @@ export function loadSavedSettings() {
         rot.length === 5 &&
         rot.every(slotOk)
       ) {
-        CHARACTER_STATS[id].autoRotation = rot.map((s) => (s == null || s === "" ? "" : s));
+        CHARACTER_STATS[id].autoRotation = rot.map((s) =>
+          s == null || s === "" ? "" : s
+        );
       }
     }
   }
