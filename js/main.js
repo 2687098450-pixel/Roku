@@ -804,7 +804,7 @@ function renderBootScreen() {
         sum.loop > 0 ? ` · 轮回${sum.loop}` : "";
       saveLine = `<span class="boot-mode-save">继续 · ${sum.floor}层${loop}</span>`;
     }
-    return `<button type="button" class="boot-mode${lastCls}" data-pace="${id}">
+    return `<button type="button" class="boot-mode${lastCls}" data-pace="${id}" onclick="window.__mokuBoot&&window.__mokuBoot('${id}')">
       <div class="boot-mode-head">
         <span class="boot-mode-title">${meta.title}</span>
         <span class="boot-mode-tag">${meta.tagline}</span>
@@ -839,58 +839,73 @@ function startGame(paceMode) {
   if (state.gameStarted) return;
   if (!isPaceMode(paceMode)) return;
 
-  migrateLegacyForMode(paceMode);
-  setSaveKey(saveKeyFor(paceMode));
-  setCharacterSettingsKey(settingsKeyFor(paceMode));
-  writePacePref(paceMode);
+  try {
+    migrateLegacyForMode(paceMode);
+    setSaveKey(saveKeyFor(paceMode));
+    setCharacterSettingsKey(settingsKeyFor(paceMode));
+    writePacePref(paceMode);
 
-  state.paceMode = paceMode;
-  state.formation = restoreFormation(state.party);
+    state.paceMode = paceMode;
+    state.formation = restoreFormation(state.party);
 
-  const loaded = loadProgressIntoState(state, applyFloor);
-  if (!loaded.restored) {
-    applyFloor(state, 1);
-  }
-  if (!state.captainId || !state.party.some((h) => h.id === state.captainId)) {
-    state.captainId =
-      (state.formation || []).find((id) => !!id) || state.party[0]?.id || null;
-  }
-  for (const h of state.party) {
-    h.isCaptain = h.id === state.captainId;
-    refreshHeroStats(h);
-  }
-  sanitizeInventory(state);
+    const loaded = loadProgressIntoState(state, applyFloor);
+    if (!loaded.restored) {
+      applyFloor(state, 1);
+    }
+    if (!state.captainId || !state.party.some((h) => h.id === state.captainId)) {
+      state.captainId =
+        (state.formation || []).find((id) => !!id) || state.party[0]?.id || null;
+    }
+    for (const h of state.party) {
+      h.isCaptain = h.id === state.captainId;
+      refreshHeroStats(h);
+    }
+    sanitizeInventory(state);
 
-  state.gameStarted = true;
-  state.mode = "explore";
-  $("boot")?.classList.add("hidden");
-  $("explore")?.classList.remove("hidden");
+    state.gameStarted = true;
+    state.mode = "explore";
+    $("boot")?.classList.add("hidden");
+    $("explore")?.classList.remove("hidden");
 
-  flushSave(state);
-  resize();
-  ui.refreshExploreHud();
+    flushSave(state);
+    resize();
+    ui.refreshExploreHud();
 
-  const meta = PACE_META[paceMode];
-  if (loaded.restored) {
-    const f = state.floor || 1;
-    showToast(
-      `${meta.title} · 已读取进度 · ${state.placeName || ""} ${f}层`,
-      3200
-    );
-  } else {
-    showToast(
-      `${meta.title} · ${meta.tagline}。点击地面可寻路，出口在蓝色楼梯。`,
-      3600
-    );
+    const meta = PACE_META[paceMode];
+    if (loaded.restored) {
+      const f = state.floor || 1;
+      showToast(
+        `${meta.title} · 已读取进度 · ${state.placeName || ""} ${f}层`,
+        3200
+      );
+    } else {
+      showToast(
+        `${meta.title} · ${meta.tagline}。点击地面可寻路，出口在蓝色楼梯。`,
+        3600
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    state.gameStarted = false;
+    const msg = err?.message || String(err);
+    showToast(`进入失败：${msg}`, 5000);
+    alert(`进入探索失败：${msg}`);
   }
 }
 
-ui.bind();
-bindExplore();
-battle.bind();
-preloadMonsterImages();
+window.__mokuBoot = (pace) => startGame(pace);
+
 bindBootFallback();
 renderBootScreen();
+
+try {
+  ui.bind();
+  bindExplore();
+  battle.bind();
+  preloadMonsterImages();
+} catch (err) {
+  console.error("init bind failed", err);
+}
 
 window.addEventListener("pagehide", () => {
   if (window.__MOKU_SKIP_SAVE__ || !state.gameStarted) return;

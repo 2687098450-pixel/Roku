@@ -33,7 +33,7 @@
   <meta name="theme-color" content="#fff4e0" />
   <title>魔窟 · 探索</title>
   <!-- 不用 Google Fonts：国内 WiFi / pad 上常被拦，易被浏览器报「网络出错」 -->
-  <link rel="stylesheet" href="css/style.css?v=160" />
+  <link rel="stylesheet" href="css/style.css?v=161" />
 </head>
 <body>
   <div id="app">
@@ -44,7 +44,7 @@
         <h1 class="boot-title">选择战斗节奏</h1>
         <p class="boot-sub">同一套探索与角色，仅「别人行动时行动条是否继续走」不同。存档互不影响。</p>
         <div class="boot-modes" id="bootModes">
-          <button type="button" class="boot-mode" data-pace="classic">
+          <button type="button" class="boot-mode" data-pace="classic" onclick="window.__mokuBoot&&window.__mokuBoot('classic')">
             <div class="boot-mode-head">
               <span class="boot-mode-title">经典</span>
               <span class="boot-mode-tag">行动时条停住</span>
@@ -52,7 +52,7 @@
             <span class="boot-mode-desc">有人出手时，其他人行动条暂停。节奏更像回合制。</span>
             <span class="boot-mode-save empty">新游戏</span>
           </button>
-          <button type="button" class="boot-mode" data-pace="flow">
+          <button type="button" class="boot-mode" data-pace="flow" onclick="window.__mokuBoot&&window.__mokuBoot('flow')">
             <div class="boot-mode-head">
               <span class="boot-mode-title">流畅</span>
               <span class="boot-mode-tag">行动时条继续走</span>
@@ -418,6 +418,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=160"></script>
+  <script type="module" src="js/main.js?v=161"></script>
 </body>
 </html>
