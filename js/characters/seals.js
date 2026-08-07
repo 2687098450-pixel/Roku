@@ -1,6 +1,6 @@
 /** 印章：独立于装备槽；可扩展多种印章（愚人印章为速度档位） */
 
-import { APP_VERSION } from "../core/version.js?v=159";
+import { APP_VERSION } from "../core/version.js?v=160";
 
 export const FOOL_SEAL_ID = "fool";
 

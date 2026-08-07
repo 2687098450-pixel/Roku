@@ -822,6 +822,19 @@ function renderBootScreen() {
   });
 }
 
+/** JS 未就绪时，HTML 里的静态按钮也能开局 */
+function bindBootFallback() {
+  const box = $("bootModes");
+  if (!box || box.dataset.bound === "1") return;
+  box.dataset.bound = "1";
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest?.("[data-pace]");
+    if (!btn) return;
+    const pace = btn.getAttribute("data-pace");
+    if (isPaceMode(pace)) startGame(pace);
+  });
+}
+
 function startGame(paceMode) {
   if (state.gameStarted) return;
   if (!isPaceMode(paceMode)) return;
@@ -876,6 +889,7 @@ ui.bind();
 bindExplore();
 battle.bind();
 preloadMonsterImages();
+bindBootFallback();
 renderBootScreen();
 
 window.addEventListener("pagehide", () => {
