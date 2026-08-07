@@ -2,12 +2,12 @@
  * 经济倍率（获取侧；花费不改）
  * - 经验：按「1～50 层怪物全清一遍、上场 5 人约到 50 级」标定
  * - 金币（装备售卖等）：原先的 10%
- * - 怪物战斗掉落金币：原先的 15%（相对售卖倍率再 +50%）
+ * - 怪物战斗掉落：约 1～30 层清完 ≈ 强化 3 件装备到 +15（约 3.6 万）
  */
 
 export const EXP_GAIN_MULT = 0.92;
 export const GOLD_GAIN_MULT = 0.1;
-/** 怪物击杀掉落专用；相对 GOLD_GAIN_MULT 提升 50% */
+/** 怪物击杀掉落专用 */
 export const MONSTER_GOLD_GAIN_MULT = 0.15;
 
 export function scaleExpGain(amount) {

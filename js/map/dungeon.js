@@ -1,11 +1,11 @@
 /** 按楼层配置生成地牢地图与刷怪 */
 
-import { EXIT, FLOOR, WALL, createDungeonShell, canWalk } from "./island15.js?v=145";
-import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=145";
-import { buildFloorMask } from "./shapes.js?v=145";
-import { createPatrolMonster } from "../monsters/slime.js?v=145";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=145";
-import { pickTrashType } from "../monsters/roster.js?v=145";
+import { EXIT, FLOOR, WALL, createDungeonShell, canWalk } from "./island15.js?v=147";
+import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=147";
+import { buildFloorMask } from "./shapes.js?v=147";
+import { createPatrolMonster } from "../monsters/slime.js?v=147";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=147";
+import { pickTrashType } from "../monsters/roster.js?v=147";
 
 function key(x, y) {
   return `${x},${y}`;
@@ -115,14 +115,15 @@ export function buildFloor(floorNum, opts = {}) {
     map.secretPathPlay = def.secretPath.map((p) => ({ ...p }));
     map.secretOpened = false;
     map.combatFloor = def.combatFloor || def.floor;
-    // 确保花坛格可走，通路仍是墙
+    // 密道格：海湾/墙外保持原样（多为海），不提前砌墙露馅；若误落在地板上则先封死
     const fx = map.flowerBed.x;
     const fy = map.flowerBed.y;
     if (map.tiles[fy]?.[fx] != null) map.tiles[fy][fx] = FLOOR;
     for (const p of map.secretPathPlay) {
       const ax = map.ox + p.x;
       const ay = map.oy + p.y;
-      if (map.tiles[ay]?.[ax] != null) map.tiles[ay][ax] = WALL;
+      const t = map.tiles[ay]?.[ax];
+      if (t === FLOOR) map.tiles[ay][ax] = WALL;
     }
   } else {
     map.floor = def.floor;
@@ -142,7 +143,7 @@ export function buildFloor(floorNum, opts = {}) {
   };
 }
 
-/** 点击花坛：打通短路径并刷出隐藏 Boss */
+/** 点击花坛：打通密道并刷出隐藏 Boss */
 export function openFloorSecret(map, monsters, defScale = 1) {
   if (!map?.flowerBed || map.secretOpened) return null;
   digFloorSecretPath(map);

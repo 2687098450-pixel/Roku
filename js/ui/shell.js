@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=145";
+import { $, clamp, styleTag } from "../core/utils.js?v=147";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -17,6 +17,7 @@ import {
   compareEquipByRarityLevel,
   itemLevel,
   itemEnhanceCount,
+  itemBaseLevel,
   itemPrice,
   toBagEquip,
   BONUS_LABEL,
@@ -56,22 +57,22 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=145";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=145";
-import { setSavedFormation } from "../characters/stats.js?v=145";
-import { resetGameLocalData } from "../core/save.js?v=145";
-import { createAllUniqueItems } from "../loot/drops.js?v=145";
-import { APP_VERSION } from "../core/version.js?v=145";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=145";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=145";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=145";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=145";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=145";
+} from "../characters/omni/index.js?v=147";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=147";
+import { setSavedFormation } from "../characters/stats.js?v=147";
+import { resetGameLocalData } from "../core/save.js?v=147";
+import { createAllUniqueItems } from "../loot/drops.js?v=147";
+import { APP_VERSION } from "../core/version.js?v=147";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=147";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=147";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=147";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=147";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=147";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
-} from "../characters/seals.js?v=145";
+} from "../characters/seals.js?v=147";
 import {
   isAffixItem,
   toolSortPriority,
@@ -82,7 +83,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=145";
+} from "../characters/affixItems.js?v=147";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -224,20 +225,14 @@ export function createUI(ctx) {
     const box = $("partyStrip");
     if (!box) return;
     const party = getState().party || [];
-    const hint = getState().floorHint;
     box.innerHTML = stripHeroes()
       .map((h) => {
         refreshHeroStats(h);
         const dead = isHeroDead(h);
         const pct = dead ? 0 : clamp((h.hp / h.maxHp) * 100, 0, 100);
-        const bubble =
-          hint && hint.heroId === h.id && hint.text
-            ? `<span class="strip-hint-bubble">${hint.text}</span>`
-            : "";
         return `<button type="button" class="strip-hero${dead ? " dead" : ""}" data-id="${h.id}" title="${h.name}${dead ? " · 阵亡" : ""}">
           ${unitIconHtml(h, "sm", { peers: party })}
           <div class="strip-hp"><i style="width:${pct}%"></i></div>
-          ${bubble}
         </button>`;
       })
       .join("");
@@ -670,12 +665,14 @@ export function createUI(ctx) {
     upgrade = false,
     devour = false,
     affixReplace = false,
+    affixCondense = false,
   } = {}) {
     const btnReplace = $("btnReplace");
     const btnSellOne = $("btnSellOne");
     const btnUpgrade = $("btnUpgradeEquip");
     const btnDevour = $("btnDevourEquip");
     const btnAffixReplace = $("btnAffixReplace");
+    const btnAffixCondense = $("btnAffixCondense");
     const actions = btnReplace?.parentElement;
     if (btnReplace) btnReplace.hidden = !replace;
     if (btnSellOne) btnSellOne.hidden = !sellOne;
@@ -697,10 +694,33 @@ export function createUI(ctx) {
         btnAffixReplace.textContent = "词条替换";
       }
     }
+    if (btnAffixCondense) {
+      btnAffixCondense.hidden = !affixCondense;
+      if (affixCondense) {
+        btnAffixCondense.disabled = false;
+        btnAffixCondense.textContent = "词条凝炼";
+      }
+    }
     if (actions) {
       actions.hidden =
-        !replace && !sellOne && !upgrade && !devour && !affixReplace;
+        !replace &&
+        !sellOne &&
+        !upgrade &&
+        !devour &&
+        !affixReplace &&
+        !affixCondense;
     }
+  }
+
+  function findAffixCondenserIndex() {
+    const inv = getState().inventory || [];
+    return inv.findIndex(
+      (it) => it && it.useId === AFFIX_CONDENSE_USE_ID && (it.qty || 1) > 0
+    );
+  }
+
+  function hasAffixCondenser() {
+    return findAffixCondenserIndex() >= 0;
   }
 
   function setEquipPickConfirm(visible, label = "确定") {
@@ -783,15 +803,15 @@ export function createUI(ctx) {
     bumpSave();
   }
 
-  /** 收集可作吞噬材料的红装（背包+已穿，排除宿主） */
+  /** 收集可作吞噬材料的红装（背包+已穿，排除宿主；按基础等级，不含强化） */
   function listDevourMaterials(host) {
     const state = getState();
     const out = [];
-    const hostLv = itemLevel(host);
+    const hostLv = itemBaseLevel(host);
     (state.inventory || []).forEach((it, invIndex) => {
       if (!it || normalizeRarity(it.rarity) !== "red") return;
       if (it === host) return;
-      if (itemLevel(it) <= hostLv) return;
+      if (itemBaseLevel(it) <= hostLv) return;
       out.push({ item: it, where: "bag", invIndex });
     });
     for (const hero of state.party || []) {
@@ -800,7 +820,7 @@ export function createUI(ctx) {
         const it = hero.equip[slot];
         if (!it || normalizeRarity(it.rarity) !== "red") continue;
         if (it === host) continue;
-        if (itemLevel(it) <= hostLv) continue;
+        if (itemBaseLevel(it) <= hostLv) continue;
         out.push({ item: it, where: "equip", heroId: hero.id, slotKey: slot });
       }
     }
@@ -816,7 +836,7 @@ export function createUI(ctx) {
     if (mats.length < 2) {
       const toast = $("lootToast");
       if (toast) {
-        toast.textContent = "需要两件比自身更高的红装作为材料";
+        toast.textContent = "需要两件基础等级更高的红装作为材料（不含强化）";
         toast.classList.remove("hidden");
         clearTimeout(toast._devourTimer);
         toast._devourTimer = setTimeout(() => toast.classList.add("hidden"), 2400);
@@ -831,7 +851,7 @@ export function createUI(ctx) {
     if (title) title.textContent = "选择吞噬材料";
     const render = () => {
       if (sub) {
-        sub.textContent = `已选 ${devourPick.selected.length}/2 · 宿主 Lv${itemLevel(host)} · 材料须更高，完成后取较低等级并清空强化`;
+        sub.textContent = `已选 ${devourPick.selected.length}/2 · 宿主 Lv${itemLevel(host)}（基础 ${itemBaseLevel(host)}）· 材料取基础等级较低者，且不低于宿主当前等级，强化清空`;
       }
       list.innerHTML = mats
         .map((m, i) => {
@@ -844,7 +864,7 @@ export function createUI(ctx) {
               <b>${m.item.name}</b>
               <span class="stag rarity-tag rarity-${info.id}">${info.label}</span>
             </div>
-            <div class="equip-preview-rarity">Lv${itemLevel(m.item)} · ${where}</div>
+            <div class="equip-preview-rarity">Lv${itemLevel(m.item)}（基础 ${itemBaseLevel(m.item)}）· ${where}</div>
             <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
           </button>`;
         })
@@ -1127,67 +1147,36 @@ export function createUI(ctx) {
     bumpSave();
   }
 
-  /** 词条凝炼器：选红装 → 选词条 → 确定 */
-  function openAffixCondenseFlow(toolInvIndex) {
-    const inv = getState().inventory || [];
-    const tool = inv[toolInvIndex];
-    if (!tool || tool.useId !== AFFIX_CONDENSE_USE_ID) return;
-    if ((tool.qty || 1) < 1) {
-      toastMsg("凝炼器数量不足");
+  /** 从背包红装发起凝炼：选词条 → 确定（消耗一件凝炼器） */
+  function openAffixCondenseFromEquip() {
+    if (equipEdit?.source !== "bag") {
+      toastMsg("请先把红装放回背包再凝炼");
       return;
     }
-    const reds = inv
-      .map((it, invIndex) => ({ it, invIndex }))
-      .filter(
-        ({ it, invIndex }) =>
-          invIndex !== toolInvIndex &&
-          isEquipItem(it) &&
-          normalizeRarity(it.rarity) === "red" &&
-          (it.affixes || []).length > 0
-      );
-    if (!reds.length) {
-      toastMsg("背包里没有可凝炼的红装");
+    const equipInvIndex = equipEdit.invIndex;
+    const inv = getState().inventory || [];
+    const host = inv[equipInvIndex];
+    if (!host || !isEquipItem(host) || normalizeRarity(host.rarity) !== "red") {
+      toastMsg("只能凝炼背包中的红装");
+      return;
+    }
+    if (!(host.affixes || []).length) {
+      toastMsg("该装备没有可凝炼的词条");
+      return;
+    }
+    const toolInvIndex = findAffixCondenserIndex();
+    if (toolInvIndex < 0) {
+      toastMsg("需要词条凝炼器（10 层 Boss 掉落）");
       return;
     }
     affixCondensePick = {
       toolInvIndex,
-      equipInvIndex: -1,
-      host: null,
+      equipInvIndex,
+      host,
       targetIndex: -1,
     };
     affixReplacePick = null;
-    const title = $("equipPickTitle");
-    const sub = $("equipPickSub");
-    const list = $("equipPickList");
-    if (title) title.textContent = "选择红装";
-    if (sub) sub.textContent = "凝炼后该装备消失，所选词条进入背包";
-    setEquipPickConfirm(false);
-    list.innerHTML = reds
-      .map(({ it, invIndex }) => {
-        const info = rarityInfo(it.rarity);
-        return `<button type="button" class="equip-pick-item" data-red-inv="${invIndex}">
-          <div class="equip-pick-top">
-            <b>${it.name}</b>
-            <span class="stag rarity-tag rarity-${info.id}">${info.label}</span>
-          </div>
-          <div class="equip-preview-rarity">Lv${itemLevel(it)} · 词条 ${(it.affixes || []).length}</div>
-          <span class="equip-pick-cta">选择</span>
-        </button>`;
-      })
-      .join("");
-    list.querySelectorAll("[data-red-inv]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const invIndex = Number(btn.dataset.redInv);
-        const host = getState().inventory?.[invIndex];
-        if (!host) return;
-        affixCondensePick.equipInvIndex = invIndex;
-        affixCondensePick.host = host;
-        affixCondensePick.targetIndex = -1;
-        openAffixCondenseTargetPick();
-      });
-    });
-    hideEquipAffixDetail();
-    $("equipPreviewModal")?.classList.add("hidden");
+    openAffixCondenseTargetPick();
     $("equipPickModal")?.classList.remove("hidden");
   }
 
@@ -1199,8 +1188,9 @@ export function createUI(ctx) {
     const sub = $("equipPickSub");
     if (title) title.textContent = "选择凝炼词条";
     if (sub) {
-      sub.textContent = `装备「${flow.host.name}」将消失 · 选一条词条后确定`;
+      sub.textContent = `「${flow.host.name}」将消失并消耗 1 个凝炼器 · 点选词条后确定`;
     }
+    setEquipPickConfirm(false);
     const affixes = flow.host.affixes || [];
     const render = () => {
       list.innerHTML = affixes
@@ -1212,12 +1202,9 @@ export function createUI(ctx) {
               : a?.id === "cast_echo" || a?.id === "skill_level"
                 ? "特殊"
                 : `词条${i + 1}`;
-          return `<button type="button" class="equip-pick-item${on ? " on" : ""}" data-target="${i}">
-            <div class="equip-pick-top">
-              <b>${affixDisplayName(a)}</b>
-              <span class="stag kind">${tag}</span>
-            </div>
-            <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
+          return `<button type="button" class="equip-pick-row${on ? " on" : ""}" data-target="${i}">
+            <span class="equip-pick-name">${affixDisplayName(a)}</span>
+            <span class="equip-pick-meta">${tag}${on ? " · 已选" : ""}</span>
           </button>`;
         })
         .join("");
@@ -1267,6 +1254,7 @@ export function createUI(ctx) {
     affixCondensePick = null;
     setEquipPickConfirm(false);
     $("equipPickModal")?.classList.add("hidden");
+    closeEquipPreview();
     toastMsg(`凝炼得到「${r.item.name}」`);
     bagTab = "tools";
     syncBagTabs();
@@ -1512,12 +1500,14 @@ export function createUI(ctx) {
 
     if (isEquipItem(item)) {
       if (title) title.textContent = SLOT_LABEL[item.slot] || "装备";
+      const isRed = normalizeRarity(item.rarity) === "red";
       setPreviewActions({
         replace: false,
         sellOne: true,
         upgrade: canUpgradeEquip(item),
-        devour: normalizeRarity(item.rarity) === "red",
-        affixReplace: normalizeRarity(item.rarity) === "red",
+        devour: isRed,
+        affixReplace: isRed,
+        affixCondense: isRed && hasAffixCondenser() && (item.affixes || []).length > 0,
       });
       body.innerHTML = renderEquipItemBody(item, { price: true });
       bindUniqueAffixTaps(body);
@@ -1572,13 +1562,11 @@ export function createUI(ctx) {
         ? `<button type="button" class="equip-btn replace" id="btnUseWarp">选择楼层传送</button>`
         : isPhone
           ? `<button type="button" class="equip-btn replace" id="btnUsePhone">打开拨号</button>`
-          : isCondense
-            ? `<button type="button" class="equip-btn affix-replace" id="btnUseCondense">凝炼红装词条</button>`
-            : "";
+          : "";
       const rarityLine = isWarp || isPhone
         ? "可重复使用"
         : isCondense
-          ? `数量 ×${item.qty ?? 1} · 消耗品`
+          ? `数量 ×${item.qty ?? 1} · 在红装详情中使用`
           : `数量 ×${item.qty ?? 1}`;
       body.innerHTML = `
         <div class="equip-preview-top">
@@ -1595,18 +1583,17 @@ export function createUI(ctx) {
         </div>
         <p class="equip-preview-desc">${
           item.desc ||
-          (item.kind === "consumable"
-            ? "消耗品：战斗或探索中使用（功能稍后接入）。"
-            : item.kind === "material"
-              ? "材料：用于合成/强化等（功能稍后接入）。"
-              : "暂无说明。")
+          (isCondense
+            ? "打开背包中的红装，点击「词条凝炼」即可消耗本道具凝炼一条词条。装备会消失。"
+            : item.kind === "consumable"
+              ? "消耗品：战斗或探索中使用（功能稍后接入）。"
+              : item.kind === "material"
+                ? "材料：用于合成/强化等（功能稍后接入）。"
+                : "暂无说明。")
         }</p>
         ${useBtn}`;
       body.querySelector("#btnUseWarp")?.addEventListener("click", openWarpPicker);
       body.querySelector("#btnUsePhone")?.addEventListener("click", openPhoneDial);
-      body.querySelector("#btnUseCondense")?.addEventListener("click", () =>
-        openAffixCondenseFlow(invIndex)
-      );
     }
     hideEquipAffixDetail();
     $("equipPreviewModal").classList.remove("hidden");
@@ -1691,7 +1678,7 @@ export function createUI(ctx) {
     if (sub) {
       sub.textContent = list.length
         ? `为 ${hero.name} 选择印章`
-        : "背包里没有印章（击败 14 层隐藏 Boss 可掉落愚人印章）";
+        : "背包里还没有印章";
     }
     if (box) {
       box.innerHTML = list
@@ -3042,6 +3029,7 @@ export function createUI(ctx) {
     $("btnUpgradeEquip")?.addEventListener("click", doUpgradeEquip);
     $("btnDevourEquip")?.addEventListener("click", openDevourPick);
     $("btnAffixReplace")?.addEventListener("click", openAffixReplaceFlow);
+    $("btnAffixCondense")?.addEventListener("click", openAffixCondenseFromEquip);
     $("btnBagSell")?.addEventListener("click", openBagSell);
     $("btnBagSort")?.addEventListener("click", sortBagInventory);
     $("btnConfirmSell")?.addEventListener("click", confirmBagSell);

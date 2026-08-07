@@ -3,7 +3,7 @@
 import {
   preloadMonsterImages,
   drawMonsterSprite,
-} from "../monsters/visuals.js?v=145";
+} from "../monsters/visuals.js?v=147";
 
 export { preloadMonsterImages };
 
@@ -559,66 +559,38 @@ function drawBossSpeechBubble(ctx, tipX, tipY, text, T) {
 }
 
 function drawFlowerBed(ctx, px, py, T, time) {
+  // 克制：像路边一丛枯花，不抢戏、不闪烁
   ctx.save();
-  ctx.fillStyle = "#8b6b45";
-  ctx.fillRect(px + T * 0.12, py + T * 0.55, T * 0.76, T * 0.28);
-  ctx.fillStyle = "#6a4e32";
-  ctx.fillRect(px + T * 0.18, py + T * 0.6, T * 0.64, T * 0.18);
-  ctx.fillStyle = "#5c4030";
+  ctx.fillStyle = "rgba(72, 58, 42, 0.55)";
   ctx.beginPath();
   if (ctx.ellipse) {
-    ctx.ellipse(px + T * 0.5, py + T * 0.55, T * 0.32, T * 0.14, 0, 0, Math.PI * 2);
+    ctx.ellipse(px + T * 0.5, py + T * 0.62, T * 0.22, T * 0.1, 0, 0, Math.PI * 2);
   } else {
-    ctx.arc(px + T * 0.5, py + T * 0.55, T * 0.22, 0, Math.PI * 2);
+    ctx.arc(px + T * 0.5, py + T * 0.62, T * 0.16, 0, Math.PI * 2);
   }
   ctx.fill();
-  const bob = Math.sin(time * 2.5) * 1.5;
-  const petals = ["#ff7eb3", "#ff9f43", "#7ed99a", "#6ecbff"];
-  for (let i = 0; i < 4; i++) {
-    const ang = (i / 4) * Math.PI * 2 + time * 0.4;
-    const cx = px + T * 0.5 + Math.cos(ang) * T * 0.16;
-    const cy = py + T * 0.4 + bob + Math.sin(ang) * T * 0.1;
-    ctx.fillStyle = petals[i];
-    ctx.beginPath();
-    ctx.arc(cx, cy, T * 0.09, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = "#ffe9a8";
-  ctx.beginPath();
-  ctx.arc(px + T * 0.5, py + T * 0.4 + bob, T * 0.07, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHintArrow(ctx, fromX, fromY, toX, toY, T, time) {
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const startDist = T * 0.55;
-  const endDist = Math.max(T * 0.55, len - T * 0.45);
-  const x1 = fromX + ux * startDist;
-  const y1 = fromY + uy * startDist;
-  const x2 = fromX + ux * endDist;
-  const y2 = fromY + uy * endDist;
-  const pulse = 0.65 + Math.sin(time * 4) * 0.2;
-  ctx.save();
-  ctx.strokeStyle = `rgba(226, 61, 74, ${pulse})`;
-  ctx.fillStyle = `rgba(226, 61, 74, ${pulse})`;
-  ctx.lineWidth = Math.max(3, T * 0.06);
+  ctx.strokeStyle = "rgba(58, 92, 48, 0.7)";
+  ctx.lineWidth = Math.max(1.2, T * 0.03);
   ctx.lineCap = "round";
+  const sway = Math.sin(time * 1.1) * T * 0.012;
+  for (const ox of [-0.1, 0, 0.1]) {
+    ctx.beginPath();
+    ctx.moveTo(px + T * (0.5 + ox), py + T * 0.66);
+    ctx.quadraticCurveTo(
+      px + T * (0.5 + ox) + sway,
+      py + T * 0.48,
+      px + T * (0.5 + ox * 0.6) + sway * 0.5,
+      py + T * 0.36
+    );
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(180, 110, 90, 0.75)";
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
-  const ah = T * 0.22;
-  const ang = Math.atan2(uy, ux);
+  ctx.arc(px + T * 0.5 + sway * 0.3, py + T * 0.34, T * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(150, 130, 70, 0.55)";
   ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(x2 - Math.cos(ang - 0.45) * ah, y2 - Math.sin(ang - 0.45) * ah);
-  ctx.lineTo(x2 - Math.cos(ang + 0.45) * ah, y2 - Math.sin(ang + 0.45) * ah);
-  ctx.closePath();
+  ctx.arc(px + T * 0.42, py + T * 0.4, T * 0.035, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -703,26 +675,13 @@ export function drawMap(ctx, map, view, entities) {
     }
   });
 
-  // 花坛
+  // 花坛（环境物；点击才会开路，无强提示）
   if (map.flowerBed && !map.secretOpened) {
     const fx = map.flowerBed.x;
     const fy = map.flowerBed.y;
     if (inView(cam, T, fx, fy)) {
       drawFlowerBed(ctx, fx * T, fy * T, T, time);
     }
-  }
-
-  // 箭头：从玩家附近指向花坛
-  if (entities.hintArrow && map.flowerBed && !map.secretOpened) {
-    drawHintArrow(
-      ctx,
-      playerPos.x * T + T / 2,
-      playerPos.y * T + T / 2,
-      map.flowerBed.x * T + T / 2,
-      map.flowerBed.y * T + T / 2,
-      T,
-      time
-    );
   }
 
   const pbob = Math.sin(time * 3 + 1) * 2;
@@ -736,16 +695,6 @@ export function drawMap(ctx, map, view, entities) {
     playerColor,
     playerAspect
   );
-
-  if (entities.hintSpeech) {
-    drawBossSpeechBubble(
-      ctx,
-      pCx,
-      pCy - T * 0.28 * playerScale,
-      entities.hintSpeech,
-      T
-    );
-  }
 
   const exitOpen = !!entities.exitOpen;
   ctx.fillStyle = "rgba(60, 184, 106, 0.16)";

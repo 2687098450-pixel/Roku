@@ -316,13 +316,20 @@ function buildFloorDef(floor, loop = 0) {
     mobCount: mobCountForFloor(combatFloor),
     scale: Math.round(scaleForFloor(combatFloor) * loopMult * 100) / 100,
   };
-  // 14 层：左臂墙体旁花坛 + 墙内隐藏 Boss（通路很短）
+  // 14 层：左岸花坛通入 U 形海湾内侧的岩廊密室（需自行发现，无箭头提示）
   if (f === 14) {
-    def.flowerBed = { x: 2, y: 4 };
-    def.secretBoss = { x: 1, y: 5 };
+    def.flowerBed = { x: 2, y: 6 };
+    def.secretBoss = { x: 6, y: 3 };
     def.secretPath = [
-      { x: 2, y: 5 },
-      { x: 1, y: 5 },
+      { x: 3, y: 6 },
+      { x: 4, y: 6 },
+      { x: 5, y: 6 },
+      { x: 5, y: 5 },
+      { x: 5, y: 4 },
+      { x: 5, y: 3 },
+      { x: 6, y: 3 },
+      { x: 7, y: 3 },
+      { x: 7, y: 4 },
     ];
   }
   return def;

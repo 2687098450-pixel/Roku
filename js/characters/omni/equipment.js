@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=145";
+import { scaleGoldGain } from "../../core/economy.js?v=147";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -349,6 +349,11 @@ export function itemEnhanceCount(item) {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
 }
 
+/** 掉落/吞噬用的基础等级（不含强化次数） */
+export function itemBaseLevel(item) {
+  return Math.max(1, itemLevel(item) - itemEnhanceCount(item));
+}
+
 export function canUpgradeEquip(item) {
   if (!item?.slot) return false;
   const r = normalizeRarity(item.rarity);
@@ -586,9 +591,9 @@ export function canDevourRedEquip(host, matA, matB) {
   if (matA === host || matB === host || matA === matB) {
     return { ok: false, reason: "材料无效" };
   }
-  const hv = itemLevel(host);
-  if (itemLevel(matA) <= hv || itemLevel(matB) <= hv) {
-    return { ok: false, reason: "只能吞噬比自身等级更高的红装" };
+  const hv = itemBaseLevel(host);
+  if (itemBaseLevel(matA) <= hv || itemBaseLevel(matB) <= hv) {
+    return { ok: false, reason: "只能吞噬基础等级更高的红装（不含强化）" };
   }
   return { ok: true };
 }
@@ -596,9 +601,10 @@ export function canDevourRedEquip(host, matA, matB) {
 export function devourRedEquip(host, matA, matB, rng = Math.random) {
   const check = canDevourRedEquip(host, matA, matB);
   if (!check.ok) return check;
+  // 取两件材料基础等级的较低者，且不低于宿主当前等级（强化可之后重做）
   const newLv = Math.max(
-    1,
-    Math.min(itemLevel(matA), itemLevel(matB))
+    itemLevel(host),
+    Math.min(itemBaseLevel(matA), itemBaseLevel(matB))
   );
   host.level = Math.min(MAX_EQUIP_LEVEL, newLv);
   host.enhanceCount = 0;

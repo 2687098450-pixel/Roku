@@ -1,4 +1,4 @@
-import { APP_VERSION } from "../core/version.js?v=145";
+import { APP_VERSION } from "../core/version.js?v=147";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
@@ -40,6 +40,7 @@ export const MONSTER_IMAGE_FILES = {
   boss_ruin: "boss_ruin.png",
   boss_saw: "boss_saw.png",
   boss_claw: "boss_claw.png",
+  boss_fool: "boss_fool.png",
 };
 
 /** 方块圆角（px）：无图时用圆角差异辅助辨认种类 */
@@ -72,11 +73,35 @@ export const MONSTER_SQUARE_RADIUS = {
   boss_ruin: 4,
   boss_saw: 7,
   boss_claw: 6,
+  boss_fool: 10,
 };
 
 const IMAGE_BASE = new URL("../../assets/monsters/", import.meta.url).href;
+/** @type {Map<string, HTMLImageElement>} */
 const _imgCache = new Map();
+/**
+ * 贴图不透明内容框（用于统一可视大小）
+ * @type {Map<string, { sx:number, sy:number, sw:number, sh:number, visualScale:number }>}
+ */
+const _metaCache = new Map();
 let _preloadPromise = null;
+
+/** 内容最长边占画布比例的目标值；小于此值的图在 UI 上放大补偿 */
+const TARGET_CONTENT_RATIO = 0.88;
+
+/** 分析完成前的兜底缩放（狼/骑士等透明边距偏大） */
+const FALLBACK_VISUAL_SCALE = {
+  wolf: 1.28,
+  wisp: 1.16,
+  slime: 1.14,
+  harpy: 1.12,
+  spider: 1.12,
+  frost: 1.1,
+  knight: 1.14,
+  boss_saw: 1.1,
+  boss_sand: 1.08,
+  boss_sun: 1.06,
+};
 
 export function monsterKindOf(unit) {
   if (!unit) return "slime";
@@ -103,6 +128,13 @@ export function monsterSquareRadius(kind) {
   return MONSTER_SQUARE_RADIUS[kind] ?? 8;
 }
 
+/** 战斗 UI 用的可视缩放（补偿透明边距） */
+export function monsterVisualScale(kind) {
+  const meta = _metaCache.get(kind);
+  if (meta?.visualScale) return meta.visualScale;
+  return FALLBACK_VISUAL_SCALE[kind] ?? 1;
+}
+
 /**
  * 战斗 / DOM 用：方块或图片
  * @returns {{ className: string, style: string, inner: string }}
@@ -113,10 +145,11 @@ export function monsterShapeDomProps(unit) {
   const radius = monsterSquareRadius(kind);
   if (useMonsterImage(kind)) {
     const url = monsterImageUrl(kind);
+    const scale = monsterVisualScale(kind);
     return {
       className: "monster-art-wrap",
-      style: "",
-      inner: `<img class="monster-art" src="${url}" alt="" draggable="false" decoding="async" />`,
+      style: `--mscale:${scale}`,
+      inner: `<img class="monster-art" src="${url}" alt="" draggable="false" decoding="async" data-kind="${kind}" />`,
     };
   }
   return {
@@ -130,10 +163,56 @@ export function getMonsterImage(kind) {
   return _imgCache.get(kind) || null;
 }
 
+function analyzeImageContent(kind, img) {
+  try {
+    const w = img.naturalWidth || 0;
+    const h = img.naturalHeight || 0;
+    if (w < 4 || h < 4) return;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    let minx = w;
+    let miny = h;
+    let maxx = -1;
+    let maxy = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const a = data[(y * w + x) * 4 + 3];
+        if (a <= 16) continue;
+        if (x < minx) minx = x;
+        if (y < miny) miny = y;
+        if (x > maxx) maxx = x;
+        if (y > maxy) maxy = y;
+      }
+    }
+    if (maxx < 0) return;
+    const sw = maxx - minx + 1;
+    const sh = maxy - miny + 1;
+    const maxRatio = Math.max(sw / w, sh / h);
+    // 内容偏小则放大；已铺满的略压一点避免过大
+    let visualScale = TARGET_CONTENT_RATIO / Math.max(0.45, maxRatio);
+    visualScale = Math.min(1.38, Math.max(0.92, visualScale));
+    _metaCache.set(kind, {
+      sx: minx,
+      sy: miny,
+      sw,
+      sh,
+      visualScale,
+    });
+  } catch {
+    /* ignore analyze failures */
+  }
+}
+
 function loadOne(kind, src) {
   return new Promise((resolve) => {
     const existing = _imgCache.get(kind);
     if (existing?.complete && existing.naturalWidth) {
+      if (!_metaCache.has(kind)) analyzeImageContent(kind, existing);
       resolve(existing);
       return;
     }
@@ -141,6 +220,7 @@ function loadOne(kind, src) {
     img.decoding = "async";
     img.onload = () => {
       _imgCache.set(kind, img);
+      analyzeImageContent(kind, img);
       resolve(img);
     };
     img.onerror = () => resolve(null);
@@ -172,7 +252,8 @@ export function drawMonsterSprite(ctx, cx, cy, size, unit) {
   if (useMonsterImage(kind)) {
     const img = getMonsterImage(kind);
     if (img?.complete && img.naturalWidth > 0) {
-      drawMonsterImage(ctx, cx, cy, size, img, unit?.isBoss);
+      if (!_metaCache.has(kind)) analyzeImageContent(kind, img);
+      drawMonsterImage(ctx, cx, cy, size, img, unit?.isBoss, kind);
       return;
     }
   }
@@ -199,15 +280,31 @@ function drawEliteAura(ctx, cx, cy, size) {
   ctx.restore();
 }
 
-function drawMonsterImage(ctx, cx, cy, size, img, isBoss) {
-  // 与旧 Boss 贴图倍率对齐；Boss 再略放大由外层 size 承担
-  const s = size * 1.7;
+function drawMonsterImage(ctx, cx, cy, size, img, isBoss, kind) {
+  // 以不透明内容框最长边对齐目标尺寸，消除透明边距造成的大小不一
+  const base = size * (isBoss ? 1.85 : 1.72);
+  const meta = kind ? _metaCache.get(kind) : null;
   ctx.save();
   ctx.translate(cx, cy);
-  const x = -s / 2;
-  const y = -s / 2;
-  // 直接贴图，不加外框白边
-  ctx.drawImage(img, x, y, s, s);
+  if (meta && meta.sw > 0 && meta.sh > 0) {
+    const fit = base / Math.max(meta.sw, meta.sh);
+    const dw = meta.sw * fit;
+    const dh = meta.sh * fit;
+    ctx.drawImage(
+      img,
+      meta.sx,
+      meta.sy,
+      meta.sw,
+      meta.sh,
+      -dw / 2,
+      -dh / 2,
+      dw,
+      dh
+    );
+  } else {
+    const s = base;
+    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+  }
   ctx.restore();
 }
 

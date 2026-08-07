@@ -455,44 +455,6 @@ html, body {
   position: relative;
 }
 
-.strip-hint-bubble {
-  position: absolute;
-  left: calc(100% + 6px);
-  top: 4px;
-  z-index: 8;
-  max-width: 9.5em;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: #fffaf0;
-  border: 1.5px solid rgba(90, 62, 36, 0.4);
-  box-shadow: 0 2px 8px rgba(40, 28, 16, 0.14);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: #5a3e24;
-  text-align: left;
-  white-space: normal;
-  pointer-events: none;
-}
-
-.strip-hint-bubble::before {
-  content: "";
-  position: absolute;
-  left: -6px;
-  top: 10px;
-  border: 5px solid transparent;
-  border-right-color: rgba(90, 62, 36, 0.4);
-}
-
-.strip-hint-bubble::after {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 11px;
-  border: 4px solid transparent;
-  border-right-color: #fffaf0;
-}
-
 .strip-hero:active { transform: scale(0.96); }
 .strip-hero.dead {
   opacity: 0.45;
@@ -1524,6 +1486,8 @@ html, body {
   display: block;
   pointer-events: none;
   user-select: none;
+  transform: scale(var(--mscale, 1));
+  transform-origin: center center;
 }
 
 .battle-unit.has-monster-art .unit-shadow {
@@ -2382,6 +2346,17 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   box-shadow: 0 1px 0 #a07828;
 }
 
+.equip-btn.affix-condense {
+  background: linear-gradient(180deg, #c9b0ef, #8b6bc9);
+  color: #2f1a4a;
+  box-shadow: 0 3px 0 #5a3e8a;
+}
+
+.equip-btn.affix-condense:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #5a3e8a;
+}
+
 .equip-pick-footer {
   flex: 0 0 auto;
   display: flex;
@@ -2468,6 +2443,45 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   font-weight: 900;
   background: linear-gradient(180deg, #ffc857, #f0892a);
   color: #4a2a10;
+}
+
+/* 简洁列表行（词条凝炼 / 印章选择） */
+.equip-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1.5px solid rgba(58, 42, 26, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 252, 245, 0.96);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.equip-pick-row:active {
+  transform: translateY(1px);
+}
+
+.equip-pick-row.on {
+  border-color: rgba(139, 107, 201, 0.65);
+  background: #f6f0ff;
+  box-shadow: 0 0 0 1px rgba(139, 107, 201, 0.25);
+}
+
+.equip-pick-name {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.equip-pick-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  flex: 0 0 auto;
 }
 
 /* 下：左属性/介绍 | 右技能/自动战斗；分栏位置固定 */
@@ -3616,6 +3630,8 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
+  transform: scale(var(--mscale, 1));
+  transform-origin: center center;
 }
 .unit-ico .square {
   width: 72%;

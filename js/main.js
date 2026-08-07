@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=145";
+import { $ } from "./core/utils.js?v=147";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=145";
-import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=145";
-import { MAX_FLOOR } from "./map/floors.js?v=145";
+} from "./map/island15.js?v=147";
+import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=147";
+import { MAX_FLOOR } from "./map/floors.js?v=147";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=145";
-import { getSavedFormation } from "./characters/stats.js?v=145";
-import { moveSlimeOnce } from "./monsters/slime.js?v=145";
-import { createBattleApi } from "./battle/system.js?v=145";
-import { createUI } from "./ui/shell.js?v=145";
+} from "./characters/omni/index.js?v=147";
+import { getSavedFormation } from "./characters/stats.js?v=147";
+import { moveSlimeOnce } from "./monsters/slime.js?v=147";
+import { createBattleApi } from "./battle/system.js?v=147";
+import { createUI } from "./ui/shell.js?v=147";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=145";
+} from "./core/save.js?v=147";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -81,45 +81,14 @@ function markVisited(state, floorNum) {
 }
 
 /** 进入 / 传送到某层：重建地图与怪物（传送会刷新本层怪物） */
-function clearFloorHint(state) {
-  state.floorHint = null;
-}
-
-/** 14 层：已上阵速度最高者提示花坛 */
-function setupFloorHint(state) {
-  clearFloorHint(state);
-  if (!state.map?.flowerBed || state.map.secretOpened) return;
-  const deployed = getDeployedHeroes(state).filter(
-    (h) => h && !h.dead && (h.hp == null || h.hp > 0)
-  );
-  if (!deployed.length) return;
-  let best = null;
-  let bestSpd = -1;
-  for (const h of deployed) {
-    refreshHeroStats(h);
-    const spd = h.spdFull ?? h.spd ?? 0;
-    if (spd > bestSpd) {
-      bestSpd = spd;
-      best = h;
-    }
-  }
-  if (!best) return;
-  state.floorHint = {
-    heroId: best.id,
-    text: "这个花坛好奇特",
-    arrow: true,
-  };
-}
-
 function tryOpenFloorFlower(tx, ty) {
   const fb = state.map?.flowerBed;
   if (!fb || state.map.secretOpened) return false;
   if (fb.x !== tx || fb.y !== ty) return false;
   const boss = openFloorSecret(state.map, state.monsters, state.floorScale || 1);
-  clearFloorHint(state);
   if (boss) {
     state.monsterTotal = (state.monsterTotal || 0) + 1;
-    showToast("花坛下竟藏着一条密道……", 2400);
+    showToast("石缝里透出一阵怪风……", 2200);
   }
   ui.refreshExploreHud();
   return true;
@@ -144,7 +113,6 @@ function applyFloor(state, floorNum) {
   state.step = null;
   state.path = null;
   markVisited(state, built.floor);
-  setupFloorHint(state);
 }
 
   const state = {
@@ -199,8 +167,6 @@ function applyFloor(state, floorNum) {
   faceDy: 1,
   /** 自动寻路剩余格子 [{x,y}, ...] */
   path: null,
-  /** 14 层花坛提示 { heroId, text, arrow } */
-  floorHint: null,
   tile: 64,
   viewW: 0,
   viewH: 0,
@@ -503,7 +469,6 @@ function draw() {
     {
       monsters: state.monsters,
       exitOpen: !bossAlive(),
-      hintArrow: !!state.floorHint?.arrow,
     }
   );
 }

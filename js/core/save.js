@@ -15,12 +15,12 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=145";
-import { createPatrolMonster } from "../monsters/slime.js?v=145";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=145";
-import { digFloorSecretPath } from "../map/dungeon.js?v=145";
-import { mergeStackableTools } from "../characters/affixItems.js?v=145";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=145";
+} from "../characters/omni/index.js?v=147";
+import { createPatrolMonster } from "../monsters/slime.js?v=147";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=147";
+import { digFloorSecretPath } from "../map/dungeon.js?v=147";
+import { mergeStackableTools } from "../characters/affixItems.js?v=147";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=147";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -465,13 +465,11 @@ export function loadProgressIntoState(state, applyFloorFn) {
 
   if (data.secretOpened && state.map?.secretPathPlay) {
     digFloorSecretPath(state.map);
-    state.floorHint = null;
   } else if (
     Array.isArray(data.monsters) &&
     data.monsters.some((m) => m && (m.isHiddenBoss || m.dropsFoolSeal || m.kind === "boss_fool"))
   ) {
     digFloorSecretPath(state.map);
-    state.floorHint = null;
   }
 
   const restoredMonsters = Array.isArray(data.monsters)

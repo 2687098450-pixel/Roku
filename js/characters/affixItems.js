@@ -6,7 +6,7 @@ import {
   UNIQUE_SKILL_IDS,
   uniqueAffixName,
   uniqueAffixDetail,
-} from "./omni/equipment.js?v=145";
+} from "./omni/equipment.js?v=147";
 
 export const AFFIX_CONDENSE_USE_ID = "affix_condense";
 
@@ -64,7 +64,7 @@ export function makeAffixCondenser(qty = 1) {
     useId: AFFIX_CONDENSE_USE_ID,
     qty: Math.max(1, Math.floor(qty) || 1),
     tint: "#8b6bc9",
-    desc: "选择背包中的一件红装，凝炼其中一条词条。装备消失，词条进入背包，可供红装词条替换使用。",
+    desc: "打开背包中的红装，点击「词条凝炼」：选一条词条后装备消失，词条进入背包，可供红装词条替换使用。",
   };
 }
 

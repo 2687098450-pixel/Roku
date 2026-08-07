@@ -4,17 +4,17 @@
  * - Boss：多在后排中央；坦克 Boss 偶发前排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=145";
+import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=147";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=145";
+} from "./skills.js?v=147";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=145";
-import { createBoss } from "./boss.js?v=145";
+} from "../characters/progression.js?v=147";
+import { createBoss } from "./boss.js?v=147";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -64,7 +64,8 @@ export function createMonster(kind, opts = {}) {
     def: scaleStat(base.def, scale),
     spd: Math.max(4, Math.round(base.spd + (scale - 1) * 2)),
     exp: Math.max(1, Math.round((base.exp || 1) * (0.9 + scale * 0.35))),
-    gold: Math.max(1, Math.round((base.gold || 6) * (0.9 + scale * 0.4))),
+    // 金币随层增长放缓：约 30 层累计够强化 3 件到 +15
+    gold: Math.max(1, Math.round((base.gold || 6) * (0.9 + scale * 0.3))),
     gauge: 0,
     skillIds: isBoss
       ? [...(TYPE_SKILL_IDS.boss || [])]
