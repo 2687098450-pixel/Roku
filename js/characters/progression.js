@@ -1,6 +1,6 @@
 /** 经验、升级、技能点（无循环依赖） */
 
-import { scaleExpGain } from "../core/economy.js?v=161";
+import { scaleExpGain } from "../core/economy.js?v=162";
 
 export const DEFAULT_CRIT_RATE = 0.1;
 export const DEFAULT_CRIT_DMG = 1.5; // 暴击伤害 150%

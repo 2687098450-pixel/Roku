@@ -33,7 +33,7 @@
   <meta name="theme-color" content="#fff4e0" />
   <title>魔窟 · 探索</title>
   <!-- 不用 Google Fonts：国内 WiFi / pad 上常被拦，易被浏览器报「网络出错」 -->
-  <link rel="stylesheet" href="css/style.css?v=161" />
+  <link rel="stylesheet" href="css/style.css?v=162" />
 </head>
 <body>
   <div id="app">
@@ -418,6 +418,18 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=161"></script>
+  <script type="module" src="js/main.js?v=162"></script>
+  <script>
+    /* 模块挂了时给提示，避免按钮点了没反应却无声 */
+    setTimeout(function () {
+      if (typeof window.__mokuBoot === "function") return;
+      var box = document.getElementById("bootModes");
+      if (!box) return;
+      var tip = document.createElement("p");
+      tip.style.cssText = "margin-top:12px;color:#a33;font-weight:800;font-size:13px;line-height:1.4";
+      tip.textContent = "脚本未加载成功。请强刷页面（或清缓存）后再点经典/流畅。";
+      box.appendChild(tip);
+    }, 2500);
+  </script>
 </body>
 </html>
