@@ -124,7 +124,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   color: var(--ink);
-  font-family: "Nunito", "PingFang SC", sans-serif;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   background:
     radial-gradient(circle at 15% 20%, #ffe7b0 0%, transparent 40%),
     radial-gradient(circle at 85% 80%, #c9f3ff 0%, transparent 42%),
@@ -280,7 +280,7 @@ html, body {
 }
 
 .top-place strong {
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 16px;
   color: var(--sun);
   letter-spacing: 0.04em;
@@ -1253,7 +1253,7 @@ html, body {
   align-items: center;
   justify-content: center;
   transform: translateY(-50%);
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 15px;
   line-height: 1;
   text-align: center;
@@ -1311,7 +1311,7 @@ html, body {
   border: none;
   border-radius: 14px;
   padding: 11px 16px;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 18px;
   cursor: pointer;
 }
@@ -1609,7 +1609,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 }
 
 .modal-head h2 {
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 22px;
   color: var(--sun);
   margin: 0;
@@ -1686,7 +1686,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .hero-name-v {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 17px;
   color: #e08920;
   letter-spacing: 0.18em;
@@ -2339,7 +2339,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 
 .hero-power {
   flex: 0 0 auto;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 18px;
   color: #ff8a3d;
   margin-bottom: 6px;
@@ -2388,7 +2388,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   border: none;
   border-radius: 10px;
   padding: 6px 9px;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 12px;
   color: var(--muted);
   background: rgba(255, 224, 168, 0.55);
@@ -2567,7 +2567,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 }
 
 .auto-current {
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 18px;
   color: #ff8a3d;
 }
@@ -3021,7 +3021,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 13px;
   color: #3b2460;
   line-height: 1.15;
@@ -3108,7 +3108,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   display: none;
 }
 .skill-hold-preview .shp-name {
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 15px;
   margin-bottom: 2px;
 }
@@ -3218,7 +3218,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .skill-detail-ico.buff { background: linear-gradient(180deg, #c9a0ff, #8b6cff); }
 .skill-detail-ico.passive { background: linear-gradient(180deg, #8fd6c8, #3aa89a); }
 .skill-detail-name {
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 24px;
   color: #3b2460;
   line-height: 1.2;
@@ -3907,7 +3907,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   border-radius: 12px;
   background: #1f2a33;
   color: #e8f0f4;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 22px;
   letter-spacing: 0.06em;
   text-align: center;
@@ -3933,7 +3933,7 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   border: none;
   border-radius: 14px;
   padding: 14px 0;
-  font-family: "ZCOOL KuaiLe", cursive;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", cursive;
   font-size: 22px;
   color: var(--ink);
   background: linear-gradient(180deg, #fff8eb, #ffe2b0);

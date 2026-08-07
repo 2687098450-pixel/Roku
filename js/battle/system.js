@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=138";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=138";
+import { $, clamp, irand } from "../core/utils.js?v=139";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=139";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=138";
+} from "../characters/omni/index.js?v=139";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=138";
+} from "../characters/progression.js?v=139";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=138";
-import { buildEncounter } from "../monsters/roster.js?v=138";
+} from "../characters/skills.js?v=139";
+import { buildEncounter } from "../monsters/roster.js?v=139";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=138";
-import { rollBattleLoot } from "../loot/drops.js?v=138";
+} from "../monsters/skills.js?v=139";
+import { rollBattleLoot } from "../loot/drops.js?v=139";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=138";
-import { createTicker } from "../core/time.js?v=138";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=138";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=138";
+} from "../characters/stats.js?v=139";
+import { createTicker } from "../core/time.js?v=139";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=139";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=139";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=138";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=138";
+} from "./status.js?v=139";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=139";
 
 export function createBattleApi(ctx) {
   const {

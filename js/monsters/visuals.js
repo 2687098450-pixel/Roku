@@ -1,4 +1,4 @@
-import { APP_VERSION } from "../core/version.js?v=138";
+import { APP_VERSION } from "../core/version.js?v=139";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）

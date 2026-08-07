@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=138";
-import { calcStats } from "./omni/attributes.js?v=138";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=138";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=139";
+import { calcStats } from "./omni/attributes.js?v=139";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=139";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=138";
+} from "./skills.js?v=139";
 import {
   expToNext,
   getSkillLevel,
@@ -17,8 +17,8 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=138";
-import { heroMaxMp } from "./skillMp.js?v=138";
+} from "./progression.js?v=139";
+import { heroMaxMp } from "./skillMp.js?v=139";
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
