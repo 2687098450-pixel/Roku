@@ -9,8 +9,8 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=140";
-import { getFloorDef } from "../map/floors.js?v=140";
+} from "../characters/omni/equipment.js?v=141";
+import { getFloorDef } from "../map/floors.js?v=141";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -543,6 +543,45 @@ function bumpRarity(rarity) {
   return RARITY_ORDER[Math.min(RARITY_ORDER.length - 1, i + 1)];
 }
 
+/** 红装掉落概率为原先的 60%（非唯一随机红） */
+const RED_DROP_KEEP_RATE = 0.6;
+/** 唯一红装：普通/后续击杀掉率（相对旧「必掉」） */
+const UNIQUE_DROP_BASE = 0.6;
+/** 首次击杀该 Boss 唯一装掉率（提高） */
+const UNIQUE_DROP_FIRST = 0.85;
+
+function dampRedRarity(rarity, rng = Math.random) {
+  if (normalizeRarity(rarity) !== "red") return rarity;
+  if (rng() < RED_DROP_KEEP_RATE) return "red";
+  return "orange";
+}
+
+/**
+ * @param {object} stateProgress state.bossUniqueLoot
+ * @param {string} uniqueId
+ */
+export function uniqueLootEntry(stateProgress, uniqueId) {
+  if (!stateProgress || !uniqueId) return { kills: 0, dropped: false };
+  if (!stateProgress[uniqueId]) stateProgress[uniqueId] = { kills: 0, dropped: false };
+  return stateProgress[uniqueId];
+}
+
+/** 开战前：若该层有唯一装曾失手，返回需加「！！！」的提示 */
+export function bossUniqueUrgent(displayFloor, stateProgress) {
+  const tpls = [].concat(UNIQUE_BOSS_BY_FLOOR[displayFloor] || []).filter((t) => t?.uniqueId);
+  if (!tpls.length) return false;
+  return tpls.some((t) => {
+    const e = stateProgress?.[t.uniqueId];
+    return e && e.kills >= 1 && !e.dropped;
+  });
+}
+
+export function bossTauntLine(monster, { urgent = false } = {}) {
+  const name = monster?.name || "关口守护者";
+  const base = `${name}挡住了去路。`;
+  return urgent ? `${name}挡住了去路！！！` : base;
+}
+
 function ensureMinRarityForSkill(rarity) {
   const need = 2;
   let r = normalizeRarity(rarity);
@@ -560,7 +599,8 @@ function pick(pool) {
 
 function rollNormalItem(powerFloor, displayFloor = powerFloor) {
   const tpl = pick(NORMAL_POOL);
-  const rarity = rarityByFloor(powerFloor, Math.random() < 0.35);
+  let rarity = rarityByFloor(powerFloor, Math.random() < 0.35);
+  rarity = dampRedRarity(rarity);
   const level = floorItemLevel(powerFloor);
   const place = floorName(displayFloor);
   return toBagEquip(
@@ -636,6 +676,7 @@ function rollBossSkillItem(displayFloor, powerFloor = displayFloor) {
   let rarity = ensureMinRarityForSkill(tpl.rarity || "purple");
   if (Math.random() < 0.2) rarity = bumpRarity(rarity);
   if (powerFloor >= 8 && Math.random() < 0.35) rarity = bumpRarity(rarity);
+  rarity = dampRedRarity(rarity);
   const level = floorItemLevel(powerFloor, { boss: true });
   const place = floorName(displayFloor);
   return toBagEquip(
@@ -658,6 +699,7 @@ function rollBossNormalItem(displayFloor, powerFloor = displayFloor) {
   const tpl = pick(bossNormalPool(displayFloor, powerFloor));
   let rarity = rarityByFloor(powerFloor, true);
   if (Math.random() < 0.2) rarity = bumpRarity(rarity);
+  rarity = dampRedRarity(rarity);
   const level = floorItemLevel(powerFloor, { boss: true });
   const place = floorName(displayFloor);
   return toBagEquip(
@@ -681,31 +723,54 @@ export function rollTrashLoot(monster) {
   return [rollNormalItem(power, display)];
 }
 
-/** Boss：必掉 2–3 件；有唯一装则全掉；其余补本层技能装/普通装 */
-export function rollBossLoot(monster) {
+/**
+ * Boss：掉 2–3 件；唯一红装按击杀次数概率掉（可全空）
+ * @param {object} monster
+ * @param {{ uniqueLoot?: Record<string, { kills: number, dropped: boolean }> }} [opts]
+ */
+export function rollBossLoot(monster, opts = {}) {
   const display = monster?.floor || 1;
   const power = lootPowerFloor(monster);
+  const uniqueLoot = opts.uniqueLoot || {};
   const drops = [];
   const uniqueTpls = []
     .concat(UNIQUE_BOSS_BY_FLOOR[display] || [])
-    .filter(Boolean);
+    .filter((t) => t && t.uniqueId);
+
   for (const tpl of uniqueTpls) {
-    drops.push(rollUniqueBossItem(power, tpl, display));
+    const entry = uniqueLootEntry(uniqueLoot, tpl.uniqueId);
+    const killIndex = entry.kills; // 0 = 首次击杀
+    let chance = UNIQUE_DROP_BASE;
+    if (killIndex === 0) chance = UNIQUE_DROP_FIRST;
+    else if (!entry.dropped) chance = 1;
+    entry.kills = killIndex + 1;
+    if (Math.random() < chance) {
+      drops.push(rollUniqueBossItem(power, tpl, display));
+      entry.dropped = true;
+    }
   }
-  if (!drops.length) drops.push(rollBossSkillItem(display, power));
-  const count = Math.max(drops.length, Math.random() < 0.5 ? 2 : 3);
-  while (drops.length < count) {
-    if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
-    else drops.push(rollBossNormalItem(display, power));
+
+  const want = Math.random() < 0.5 ? 2 : 3;
+  if (!drops.length) {
+    // 允许不掉红装：用技能/普通装补满
+    while (drops.length < want) {
+      if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
+      else drops.push(rollBossNormalItem(display, power));
+    }
+  } else {
+    while (drops.length < want) {
+      if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
+      else drops.push(rollBossNormalItem(display, power));
+    }
   }
   return drops;
 }
 
-export function rollBattleLoot(worldMonsters) {
+export function rollBattleLoot(worldMonsters, opts = {}) {
   const drops = [];
   for (const m of worldMonsters || []) {
     if (!m) continue;
-    if (m.isBoss) drops.push(...rollBossLoot(m));
+    if (m.isBoss) drops.push(...rollBossLoot(m, opts));
     else drops.push(...rollTrashLoot(m));
   }
   return drops;

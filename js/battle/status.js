@@ -222,7 +222,15 @@ export function statusBadgesHtml(unit) {
     const meta = STATUS_META[id];
     badges.push(stIco(id, meta.kind === "buff" ? "buff" : "debuff", meta.label));
   }
-  if (unit?.dot && (unit.dot.remain || 0) > (unit.dot.bar || 0)) {
+  if (unit?.dots && typeof unit.dots === "object") {
+    const active = Object.values(unit.dots).filter(
+      (d) => d && (d.remain || 0) > (d.bar || 0)
+    );
+    if (active.length) {
+      const pulse = active.some((d) => d.type === "pulse" || d.sourceDriven);
+      badges.push(stIco("dot", "debuff", pulse ? "脉动灼烧" : "行动毒"));
+    }
+  } else if (unit?.dot && (unit.dot.remain || 0) > (unit.dot.bar || 0)) {
     const pulse = unit.dot.type === "pulse" || unit.dot.sourceDriven;
     badges.push(stIco("dot", "debuff", pulse ? "脉动灼烧" : "行动毒"));
   }

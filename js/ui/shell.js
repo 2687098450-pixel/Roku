@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=140";
+import { $, clamp, styleTag } from "../core/utils.js?v=141";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -24,6 +24,8 @@ import {
   canUpgradeEquip,
   upgradeEquipCost,
   upgradeEquip,
+  canDevourRedEquip,
+  devourRedEquip,
   isMilestoneLevel,
   ensureRotation,
   activeSkills,
@@ -54,17 +56,17 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=140";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=140";
-import { setSavedFormation } from "../characters/stats.js?v=140";
-import { resetGameLocalData } from "../core/save.js?v=140";
-import { createAllUniqueItems } from "../loot/drops.js?v=140";
-import { APP_VERSION } from "../core/version.js?v=140";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=140";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=140";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=140";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=140";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=140";
+} from "../characters/omni/index.js?v=141";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=141";
+import { setSavedFormation } from "../characters/stats.js?v=141";
+import { resetGameLocalData } from "../core/save.js?v=141";
+import { createAllUniqueItems } from "../loot/drops.js?v=141";
+import { APP_VERSION } from "../core/version.js?v=141";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=141";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=141";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=141";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=141";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=141";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -624,10 +626,16 @@ export function createUI(ctx) {
     return getState().party.find((h) => h.id === equipEdit.heroId) || null;
   }
 
-  function setPreviewActions({ replace = false, sellOne = false, upgrade = false } = {}) {
+  function setPreviewActions({
+    replace = false,
+    sellOne = false,
+    upgrade = false,
+    devour = false,
+  } = {}) {
     const btnReplace = $("btnReplace");
     const btnSellOne = $("btnSellOne");
     const btnUpgrade = $("btnUpgradeEquip");
+    const btnDevour = $("btnDevourEquip");
     const actions = btnReplace?.parentElement;
     if (btnReplace) btnReplace.hidden = !replace;
     if (btnSellOne) btnSellOne.hidden = !sellOne;
@@ -635,7 +643,16 @@ export function createUI(ctx) {
       btnUpgrade.hidden = !upgrade;
       if (upgrade) syncUpgradeButton();
     }
-    if (actions) actions.hidden = !replace && !sellOne && !upgrade;
+    if (btnDevour) {
+      btnDevour.hidden = !devour;
+      if (devour) {
+        btnDevour.disabled = false;
+        btnDevour.textContent = "吞噬";
+      }
+    }
+    if (actions) {
+      actions.hidden = !replace && !sellOne && !upgrade && !devour;
+    }
   }
 
   function currentPreviewItem() {
@@ -707,6 +724,153 @@ export function createUI(ctx) {
       clearTimeout(toast._upTimer);
       toast._upTimer = setTimeout(() => toast.classList.add("hidden"), 2200);
     }
+    bumpSave();
+  }
+
+  /** 收集可作吞噬材料的红装（背包+已穿，排除宿主） */
+  function listDevourMaterials(host) {
+    const state = getState();
+    const out = [];
+    const hostLv = itemLevel(host);
+    (state.inventory || []).forEach((it, invIndex) => {
+      if (!it || normalizeRarity(it.rarity) !== "red") return;
+      if (it === host) return;
+      if (itemLevel(it) <= hostLv) return;
+      out.push({ item: it, where: "bag", invIndex });
+    });
+    for (const hero of state.party || []) {
+      if (!hero?.equip) continue;
+      for (const slot of SLOT_KEYS) {
+        const it = hero.equip[slot];
+        if (!it || normalizeRarity(it.rarity) !== "red") continue;
+        if (it === host) continue;
+        if (itemLevel(it) <= hostLv) continue;
+        out.push({ item: it, where: "equip", heroId: hero.id, slotKey: slot });
+      }
+    }
+    return out;
+  }
+
+  let devourPick = null;
+
+  function openDevourPick() {
+    const host = currentPreviewItem();
+    if (!host || normalizeRarity(host.rarity) !== "red") return;
+    const mats = listDevourMaterials(host);
+    if (mats.length < 2) {
+      const toast = $("lootToast");
+      if (toast) {
+        toast.textContent = "需要两件比自身更高的红装作为材料";
+        toast.classList.remove("hidden");
+        clearTimeout(toast._devourTimer);
+        toast._devourTimer = setTimeout(() => toast.classList.add("hidden"), 2400);
+      }
+      return;
+    }
+    devourPick = { host, selected: [], mats };
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    const list = $("equipPickList");
+    if (title) title.textContent = "选择吞噬材料";
+    const render = () => {
+      if (sub) {
+        sub.textContent = `已选 ${devourPick.selected.length}/2 · 宿主 Lv${itemLevel(host)} · 材料须更高，完成后取均值并清空强化`;
+      }
+      list.innerHTML = mats
+        .map((m, i) => {
+          const on = devourPick.selected.includes(i);
+          const info = rarityInfo(m.item.rarity);
+          const where =
+            m.where === "bag" ? "背包" : `${SLOT_LABEL[m.slotKey] || "装备"}`;
+          return `<button type="button" class="equip-pick-item${on ? " on" : ""}" data-mat="${i}">
+            <div class="equip-pick-top">
+              <b>${m.item.name}</b>
+              <span class="stag rarity-tag rarity-${info.id}">${info.label}</span>
+            </div>
+            <div class="equip-preview-rarity">Lv${itemLevel(m.item)} · ${where}</div>
+            <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
+          </button>`;
+        })
+        .join("");
+      list.querySelectorAll("[data-mat]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.mat);
+          const idx = devourPick.selected.indexOf(i);
+          if (idx >= 0) devourPick.selected.splice(idx, 1);
+          else if (devourPick.selected.length < 2) devourPick.selected.push(i);
+          if (devourPick.selected.length === 2) {
+            confirmDevour();
+            return;
+          }
+          render();
+        });
+      });
+    };
+    render();
+    $("equipPickModal")?.classList.remove("hidden");
+  }
+
+  function removeDevourMaterial(ref) {
+    const state = getState();
+    if (ref.where === "bag") {
+      const inv = state.inventory || [];
+      const i = inv.indexOf(ref.item);
+      if (i >= 0) inv.splice(i, 1);
+      return;
+    }
+    const hero = state.party.find((h) => h.id === ref.heroId);
+    if (hero?.equip?.[ref.slotKey] === ref.item) {
+      hero.equip[ref.slotKey] = null;
+      refreshHeroStats(hero);
+      refreshSkillTexts(hero);
+    }
+  }
+
+  function confirmDevour() {
+    if (!devourPick || devourPick.selected.length !== 2) return;
+    const { host, mats, selected } = devourPick;
+    const a = mats[selected[0]];
+    const b = mats[selected[1]];
+    if (!a || !b) return;
+    const check = canDevourRedEquip(host, a.item, b.item);
+    const toast = $("lootToast");
+    if (!check.ok) {
+      if (toast) {
+        toast.textContent = check.reason || "无法吞噬";
+        toast.classList.remove("hidden");
+        clearTimeout(toast._devourTimer);
+        toast._devourTimer = setTimeout(() => toast.classList.add("hidden"), 2400);
+      }
+      return;
+    }
+    const r = devourRedEquip(host, a.item, b.item);
+    if (!r.ok) return;
+    removeDevourMaterial(a);
+    removeDevourMaterial(b);
+    devourPick = null;
+    $("equipPickModal")?.classList.add("hidden");
+    if (toast) {
+      toast.textContent = `吞噬成功！等级 ${r.level}，强化已清空`;
+      toast.classList.remove("hidden");
+      clearTimeout(toast._devourTimer);
+      toast._devourTimer = setTimeout(() => toast.classList.add("hidden"), 2600);
+    }
+    if (equipEdit?.source === "hero") {
+      const hero = currentEquipHero();
+      if (hero) {
+        refreshHeroStats(hero);
+        refreshSkillTexts(hero);
+        openEquipPreview(hero, equipEdit.slotKey);
+      }
+    } else if (equipEdit?.source === "bag") {
+      const inv = getState().inventory || [];
+      const idx = inv.indexOf(host);
+      if (idx >= 0) {
+        equipEdit.invIndex = idx;
+        openBagItemPreview(idx);
+      }
+    }
+    refreshExploreHud();
     bumpSave();
   }
 
@@ -911,6 +1075,7 @@ export function createUI(ctx) {
       replace: true,
       sellOne: false,
       upgrade: !!(item && canUpgradeEquip(item)),
+      devour: !!(item && normalizeRarity(item.rarity) === "red"),
     });
 
     if (!item) {
@@ -949,6 +1114,7 @@ export function createUI(ctx) {
         replace: false,
         sellOne: true,
         upgrade: canUpgradeEquip(item),
+        devour: normalizeRarity(item.rarity) === "red",
       });
       body.innerHTML = renderEquipItemBody(item, { price: true });
       bindUniqueAffixTaps(body);
@@ -2216,6 +2382,7 @@ export function createUI(ctx) {
       if (equipEdit?.source === "bag") sellBagItemAt(equipEdit.invIndex);
     });
     $("btnUpgradeEquip")?.addEventListener("click", doUpgradeEquip);
+    $("btnDevourEquip")?.addEventListener("click", openDevourPick);
     $("btnBagSell")?.addEventListener("click", openBagSell);
     $("btnBagSort")?.addEventListener("click", sortBagInventory);
     $("btnConfirmSell")?.addEventListener("click", confirmBagSell);

@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=140";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=140";
+import { $, clamp, irand } from "../core/utils.js?v=141";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=141";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=140";
+} from "../characters/omni/index.js?v=141";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=140";
+} from "../characters/progression.js?v=141";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=140";
-import { buildEncounter } from "../monsters/roster.js?v=140";
+} from "../characters/skills.js?v=141";
+import { buildEncounter } from "../monsters/roster.js?v=141";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=140";
-import { rollBattleLoot } from "../loot/drops.js?v=140";
+} from "../monsters/skills.js?v=141";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=141";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=140";
-import { createTicker } from "../core/time.js?v=140";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=140";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=140";
+} from "../characters/stats.js?v=141";
+import { createTicker } from "../core/time.js?v=141";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=141";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=141";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=140";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=140";
+} from "./status.js?v=141";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=141";
 
 export function createBattleApi(ctx) {
   const {
@@ -413,16 +413,35 @@ export function createBattleApi(ctx) {
     return [primary];
   }
 
+  function ensureDots(unit) {
+    if (!unit.dots || typeof unit.dots !== "object") unit.dots = {};
+    // 兼容旧单槽
+    if (unit.dot && !unit.dots[unit.dot.skillId || "_legacy"]) {
+      const id = unit.dot.skillId || "_legacy";
+      unit.dots[id] = { ...unit.dot, skillId: id };
+    }
+    unit.dot = null;
+    return unit.dots;
+  }
+
+  function listActiveDots(unit) {
+    if (!unit) return [];
+    const map = ensureDots(unit);
+    return Object.values(map).filter(
+      (d) => d && (d.remain || 0) > (d.bar || 0)
+    );
+  }
+
   function applyMonsterDot(target, caster, skill) {
     const def = skill?.dot;
     if (!def || !target || target.hp <= 0) return;
+    const skillId = skill?.id || def.skillId || "dot";
     // 对怪物：与脉动治疗同理，按施法者行动条每 10 跳一次
     const sourceDriven = !target.isHero;
     const type = sourceDriven || def.type === "pulse" ? "pulse" : "onAct";
     const tickDef = { ...def, type };
     let tickDmg;
     if (sourceDriven) {
-      // 英雄灼烧不吃怪物脉动单跳硬顶，便于按跳数平衡
       const atk = Math.max(0, Number(caster?.atk) || 0);
       tickDmg = Math.max(
         1,
@@ -435,7 +454,11 @@ export function createBattleApi(ctx) {
     if (type === "pulse" && !sourceDriven) {
       remain = clampMonsterDotGauge(tickDef);
     }
-    target.dot = {
+    const dots = ensureDots(target);
+    const prev = dots[skillId];
+    // 同一技能：不叠加，只刷新持续时间与跳伤
+    dots[skillId] = {
+      skillId,
       type,
       sourceDriven,
       tickDmg,
@@ -444,17 +467,13 @@ export function createBattleApi(ctx) {
       walk: 0,
       interval: type === "pulse" ? def.interval || PULSE_DOT_INTERVAL : 0,
       sourceId: caster?.id || null,
+      refreshed: !!prev,
     };
   }
 
-  function advanceUnitDot(b, unit, walked) {
-    const d = unit?.dot;
-    if (!d || unit.hp <= 0) {
-      if (unit) unit.dot = null;
-      return;
-    }
-    // 施法者推进的灼烧不在目标走条时结算
-    if (d.sourceDriven) return;
+  function advanceOneDot(b, unit, d, walked) {
+    if (!d || unit.hp <= 0) return false;
+    if (d.sourceDriven) return true;
     d.bar = (d.bar || 0) + walked;
     if (d.type === "pulse") {
       d.walk = (d.walk || 0) + walked;
@@ -466,45 +485,68 @@ export function createBattleApi(ctx) {
         if (unit.hp <= 0) break;
       }
     }
-    if (d.bar >= d.remain) unit.dot = null;
+    return (d.remain || 0) > (d.bar || 0);
+  }
+
+  function advanceUnitDot(b, unit, walked) {
+    if (!unit || unit.hp <= 0) {
+      if (unit) {
+        unit.dots = {};
+        unit.dot = null;
+      }
+      return;
+    }
+    const dots = ensureDots(unit);
+    for (const id of Object.keys(dots)) {
+      const d = dots[id];
+      if (!d) {
+        delete dots[id];
+        continue;
+      }
+      if (!advanceOneDot(b, unit, d, walked)) delete dots[id];
+      if (unit.hp <= 0) break;
+    }
   }
 
   /** 施法者走行动条时，推进其施加在怪物上的脉动灼烧 */
   function advanceDotsFromSource(b, source, walked) {
     if (!source?.id || !(walked > 0)) return;
     for (const u of battleUnits(b)) {
-      const d = u?.dot;
-      if (!d?.sourceDriven || d.sourceId !== source.id) continue;
-      if (u.hp <= 0) {
-        u.dot = null;
-        continue;
-      }
-      const src = findUnitById(b, d.sourceId);
-      if (!src || src.hp <= 0) {
-        u.dot = null;
-        continue;
-      }
-      d.bar = (d.bar || 0) + walked;
-      d.walk = (d.walk || 0) + walked;
-      const interval = d.interval || PULSE_DOT_INTERVAL;
-      while (d.walk >= interval && u.hp > 0 && u.dot) {
-        d.walk -= interval;
-        dealDamage(u, d.tickDmg, { source: src });
-        if (u.hp <= 0) {
-          u.dot = null;
-          break;
+      if (!u || u.hp <= 0) continue;
+      const dots = ensureDots(u);
+      for (const id of Object.keys(dots)) {
+        const d = dots[id];
+        if (!d?.sourceDriven || d.sourceId !== source.id) continue;
+        const src = findUnitById(b, d.sourceId);
+        if (!src || src.hp <= 0) {
+          delete dots[id];
+          continue;
         }
+        d.bar = (d.bar || 0) + walked;
+        d.walk = (d.walk || 0) + walked;
+        const interval = d.interval || PULSE_DOT_INTERVAL;
+        while (d.walk >= interval && u.hp > 0 && dots[id]) {
+          d.walk -= interval;
+          dealDamage(u, d.tickDmg, { source: src });
+          if (u.hp <= 0) break;
+        }
+        if (!dots[id]) continue;
+        if ((d.remain || 0) <= (d.bar || 0) || u.hp <= 0) delete dots[id];
       }
-      if (u.dot && d.bar >= (d.remain || 0)) u.dot = null;
     }
   }
 
   /** 行动时持续：出手瞬间跳伤（仅非施法者推进型） */
   function triggerActDot(b, unit) {
-    const d = unit?.dot;
-    if (!d || d.sourceDriven || d.type !== "onAct" || unit.hp <= 0) return;
-    const src = findUnitById(b, d.sourceId);
-    dealDamage(unit, d.tickDmg, { source: src || null });
+    if (!unit || unit.hp <= 0) return;
+    const dots = ensureDots(unit);
+    for (const id of Object.keys(dots)) {
+      const d = dots[id];
+      if (!d || d.sourceDriven || d.type !== "onAct") continue;
+      const src = findUnitById(b, d.sourceId);
+      dealDamage(unit, d.tickDmg, { source: src || null });
+      if (unit.hp <= 0) break;
+    }
   }
 
   const SKILL_ICON = {
@@ -1049,7 +1091,7 @@ export function createBattleApi(ctx) {
         attacker,
         tryApplySkillStatuses(attacker, target, def?.apply || {}, null)
       );
-      if (def?.dot) applyMonsterDot(target, attacker, { dot: def.dot });
+      if (def?.dot) applyMonsterDot(target, attacker, { id: skillId, dot: def.dot });
       if (dealt > 0) applySelfRecoil(attacker, dealt, def);
     }
     return dealt;
@@ -1098,7 +1140,7 @@ export function createBattleApi(ctx) {
           scaledSkillDef(skillId, skillLv) || SKILL_POWER[skillId]
         );
         recordControl(ally, tryApplySkillStatuses(ally, t, def?.apply || {}, null));
-        if (def?.dot) applyMonsterDot(t, ally, { dot: def.dot });
+        if (def?.dot) applyMonsterDot(t, ally, { id: skillId, dot: def.dot });
       }
       if (t.hp <= 0) remaining += 1;
       renderBattle(b);
@@ -1135,13 +1177,23 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 治愈戒：任意治疗后附加 200 行动条脉动（按治疗者行动条推进） */
+  /** 治愈戒：任意治疗后附加 200 行动条脉动（按治疗者行动条推进）；同效果刷新不叠加 */
   function applyMendPulse(b, healer, target, healedAmount) {
     const hero = actingHero(healer);
     if (!heroHasUnique(hero, "green_mend_pulse") || !target || !healer) return;
     const tickDmg = Math.max(1, Math.floor(Math.max(1, healedAmount) * 0.2));
+    const remain = 200;
+    if (target.mendPulse && target.mendPulse.healerId === healer.id) {
+      target.mendPulse.remain = remain;
+      target.mendPulse.bar = 0;
+      target.mendPulse.walk = 0;
+      target.mendPulse.lostThisCycle = false;
+      target.mendPulse.lastLost = 0;
+      target.mendPulse.tickDmg = tickDmg;
+      return;
+    }
     target.mendPulse = {
-      remain: 200,
+      remain,
       bar: 0,
       walk: 0,
       lostThisCycle: false,
@@ -1418,7 +1470,10 @@ export function createBattleApi(ctx) {
       // 只移除撞到的那只地图怪
       const ids = new Set(pack.map((m) => m.id));
       state.monsters = state.monsters.filter((m) => !ids.has(m.id));
-      const loot = rollBattleLoot(pack);
+      if (!state.bossUniqueLoot || typeof state.bossUniqueLoot !== "object") {
+        state.bossUniqueLoot = {};
+      }
+      const loot = rollBattleLoot(pack, { uniqueLoot: state.bossUniqueLoot });
       if (loot.length) {
         if (!state.inventory) state.inventory = [];
         state.inventory.push(...loot);
@@ -1890,6 +1945,23 @@ export function createBattleApi(ctx) {
     // - 小怪战：混合类型，最多 9 只铺满 3×3；Boss：后排中央 + 其余格位小怪
     const touched =
       state.monsters.find((m) => m.id === worldMonster.id) || worldMonster;
+    if (touched?.isBoss) {
+      if (!state.bossUniqueLoot || typeof state.bossUniqueLoot !== "object") {
+        state.bossUniqueLoot = {};
+      }
+      const urgent = bossUniqueUrgent(
+        touched.floor || state.floor || 1,
+        state.bossUniqueLoot
+      );
+      const line = bossTauntLine(touched, { urgent });
+      const toast = $("lootToast") || $("toast");
+      if (toast && line) {
+        toast.textContent = line;
+        toast.classList.remove("hidden");
+        clearTimeout(toast._bossTauntTimer);
+        toast._bossTauntTimer = setTimeout(() => toast.classList.add("hidden"), 3200);
+      }
+    }
     const floor = touched.floor || state.floor || 1;
     const scale = state.floorScale || 1;
     const { enemies } = buildEncounter(touched, floor, scale);
@@ -1925,6 +1997,7 @@ export function createBattleApi(ctx) {
       rotIndex: 0,
       spiritForm: false,
       mendPulse: null,
+      dots: {},
       dot: null,
       killStacks: 0,
       firstSkillDone: false,

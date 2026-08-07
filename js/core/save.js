@@ -15,10 +15,10 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=140";
-import { createPatrolMonster } from "../monsters/slime.js?v=140";
-import { createBoss } from "../monsters/boss.js?v=140";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=140";
+} from "../characters/omni/index.js?v=141";
+import { createPatrolMonster } from "../monsters/slime.js?v=141";
+import { createBoss } from "../monsters/boss.js?v=141";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=141";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -250,6 +250,9 @@ export function serializeProgress(state) {
       .map((m) => serializeMonster(m, state.map))
       .filter(Boolean),
     monsterTotal: state.monsterTotal || 0,
+    bossUniqueLoot: state.bossUniqueLoot && typeof state.bossUniqueLoot === "object"
+      ? { ...state.bossUniqueLoot }
+      : {},
   };
 }
 
@@ -438,6 +441,10 @@ export function loadProgressIntoState(state, applyFloorFn) {
         ? Math.max(restoredMonsters.length, Math.floor(data.monsterTotal))
         : Math.max(state.monsterTotal || 0, restoredMonsters.length);
   }
+  state.bossUniqueLoot =
+    data.bossUniqueLoot && typeof data.bossUniqueLoot === "object"
+      ? { ...data.bossUniqueLoot }
+      : {};
 
   // 刷新读档：进度保留，位置始终回到本层起点
   if (state.map?.spawn) {

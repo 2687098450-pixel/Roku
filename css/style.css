@@ -2062,7 +2062,8 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .equip-preview-stats li {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 10px;
   padding: 12px 14px;
   border-radius: 12px;
   background: #fff;
@@ -2071,10 +2072,22 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   border: none;
 }
 
-.equip-preview-stats li span { color: var(--ink); }
+.equip-preview-stats li span {
+  color: var(--ink);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .equip-preview-stats li b {
   color: var(--sun);
   font-variant-numeric: tabular-nums;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .equip-preview-stats.compact {
@@ -2245,6 +2258,22 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 }
 
 .equip-btn.upgrade:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.equip-btn.devour {
+  background: linear-gradient(180deg, #f28aa0, #e23d4a);
+  color: #fff;
+  box-shadow: 0 3px 0 #a02830;
+}
+
+.equip-btn.devour:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #a02830;
+}
+
+.equip-btn.devour:disabled {
   opacity: 0.45;
   cursor: default;
 }

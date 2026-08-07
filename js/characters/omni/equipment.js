@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=140";
+import { scaleGoldGain } from "../../core/economy.js?v=141";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -571,6 +571,57 @@ export function upgradeEquip(item, state) {
     enhanceCount: item.enhanceCount,
     milestone,
   };
+}
+
+/** 红装吞噬：消耗两件更高红装，等级取二者均值，强化次数清零并重算词条数值 */
+export function canDevourRedEquip(host, matA, matB) {
+  if (!host || !matA || !matB) return { ok: false, reason: "材料不足" };
+  if (normalizeRarity(host.rarity) !== "red") {
+    return { ok: false, reason: "仅红装可吞噬" };
+  }
+  if (normalizeRarity(matA.rarity) !== "red" || normalizeRarity(matB.rarity) !== "red") {
+    return { ok: false, reason: "材料须为红装" };
+  }
+  if (matA === host || matB === host || matA === matB) {
+    return { ok: false, reason: "材料无效" };
+  }
+  const hv = itemLevel(host);
+  if (itemLevel(matA) <= hv || itemLevel(matB) <= hv) {
+    return { ok: false, reason: "只能吞噬比自身等级更高的红装" };
+  }
+  return { ok: true };
+}
+
+export function devourRedEquip(host, matA, matB, rng = Math.random) {
+  const check = canDevourRedEquip(host, matA, matB);
+  if (!check.ok) return check;
+  const newLv = Math.max(
+    1,
+    Math.floor((itemLevel(matA) + itemLevel(matB)) / 2)
+  );
+  host.level = Math.min(MAX_EQUIP_LEVEL, newLv);
+  host.enhanceCount = 0;
+  for (const a of host.affixes || []) {
+    if (!a) continue;
+    if (a.type === "unique" || a.id === "cast_echo" || a.id === "skill_level") {
+      continue;
+    }
+    if (a.type === "stat" && a.key) {
+      a.value = rollStatValue(a.key, host.level, rng);
+      refreshAffixText(a);
+      continue;
+    }
+    if (a.type === "skill" && a.skillMods) {
+      const base = SKILL_AFFIX_POOL.find((p) => p.id === a.id);
+      if (base?.skillMods) {
+        a.skillMods = { ...base.skillMods };
+        a.text = base.text || formatSkillModsText(a.skillMods);
+      }
+      refreshAffixText(a);
+    }
+  }
+  rebuildEquipStats(host);
+  return { ok: true, level: host.level };
 }
 
 /** 第 N 层掉落 → 等级 N；Boss 战利品高 1 级；封顶 MAX_EQUIP_LEVEL */

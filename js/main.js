@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=140";
+import { $ } from "./core/utils.js?v=141";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=140";
-import { buildFloor } from "./map/dungeon.js?v=140";
-import { MAX_FLOOR } from "./map/floors.js?v=140";
+} from "./map/island15.js?v=141";
+import { buildFloor } from "./map/dungeon.js?v=141";
+import { MAX_FLOOR } from "./map/floors.js?v=141";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=140";
-import { getSavedFormation } from "./characters/stats.js?v=140";
-import { moveSlimeOnce } from "./monsters/slime.js?v=140";
-import { createBattleApi } from "./battle/system.js?v=140";
-import { createUI } from "./ui/shell.js?v=140";
+} from "./characters/omni/index.js?v=141";
+import { getSavedFormation } from "./characters/stats.js?v=141";
+import { moveSlimeOnce } from "./monsters/slime.js?v=141";
+import { createBattleApi } from "./battle/system.js?v=141";
+import { createUI } from "./ui/shell.js?v=141";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=140";
+} from "./core/save.js?v=141";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -141,6 +141,7 @@ function applyFloor(state, floorNum) {
   warpAnyFloor: false,
   monsters: [],
   monsterTotal: 0,
+  bossUniqueLoot: {},
   gold: 120,
   gem: 15,
   placeName: "阳光海岛",
