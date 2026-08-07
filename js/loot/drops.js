@@ -9,10 +9,10 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=143";
-import { makeFoolSeal } from "../characters/seals.js?v=143";
-import { makeAffixCondenser } from "../characters/affixItems.js?v=143";
-import { getFloorDef } from "../map/floors.js?v=143";
+} from "../characters/omni/equipment.js?v=144";
+import { makeFoolSeal } from "../characters/seals.js?v=144";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=144";
+import { getFloorDef } from "../map/floors.js?v=144";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -736,7 +736,11 @@ export function rollBossLoot(monster, opts = {}) {
   const uniqueLoot = opts.uniqueLoot || {};
   const drops = [];
 
-  if (monster?.dropsFoolSeal) {
+  if (
+    monster?.dropsFoolSeal ||
+    monster?.isHiddenBoss ||
+    monster?.kind === "boss_fool"
+  ) {
     drops.push(makeFoolSeal());
   }
 
@@ -758,7 +762,11 @@ export function rollBossLoot(monster, opts = {}) {
   }
 
   // 隐藏愚人 Boss：印章必掉，另给 1 件普通/技能装
-  if (monster?.dropsFoolSeal) {
+  if (
+    monster?.dropsFoolSeal ||
+    monster?.isHiddenBoss ||
+    monster?.kind === "boss_fool"
+  ) {
     if (Math.random() < 0.55) drops.push(rollBossSkillItem(display, power));
     else drops.push(rollBossNormalItem(display, power));
     return drops;

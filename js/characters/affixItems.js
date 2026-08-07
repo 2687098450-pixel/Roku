@@ -6,7 +6,7 @@ import {
   UNIQUE_SKILL_IDS,
   uniqueAffixName,
   uniqueAffixDetail,
-} from "./omni/equipment.js?v=143";
+} from "./omni/equipment.js?v=144";
 
 export const AFFIX_CONDENSE_USE_ID = "affix_condense";
 
@@ -119,6 +119,18 @@ export function canReplaceEquipAffix(host, slotIndex, bagAffix) {
   const i = Math.floor(Number(slotIndex));
   if (i < 0 || i >= list.length) return { ok: false, reason: "请选择要替换的词条" };
 
+  // 每件红装只能选定一条「可替换位」；首次任意选，之后只能改这一位
+  if (host.affixReplaceIndex != null && host.affixReplaceIndex !== "") {
+    const locked = Math.floor(Number(host.affixReplaceIndex));
+    if (Number.isFinite(locked) && locked !== i) {
+      return {
+        ok: false,
+        reason: "该装备只能继续替换已选定的那条词条",
+        forceIndex: locked,
+      };
+    }
+  }
+
   const incomingUnique =
     bagAffix.type === "unique" || !!(bagAffix.uniqueId && UNIQUE_SKILL_IDS[bagAffix.uniqueId]);
   if (incomingUnique) {
@@ -139,6 +151,19 @@ export function canReplaceEquipAffix(host, slotIndex, bagAffix) {
   return { ok: true };
 }
 
+/** 可被选中替换的词条下标（未锁定则全部；锁定后仅一位） */
+export function getAffixReplaceableIndices(host) {
+  const list = host?.affixes || [];
+  if (!list.length) return [];
+  if (host.affixReplaceIndex != null && host.affixReplaceIndex !== "") {
+    const locked = Math.floor(Number(host.affixReplaceIndex));
+    if (Number.isFinite(locked) && locked >= 0 && locked < list.length) {
+      return [locked];
+    }
+  }
+  return list.map((_, i) => i);
+}
+
 /** 用背包词条替换装备指定词条（被替换词条消失） */
 export function replaceEquipAffix(host, slotIndex, bagAffix) {
   const check = canReplaceEquipAffix(host, slotIndex, bagAffix);
@@ -146,6 +171,7 @@ export function replaceEquipAffix(host, slotIndex, bagAffix) {
   const i = Math.floor(Number(slotIndex));
   host.affixes = host.affixes || [];
   host.affixes[i] = cloneAffix(bagAffix);
+  host.affixReplaceIndex = i;
   syncItemUniqueFromAffixes(host);
   rebuildEquipStats(host);
   return { ok: true, affix: host.affixes[i] };

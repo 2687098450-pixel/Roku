@@ -1,14 +1,14 @@
 /** 关卡出口守护 Boss（按层固定主题 kind） */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=143";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=144";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=143";
-import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=143";
-import { floorHasUniqueBossLoot } from "../loot/drops.js?v=143";
+} from "./skills.js?v=144";
+import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=144";
+import { floorHasUniqueBossLoot } from "../loot/drops.js?v=144";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -45,7 +45,7 @@ export function createBoss({
     type: "boss",
     kind,
     isBoss: true,
-    isHiddenBoss: !!hidden,
+    isHiddenBoss: !!hidden || kind === "boss_fool",
     name: nameOverride || `${sheet.name}·${floor}层`,
     color: sheet.color,
     shape: "square",
@@ -64,7 +64,7 @@ export function createBoss({
     floor,
     combatFloor: cf,
     hasUniqueLoot: hidden ? false : floorHasUniqueBossLoot(floor),
-    dropsFoolSeal: !!hidden,
+    dropsFoolSeal: !!hidden || kind === "boss_fool",
     row: "back",
     col: 1,
     skillIds,

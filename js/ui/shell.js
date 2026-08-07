@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=143";
+import { $, clamp, styleTag } from "../core/utils.js?v=144";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -56,22 +56,22 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=143";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=143";
-import { setSavedFormation } from "../characters/stats.js?v=143";
-import { resetGameLocalData } from "../core/save.js?v=143";
-import { createAllUniqueItems } from "../loot/drops.js?v=143";
-import { APP_VERSION } from "../core/version.js?v=143";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=143";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=143";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=143";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=143";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=143";
+} from "../characters/omni/index.js?v=144";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=144";
+import { setSavedFormation } from "../characters/stats.js?v=144";
+import { resetGameLocalData } from "../core/save.js?v=144";
+import { createAllUniqueItems } from "../loot/drops.js?v=144";
+import { APP_VERSION } from "../core/version.js?v=144";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=144";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=144";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=144";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=144";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=144";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
-} from "../characters/seals.js?v=143";
+} from "../characters/seals.js?v=144";
 import {
   isAffixItem,
   toolSortPriority,
@@ -80,8 +80,9 @@ import {
   canReplaceEquipAffix,
   replaceEquipAffix,
   condenseEquipAffix,
+  getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=143";
+} from "../characters/affixItems.js?v=144";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -114,6 +115,8 @@ export function createUI(ctx) {
   let affixReplacePick = null;
   /** 词条凝炼流程 */
   let affixCondensePick = null;
+  /** 无可用装备时自动关闭更换弹窗 */
+  let equipPickEmptyTimer = 0;
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
@@ -341,6 +344,8 @@ export function createUI(ctx) {
     affixReplacePick = null;
     affixCondensePick = null;
     devourPick = null;
+    clearTimeout(equipPickEmptyTimer);
+    equipPickEmptyTimer = 0;
   }
 
   function closeEquipPreview() {
@@ -973,7 +978,9 @@ export function createUI(ctx) {
     if (title) title.textContent = "选择替换词条";
     if (sub) {
       sub.textContent =
-        "从背包选择一条词条，将替换红装上的一条已有词条（被替换的消失）";
+        host.affixReplaceIndex != null && host.affixReplaceIndex !== ""
+          ? "该装备已选定可替换词条位，只能继续替换这一条"
+          : "每件红装只能选定一条可替换词条；首次任选，之后仅可改该位（被替换的消失）";
     }
     setEquipPickConfirm(false);
     list.innerHTML = bagAffixes
@@ -1010,13 +1017,21 @@ export function createUI(ctx) {
     const title = $("equipPickTitle");
     const sub = $("equipPickSub");
     if (title) title.textContent = "选择被替换词条";
+    const allowed = new Set(getAffixReplaceableIndices(host));
     if (sub) {
-      sub.textContent = `将装上「${affixDisplayName(flow.bagAffix)}」· 点选要替换掉的词条后确定`;
+      sub.textContent =
+        allowed.size === 1
+          ? `将装上「${affixDisplayName(flow.bagAffix)}」· 只能替换已锁定的那条词条`
+          : `将装上「${affixDisplayName(flow.bagAffix)}」· 选定后其他词条将不可再替换`;
     }
     const affixes = host.affixes || [];
+    if (allowed.size === 1) {
+      flow.targetIndex = [...allowed][0];
+    }
     const render = () => {
       list.innerHTML = affixes
         .map((a, i) => {
+          const can = allowed.has(i);
           const on = flow.targetIndex === i;
           const tag =
             a?.type === "unique" || a?.uniqueId
@@ -1024,17 +1039,25 @@ export function createUI(ctx) {
               : a?.id === "cast_echo" || a?.id === "skill_level"
                 ? "特殊"
                 : `词条${i + 1}`;
-          return `<button type="button" class="equip-pick-item${on ? " on" : ""}" data-target="${i}">
+          return `<button type="button" class="equip-pick-item${on ? " on" : ""}${
+            can ? "" : " off"
+          }" data-target="${i}" ${can ? "" : "disabled"}>
             <div class="equip-pick-top">
               <b>${affixDisplayName(a)}</b>
               <span class="stag kind">${tag}</span>
             </div>
-            <div class="equip-preview-rarity">${(a?.detail || a?.text || "").slice(0, 40)}</div>
-            <span class="equip-pick-cta">${on ? "已选" : "选择"}</span>
+            <div class="equip-preview-rarity">${
+              can
+                ? (a?.detail || a?.text || "").slice(0, 40)
+                : "不可替换（未选定位）"
+            }</div>
+            <span class="equip-pick-cta">${
+              !can ? "锁定" : on ? "已选" : "选择"
+            }</span>
           </button>`;
         })
         .join("");
-      list.querySelectorAll("[data-target]").forEach((btn) => {
+      list.querySelectorAll("[data-target]:not([disabled])").forEach((btn) => {
         btn.addEventListener("click", () => {
           flow.targetIndex = Number(btn.dataset.target);
           render();
@@ -1767,17 +1790,24 @@ export function createUI(ctx) {
 
     const candidates = candidatesForSlot(slotKey);
     if (!list) return;
+    clearTimeout(equipPickEmptyTimer);
+    equipPickEmptyTimer = 0;
     if (!candidates.length) {
       list.innerHTML = `<div class="equip-pick-empty">背包里没有可更换到此部位的装备</div>`;
-    } else {
-      list.innerHTML = candidates
-        .map(({ it, index }) => {
-          const info = rarityInfo(it.rarity);
-          const icon = itemIconUrl(it);
-          const iconHtml = icon
-            ? `<img src="${icon}" alt="${it.name}" decoding="async" loading="lazy" />`
-            : `<span class="ico-fallback">${info.label}</span>`;
-          return `<button type="button" class="equip-pick-item" data-inv="${index}">
+      $("equipPickModal").classList.remove("hidden");
+      equipPickEmptyTimer = setTimeout(() => {
+        closeEquipPick();
+      }, 1000);
+      return;
+    }
+    list.innerHTML = candidates
+      .map(({ it, index }) => {
+        const info = rarityInfo(it.rarity);
+        const icon = itemIconUrl(it);
+        const iconHtml = icon
+          ? `<img src="${icon}" alt="${it.name}" decoding="async" loading="lazy" />`
+          : `<span class="ico-fallback">${info.label}</span>`;
+        return `<button type="button" class="equip-pick-item" data-inv="${index}">
             <div class="equip-pick-top">
               <div class="equip-preview-ico">${iconHtml}</div>
               <div class="equip-preview-meta">
@@ -1792,15 +1822,14 @@ export function createUI(ctx) {
             ${formatAffixesHtml(it, true)}
             <span class="equip-pick-cta">选择</span>
           </button>`;
-        })
-        .join("");
+      })
+      .join("");
 
-      list.querySelectorAll(".equip-pick-item").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          equipFromInventory(Number(btn.dataset.inv));
-        });
+    list.querySelectorAll(".equip-pick-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        equipFromInventory(Number(btn.dataset.inv));
       });
-    }
+    });
     $("equipPickModal").classList.remove("hidden");
   }
 

@@ -9,8 +9,8 @@
  * | lg   | 120px| 英雄详情立绘 |
  */
 
-import { diamondStyleAttr } from "../characters/createHero.js?v=143";
-import { monsterShapeDomProps } from "../monsters/visuals.js?v=143";
+import { diamondStyleAttr } from "../characters/createHero.js?v=144";
+import { monsterShapeDomProps } from "../monsters/visuals.js?v=144";
 
 export const UNIT_ICON = Object.freeze({
   xs: Object.freeze({ id: "xs", box: 28, diamondScale: 0.55 }),

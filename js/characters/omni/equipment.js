@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=143";
+import { scaleGoldGain } from "../../core/economy.js?v=144";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -282,7 +282,8 @@ export function uniqueAffixName(uniqueId) {
 
 export function uniqueAffixDetail(uniqueId) {
   const meta = UNIQUE_SKILL_IDS[uniqueId];
-  return meta?.detail || meta?.name || meta?.text || "暂无说明。";
+  const base = meta?.detail || meta?.name || meta?.text || "暂无说明。";
+  return `${base}（同一角色多个相同唯一词条仅生效一个。）`;
 }
 
 export function isSkillStrengthenGear(item) {

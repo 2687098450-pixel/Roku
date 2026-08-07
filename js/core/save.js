@@ -15,12 +15,12 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=143";
-import { createPatrolMonster } from "../monsters/slime.js?v=143";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=143";
-import { digFloorSecretPath } from "../map/dungeon.js?v=143";
-import { mergeStackableTools } from "../characters/affixItems.js?v=143";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=143";
+} from "../characters/omni/index.js?v=144";
+import { createPatrolMonster } from "../monsters/slime.js?v=144";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=144";
+import { digFloorSecretPath } from "../map/dungeon.js?v=144";
+import { mergeStackableTools } from "../characters/affixItems.js?v=144";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=144";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
