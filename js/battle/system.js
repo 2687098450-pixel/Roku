@@ -1478,6 +1478,7 @@ export function createBattleApi(ctx) {
       if (loot.length) {
         if (!state.inventory) state.inventory = [];
         state.inventory.push(...loot);
+        state.inventory = mergeStackableTools(state.inventory);
       }
       onBattleEnd?.("win", pack, loot, { ...expInfo, ...currency });
     } else if (result === "flee") {
