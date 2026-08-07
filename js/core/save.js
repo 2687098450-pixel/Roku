@@ -15,10 +15,11 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=141";
-import { createPatrolMonster } from "../monsters/slime.js?v=141";
-import { createBoss } from "../monsters/boss.js?v=141";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=141";
+} from "../characters/omni/index.js?v=142";
+import { createPatrolMonster } from "../monsters/slime.js?v=142";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=142";
+import { digFloorSecretPath } from "../map/dungeon.js?v=142";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=142";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -94,6 +95,11 @@ function serializeHero(hero) {
       const s = Number(hero.dodgeScale);
       return s === 0 || s === 1 ? s : 1;
     })(),
+    spdScale: (() => {
+      const s = Number(hero.spdScale);
+      return s === 0 || s === 0.5 || s === 1 ? s : 1;
+    })(),
+    seal: serializeItem(hero.seal),
     equip: serializeEquip(hero.equip),
   };
 }
@@ -132,6 +138,11 @@ function applyHeroSave(hero, data) {
     const s = Number(data.dodgeScale);
     hero.dodgeScale = s === 0 || s === 1 ? s : 1;
   }
+  {
+    const s = Number(data.spdScale);
+    hero.spdScale = s === 0 || s === 0.5 || s === 1 ? s : 1;
+  }
+  hero.seal = data.seal ? reviveItem(data.seal) : null;
   if (data.equip) hero.equip = reviveEquip(data.equip);
   refreshSkillTexts(hero);
   refreshHeroStats(hero);
@@ -165,6 +176,8 @@ function serializeMonster(m, map) {
   return {
     kind: m.kind || m.type || (m.isBoss ? "boss" : "slime"),
     isBoss: !!m.isBoss,
+    isHiddenBoss: !!m.isHiddenBoss,
+    dropsFoolSeal: !!m.dropsFoolSeal,
     from: toPlay(m.from) || toPlay(m),
     to: toPlay(m.to) || toPlay(m.from) || toPlay(m),
     x: Math.round((m.x ?? 0) - ox),
@@ -180,22 +193,33 @@ function reviveMonsters(list, map, floor, scale) {
   const out = [];
   for (const raw of list) {
     if (!raw) continue;
-    if (raw.isBoss || raw.kind === "boss") {
+    const kind = raw.kind || (raw.isBoss ? "boss" : "slime");
+    if (raw.isBoss || kind === "boss" || String(kind).startsWith("boss_")) {
       const pos = raw.from || { x: raw.x, y: raw.y };
-      const boss = createBoss({
-        pos,
-        ox,
-        oy,
-        scale,
-        floor,
-      });
+      const hidden =
+        !!raw.isHiddenBoss || !!raw.dropsFoolSeal || kind === "boss_fool";
+      const boss = hidden
+        ? createFoolHiddenBoss({
+            pos,
+            ox,
+            oy,
+            scale,
+            floor,
+            combatFloor: floor,
+          })
+        : createBoss({
+            pos,
+            ox,
+            oy,
+            scale,
+            floor,
+          });
       boss.x = ox + (raw.x ?? pos.x);
       boss.y = oy + (raw.y ?? pos.y);
       boss.dir = raw.dir === -1 ? -1 : 1;
       out.push(boss);
       continue;
     }
-    const kind = raw.kind || "slime";
     const from = raw.from || { x: raw.x, y: raw.y };
     const to = raw.to || from;
     const m = createPatrolMonster(kind, {
@@ -253,6 +277,7 @@ export function serializeProgress(state) {
     bossUniqueLoot: state.bossUniqueLoot && typeof state.bossUniqueLoot === "object"
       ? { ...state.bossUniqueLoot }
       : {},
+    secretOpened: !!state.map?.secretOpened,
   };
 }
 
@@ -313,12 +338,14 @@ export function sanitizeInventory(state) {
     inv = [{ ...PHONE_ITEM }, ...inv];
   }
   const tools = [];
+  const seals = [];
   const equips = [];
   for (const it of inv) {
-    if (it.slot || it.kind === "equip" || it.rarity) equips.push(it);
+    if (it.kind === "seal" || it.sealId) seals.push(it);
+    else if (it.slot || it.kind === "equip" || it.rarity) equips.push(it);
     else tools.push(it);
   }
-  state.inventory = [...tools, ...equips];
+  state.inventory = [...tools, ...seals, ...equips];
 }
 
 export function saveProgress(state) {
@@ -430,6 +457,17 @@ export function loadProgressIntoState(state, applyFloorFn) {
   state.loop = Math.max(0, Math.floor(data.loop || 0));
   const floor = Math.max(1, Math.floor(data.floor || 1));
   applyFloorFn(state, floor);
+
+  if (data.secretOpened && state.map?.secretPathPlay) {
+    digFloorSecretPath(state.map);
+    state.floorHint = null;
+  } else if (
+    Array.isArray(data.monsters) &&
+    data.monsters.some((m) => m && (m.isHiddenBoss || m.dropsFoolSeal || m.kind === "boss_fool"))
+  ) {
+    digFloorSecretPath(state.map);
+    state.floorHint = null;
+  }
 
   const restoredMonsters = Array.isArray(data.monsters)
     ? reviveMonsters(data.monsters, state.map, state.floor, state.floorScale)

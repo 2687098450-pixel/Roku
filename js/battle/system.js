@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=141";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=141";
+import { $, clamp, irand } from "../core/utils.js?v=142";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=142";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=141";
+} from "../characters/omni/index.js?v=142";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=141";
+} from "../characters/progression.js?v=142";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=141";
-import { buildEncounter } from "../monsters/roster.js?v=141";
+} from "../characters/skills.js?v=142";
+import { buildEncounter } from "../monsters/roster.js?v=142";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=141";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=141";
+} from "../monsters/skills.js?v=142";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=142";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=141";
-import { createTicker } from "../core/time.js?v=141";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=141";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=141";
+} from "../characters/stats.js?v=142";
+import { createTicker } from "../core/time.js?v=142";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=142";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=142";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=141";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=141";
+} from "./status.js?v=142";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=142";
 
 export function createBattleApi(ctx) {
   const {

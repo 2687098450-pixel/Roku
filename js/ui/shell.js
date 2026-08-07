@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=141";
+import { $, clamp, styleTag } from "../core/utils.js?v=142";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -56,17 +56,22 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=141";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=141";
-import { setSavedFormation } from "../characters/stats.js?v=141";
-import { resetGameLocalData } from "../core/save.js?v=141";
-import { createAllUniqueItems } from "../loot/drops.js?v=141";
-import { APP_VERSION } from "../core/version.js?v=141";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=141";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=141";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=141";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=141";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=141";
+} from "../characters/omni/index.js?v=142";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=142";
+import { setSavedFormation } from "../characters/stats.js?v=142";
+import { resetGameLocalData } from "../core/save.js?v=142";
+import { createAllUniqueItems } from "../loot/drops.js?v=142";
+import { APP_VERSION } from "../core/version.js?v=142";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=142";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=142";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=142";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=142";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=142";
+import {
+  isSealItem,
+  heroHasFoolSeal,
+  sealDef,
+} from "../characters/seals.js?v=142";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -93,12 +98,15 @@ export function createUI(ctx) {
   let sellRarities = new Set();
   /** 手机拨号缓冲 */
   let phoneDigits = "";
+  /** 背包：items | seals */
+  let bagTab = "items";
 
   const MISC_KIND_LABEL = {
     consumable: "消耗品",
     material: "材料",
     tool: "道具",
     equip: "装备",
+    seal: "印章",
   };
 
   function isEquipItem(it) {
@@ -198,14 +206,20 @@ export function createUI(ctx) {
     const box = $("partyStrip");
     if (!box) return;
     const party = getState().party || [];
+    const hint = getState().floorHint;
     box.innerHTML = stripHeroes()
       .map((h) => {
         refreshHeroStats(h);
         const dead = isHeroDead(h);
         const pct = dead ? 0 : clamp((h.hp / h.maxHp) * 100, 0, 100);
+        const bubble =
+          hint && hint.heroId === h.id && hint.text
+            ? `<span class="strip-hint-bubble">${hint.text}</span>`
+            : "";
         return `<button type="button" class="strip-hero${dead ? " dead" : ""}" data-id="${h.id}" title="${h.name}${dead ? " · 阵亡" : ""}">
           ${unitIconHtml(h, "sm", { peers: party })}
           <div class="strip-hp"><i style="width:${pct}%"></i></div>
+          ${bubble}
         </button>`;
       })
       .join("");
@@ -1118,6 +1132,28 @@ export function createUI(ctx) {
       });
       body.innerHTML = renderEquipItemBody(item, { price: true });
       bindUniqueAffixTaps(body);
+    } else if (isSealItem(item)) {
+      if (title) title.textContent = "印章";
+      setPreviewActions({ replace: false, sellOne: false });
+      const def = sealDef(item);
+      body.innerHTML = `
+        <div class="equip-preview-top">
+          <div class="equip-preview-ico empty misc" style="--tint:${item.tint || "#c9a227"}">
+            <i class="bag-ico preview-ball" aria-hidden="true"></i>
+          </div>
+          <div class="equip-preview-meta">
+            <div class="equip-preview-name-row">
+              <span class="equip-preview-name">${item.name}</span>
+              <span class="stag kind">印章</span>
+            </div>
+            <div class="equip-preview-rarity">装备后生效</div>
+          </div>
+        </div>
+        <p class="equip-preview-desc">${item.desc || def?.desc || "印章。"}</p>
+        <button type="button" class="equip-btn replace" id="btnEquipSeal">装备给英雄</button>`;
+      body.querySelector("#btnEquipSeal")?.addEventListener("click", () => {
+        openSealEquipHeroPick(invIndex);
+      });
     } else {
       if (title) title.textContent = MISC_KIND_LABEL[item.kind] || "物品";
       const isWarp = item.useId === "warp_refresh";
@@ -1189,6 +1225,108 @@ export function createUI(ctx) {
     openDetail(hero.id, { keepEquip: true });
     openEquipPreview(hero, slotKey);
     bumpSave();
+  }
+
+  function unequipSeal(hero) {
+    if (!hero?.seal) return;
+    const state = getState();
+    if (!state.inventory) state.inventory = [];
+    state.inventory.push(hero.seal);
+    hero.seal = null;
+    hero.spdScale = 1;
+    refreshHeroStats(hero);
+    openDetail(hero.id);
+    refreshExploreHud();
+    bumpSave();
+  }
+
+  function equipSealToHero(hero, invIndex) {
+    const state = getState();
+    const inv = state.inventory || [];
+    const item = inv[invIndex];
+    if (!hero || !isSealItem(item)) return;
+    inv.splice(invIndex, 1);
+    if (hero.seal) inv.push(hero.seal);
+    hero.seal = item;
+    if (!heroHasFoolSeal(hero)) hero.spdScale = 1;
+    else if (hero.spdScale !== 0 && hero.spdScale !== 0.5 && hero.spdScale !== 1) {
+      hero.spdScale = 1;
+    }
+    refreshHeroStats(hero);
+    closeEquipPreview();
+    $("equipPickModal")?.classList.add("hidden");
+    openDetail(hero.id);
+    renderBag();
+    refreshExploreHud();
+    bumpSave();
+  }
+
+  /** 详情印章空槽：从背包选印章 */
+  function openSealPickForHero(hero) {
+    const inv = getState().inventory || [];
+    const list = inv
+      .map((it, index) => ({ it, index }))
+      .filter(({ it }) => isSealItem(it));
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    const box = $("equipPickList");
+    if (title) title.textContent = "装备印章";
+    if (sub) {
+      sub.textContent = list.length
+        ? `为 ${hero.name} 选择印章`
+        : "背包里没有印章（击败 14 层隐藏 Boss 可掉落愚人印章）";
+    }
+    if (box) {
+      box.innerHTML = list
+        .map(
+          ({ it, index }) =>
+            `<button type="button" class="equip-pick-row" data-inv="${index}">
+              <span class="equip-pick-name" style="color:${it.tint || "#c9a227"}">${it.name}</span>
+              <span class="equip-pick-meta">${sealDef(it)?.desc || it.desc || "印章"}</span>
+            </button>`
+        )
+        .join("");
+      box.querySelectorAll(".equip-pick-row").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          equipSealToHero(hero, Number(btn.dataset.inv));
+        });
+      });
+    }
+    $("equipPickModal")?.classList.remove("hidden");
+  }
+
+  /** 背包印章：选择装备到哪位英雄 */
+  function openSealEquipHeroPick(invIndex) {
+    const state = getState();
+    const item = state.inventory?.[invIndex];
+    if (!isSealItem(item)) return;
+    const title = $("equipPickTitle");
+    const sub = $("equipPickSub");
+    const box = $("equipPickList");
+    if (title) title.textContent = "装备印章";
+    if (sub) sub.textContent = `将「${item.name}」装备给：`;
+    if (box) {
+      box.innerHTML = (state.party || [])
+        .map((h) => {
+          const worn = h.seal ? `（已有 ${h.seal.name}）` : "";
+          return `<button type="button" class="equip-pick-row" data-hero="${h.id}">
+            <span class="equip-pick-name">${h.name}</span>
+            <span class="equip-pick-meta">${h.className}${worn}</span>
+          </button>`;
+        })
+        .join("");
+      box.querySelectorAll(".equip-pick-row").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const hero = state.party.find((h) => h.id === btn.dataset.hero);
+          // 索引可能因中间操作变化；按 id 再找一次
+          const idx = (getState().inventory || []).findIndex(
+            (it) => it && it.id === item.id
+          );
+          if (hero && idx >= 0) equipSealToHero(hero, idx);
+        });
+      });
+    }
+    $("equipPickModal")?.classList.remove("hidden");
   }
 
   function candidatesForSlot(slotKey) {
@@ -1518,6 +1656,25 @@ export function createUI(ctx) {
     $("detailDesc").textContent = `${hero.className}。${hero.desc}`;
     $("detailPower").textContent = `战力 ${combatPower(hero)}`;
 
+    const sealBtn = $("detailSealSlot");
+    if (sealBtn) {
+      const seal = hero.seal;
+      const ico = sealBtn.querySelector(".seal-slot-ico");
+      const label = sealBtn.querySelector(".seal-slot-label");
+      sealBtn.classList.toggle("filled", !!seal);
+      sealBtn.classList.toggle("has-icon", false);
+      sealBtn.title = seal ? `${seal.name}（点击卸下）` : "印章（空）· 点击从背包装备";
+      if (label) label.textContent = seal ? "愚" : "印";
+      if (ico) {
+        ico.hidden = true;
+        ico.removeAttribute("src");
+      }
+      sealBtn.onclick = () => {
+        if (seal) unequipSeal(hero);
+        else openSealPickForHero(hero);
+      };
+    }
+
     const deploy = $("detailDeploy");
     if (deploy) {
       if (isHeroDead(hero)) {
@@ -1653,6 +1810,12 @@ export function createUI(ctx) {
     const atkScale = sAtk === 0.5 || sAtk === 0.75 || sAtk === 1 ? sAtk : 1;
     const sDodge = Number(hero.dodgeScale);
     const dodgeScale = sDodge === 0 || sDodge === 1 ? sDodge : 1;
+    const spdFull = hero.spdFull ?? hero.spd;
+    const sSpd = Number(hero.spdScale);
+    const spdScale =
+      heroHasFoolSeal(hero) && (sSpd === 0 || sSpd === 0.5 || sSpd === 1)
+        ? sSpd
+        : 1;
     const atkRow = `<li class="stat-atk-scale" title="基础${hero.base.atk} + 被动${hero.passiveBoost.atk} + 装备${eq.atk}${capNote} · 满攻${atkFull}">
             <span>攻击</span>
             <b>${hero.atk}</b>
@@ -1683,11 +1846,27 @@ export function createUI(ctx) {
                 .join("")}
             </div>
           </li>`;
+    const spdRow = heroHasFoolSeal(hero)
+      ? `<li class="stat-atk-scale" title="基础${hero.base.spd} + 装备${eq.spd}${capNote} · 满速${spdFull} · 愚人印章可调档">
+            <span>速度</span>
+            <b>${hero.spd}</b>
+            <div class="atk-scale-opts" role="group" aria-label="速度倍率">
+              ${[0, 0.5, 1]
+                .map(
+                  (s) =>
+                    `<button type="button" class="atk-scale-btn${
+                      s === spdScale ? " on" : ""
+                    }" data-spd-scale="${s}">${Math.round(s * 100)}%</button>`
+                )
+                .join("")}
+            </div>
+          </li>`
+      : `<li title="基础${hero.base.spd} + 装备${eq.spd}${capNote}"><span>速度</span><b>${hero.spd}</b></li>`;
     $("statList").innerHTML = [
       `<li title="基础${hero.base.hp} + 被动${hero.passiveBoost.hp} + 装备${eq.hp}${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
       atkRow,
       `<li title="基础${hero.base.def} + 被动${hero.passiveBoost.def} + 装备${eq.def}${capNote}"><span>防御</span><b>${hero.def}</b></li>`,
-      `<li title="基础${hero.base.spd} + 装备${eq.spd}${capNote}"><span>速度</span><b>${hero.spd}</b></li>`,
+      spdRow,
       `<li title="默认 10% + 装备 ${Math.round((eq.critRate || 0) * 1000) / 10}%"><span>暴击率</span><b>${critRate}%</b></li>`,
       `<li title="默认 150% + 装备 ${Math.round((eq.critDmg || 0) * 1000) / 10}%"><span>暴击伤害</span><b>${critDmg}%</b></li>`,
       `<li title="默认 100% + 装备 ${Math.round((eq.hitRate || 0) * 1000) / 10}%"><span>命中</span><b>${hitRate}%</b></li>`,
@@ -1712,6 +1891,19 @@ export function createUI(ctx) {
         const s = Number(btn.dataset.dodgeScale);
         if (s !== 0 && s !== 1) return;
         hero.dodgeScale = s;
+        refreshHeroStats(hero);
+        openDetail(hero.id);
+        refreshExploreHud();
+        bumpSave();
+      });
+    });
+    $("statList")?.querySelectorAll("[data-spd-scale]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!heroHasFoolSeal(hero)) return;
+        const s = Number(btn.dataset.spdScale);
+        if (s !== 0 && s !== 0.5 && s !== 1) return;
+        hero.spdScale = s;
         refreshHeroStats(hero);
         openDetail(hero.id);
         refreshExploreHud();
@@ -1901,7 +2093,21 @@ export function createUI(ctx) {
     if (canOpenParty && !canOpenParty()) return;
     closeModals();
     setMode("menu");
+    bagTab = "items";
+    syncBagTabs();
     $("bagModal").classList.remove("hidden");
+    renderBag();
+  }
+
+  function syncBagTabs() {
+    document.querySelectorAll(".bag-tab").forEach((btn) => {
+      btn.classList.toggle("on", btn.dataset.bagTab === bagTab);
+    });
+  }
+
+  function setBagTab(tab) {
+    bagTab = tab === "seals" ? "seals" : "items";
+    syncBagTabs();
     renderBag();
   }
 
@@ -2032,12 +2238,17 @@ export function createUI(ctx) {
     const state = getState();
     const items = (state.inventory || []).filter(Boolean);
     const equips = [];
+    const seals = [];
     const misc = [];
     for (const it of items) {
-      if (isEquipItem(it)) equips.push(it);
+      if (isSealItem(it)) seals.push(it);
+      else if (isEquipItem(it)) equips.push(it);
       else misc.push(it);
     }
     equips.sort(compareEquipByRarityLevel);
+    seals.sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "zh")
+    );
     // 道具优先于装备；道具内：消耗品 → 道具 → 其余
     const kindOrder = { consumable: 0, tool: 1, material: 2 };
     misc.sort((a, b) => {
@@ -2046,7 +2257,7 @@ export function createUI(ctx) {
       if (ka !== kb) return ka - kb;
       return String(a.name || "").localeCompare(String(b.name || ""), "zh");
     });
-    state.inventory = [...misc, ...equips];
+    state.inventory = [...misc, ...seals, ...equips];
     renderBag();
     bumpSave();
     const btn = $("btnBagSort");
@@ -2067,27 +2278,38 @@ export function createUI(ctx) {
   function renderBag() {
     const grid = $("bagGrid");
     if (!grid) return;
-    const items = getState().inventory || [];
+    const all = getState().inventory || [];
+    const indexed = all
+      .map((it, index) => ({ it, index }))
+      .filter(({ it }) => {
+        if (!it) return false;
+        const seal = isSealItem(it);
+        return bagTab === "seals" ? seal : !seal;
+      });
     const cells = [];
     for (let i = 0; i < BAG_SLOTS; i++) {
-      const it = items[i];
+      const entry = indexed[i];
+      const it = entry?.it;
       if (!it) {
         cells.push(`<div class="bag-slot empty"></div>`);
         continue;
       }
+      const invIndex = entry.index;
       const equip = isEquipItem(it);
+      const seal = isSealItem(it);
       const qty =
         equip && it.level != null
           ? `<em>lv${it.level}</em>`
           : it.qty > 1
             ? `<em>×${it.qty}</em>`
-            : !equip
+            : !equip && !seal
               ? `<em>×${it.qty ?? 1}</em>`
               : "";
       const icon = itemIconUrl(it);
       const rarity = equip || it.rarity ? rarityInfo(it.rarity).id : "";
       const rarityCls = rarity ? ` rarity-${rarity}` : "";
       const miscCls = !equip && !icon ? " misc" : "";
+      const sealCls = seal ? " seal-item" : "";
       const shortName =
         !equip && !icon
           ? `<span class="bag-name">${(it.name || "").slice(0, 4)}</span>`
@@ -2099,8 +2321,12 @@ export function createUI(ctx) {
         equip && rarity && rarity !== "white"
           ? `<i class="bag-rarity rarity-text-${rarity}">${rarityLabel(rarity)}</i>`
           : "";
-      const kindHint = !equip ? MISC_KIND_LABEL[it.kind] || "道具" : `${rarityLabel(rarity)}装`;
-      cells.push(`<button type="button" class="bag-slot clickable${icon ? " has-icon" : ""}${rarityCls}${miscCls}" data-inv="${i}" title="${it.name} · ${kindHint}" style="--tint:${it.tint || rarityInfo(it.rarity).color};--rarity:${rarityInfo(it.rarity).color}">
+      const kindHint = seal
+        ? "印章"
+        : !equip
+          ? MISC_KIND_LABEL[it.kind] || "道具"
+          : `${rarityLabel(rarity)}装`;
+      cells.push(`<button type="button" class="bag-slot clickable${icon ? " has-icon" : ""}${rarityCls}${miscCls}${sealCls}" data-inv="${invIndex}" title="${it.name} · ${kindHint}" style="--tint:${it.tint || rarityInfo(it.rarity).color};--rarity:${rarityInfo(it.rarity).color}">
         ${icoHtml}
         ${shortName}
         ${rareMark}
@@ -2386,6 +2612,9 @@ export function createUI(ctx) {
     $("btnBagSell")?.addEventListener("click", openBagSell);
     $("btnBagSort")?.addEventListener("click", sortBagInventory);
     $("btnConfirmSell")?.addEventListener("click", confirmBagSell);
+    document.querySelectorAll(".bag-tab").forEach((btn) => {
+      btn.addEventListener("click", () => setBagTab(btn.dataset.bagTab));
+    });
     $("btnBag")?.addEventListener("click", openBag);
     $("btnFormation")?.addEventListener("click", openFormation);
     $("detailPrev")?.addEventListener("click", () => shiftDetail(-1));

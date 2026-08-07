@@ -404,6 +404,20 @@ export const MONSTER_STATS = {
     unlockFloor: 1,
     aiRole: "dps",
   },
+  boss_fool: {
+    id: "boss_fool",
+    name: "愚人隐者",
+    color: "#c9a227",
+    shape: "square",
+    hp: 260,
+    atk: 34,
+    def: 12,
+    spd: DEFAULT_MONSTER_SPEED + 2,
+    exp: 28,
+    gold: 140,
+    unlockFloor: 14,
+    aiRole: "support",
+  },
 };
 
 export function getMonsterStats(id) {

@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=141";
-import { calcStats } from "./omni/attributes.js?v=141";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=141";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=142";
+import { calcStats } from "./omni/attributes.js?v=142";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=142";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=141";
+} from "./skills.js?v=142";
 import {
   expToNext,
   getSkillLevel,
@@ -17,8 +17,9 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=141";
-import { heroMaxMp } from "./skillMp.js?v=141";
+} from "./progression.js?v=142";
+import { heroMaxMp } from "./skillMp.js?v=142";
+import { normalizeSpdScale } from "./seals.js?v=142";
 
 /** 旧存档小粉：去掉粉晶箭，补猎杀印记 */
 function migratePinkKit(hero) {
@@ -68,7 +69,12 @@ export function refreshHeroStats(hero) {
   hero.atkScale = atkScale;
   hero.atk = Math.max(1, Math.floor(atkFull * atkScale));
   hero.def = Math.max(0, Math.floor(stats.def * mult));
-  hero.spd = Math.max(1, Math.floor(stats.spd * mult));
+  const spdFull = Math.max(1, Math.floor(stats.spd * mult));
+  hero.spdFull = spdFull;
+  const spdScale = normalizeSpdScale(hero);
+  hero.spdScale = spdScale;
+  hero.spd = Math.max(0, Math.floor(spdFull * spdScale));
+  if (hero.spd < 1 && spdScale > 0) hero.spd = 1;
   hero.maxMp = heroMaxMp(hero.statsId);
   hero.critRate = Math.min(0.85, DEFAULT_CRIT_RATE + (eq.critRate || 0));
   hero.critDmg = Math.max(1.2, DEFAULT_CRIT_DMG + (eq.critDmg || 0));
@@ -146,6 +152,8 @@ export function createHero(statsId) {
     skillAi: {},
     atkScale: 1,
     dodgeScale: 1,
+    spdScale: 1,
+    seal: null,
     hp: 0,
     maxHp: 0,
   };

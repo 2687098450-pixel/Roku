@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=141";
+import { $ } from "./core/utils.js?v=142";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=141";
-import { buildFloor } from "./map/dungeon.js?v=141";
-import { MAX_FLOOR } from "./map/floors.js?v=141";
+} from "./map/island15.js?v=142";
+import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=142";
+import { MAX_FLOOR } from "./map/floors.js?v=142";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,16 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=141";
-import { getSavedFormation } from "./characters/stats.js?v=141";
-import { moveSlimeOnce } from "./monsters/slime.js?v=141";
-import { createBattleApi } from "./battle/system.js?v=141";
-import { createUI } from "./ui/shell.js?v=141";
+} from "./characters/omni/index.js?v=142";
+import { getSavedFormation } from "./characters/stats.js?v=142";
+import { moveSlimeOnce } from "./monsters/slime.js?v=142";
+import { createBattleApi } from "./battle/system.js?v=142";
+import { createUI } from "./ui/shell.js?v=142";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=141";
+} from "./core/save.js?v=142";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -81,6 +81,50 @@ function markVisited(state, floorNum) {
 }
 
 /** 进入 / 传送到某层：重建地图与怪物（传送会刷新本层怪物） */
+function clearFloorHint(state) {
+  state.floorHint = null;
+}
+
+/** 14 层：已上阵速度最高者提示花坛 */
+function setupFloorHint(state) {
+  clearFloorHint(state);
+  if (!state.map?.flowerBed || state.map.secretOpened) return;
+  const deployed = getDeployedHeroes(state).filter(
+    (h) => h && !h.dead && (h.hp == null || h.hp > 0)
+  );
+  if (!deployed.length) return;
+  let best = null;
+  let bestSpd = -1;
+  for (const h of deployed) {
+    refreshHeroStats(h);
+    const spd = h.spdFull ?? h.spd ?? 0;
+    if (spd > bestSpd) {
+      bestSpd = spd;
+      best = h;
+    }
+  }
+  if (!best) return;
+  state.floorHint = {
+    heroId: best.id,
+    text: "这个花坛好奇特",
+    arrow: true,
+  };
+}
+
+function tryOpenFloorFlower(tx, ty) {
+  const fb = state.map?.flowerBed;
+  if (!fb || state.map.secretOpened) return false;
+  if (fb.x !== tx || fb.y !== ty) return false;
+  const boss = openFloorSecret(state.map, state.monsters, state.floorScale || 1);
+  clearFloorHint(state);
+  if (boss) {
+    state.monsterTotal = (state.monsterTotal || 0) + 1;
+    showToast("花坛下竟藏着一条密道……", 2400);
+  }
+  ui.refreshExploreHud();
+  return true;
+}
+
 function applyFloor(state, floorNum) {
   const loop = Math.max(0, Math.floor(state.loop || 0));
   const built = buildFloor(floorNum, { loop });
@@ -100,6 +144,7 @@ function applyFloor(state, floorNum) {
   state.step = null;
   state.path = null;
   markVisited(state, built.floor);
+  setupFloorHint(state);
 }
 
   const state = {
@@ -154,6 +199,8 @@ function applyFloor(state, floorNum) {
   faceDy: 1,
   /** 自动寻路剩余格子 [{x,y}, ...] */
   path: null,
+  /** 14 层花坛提示 { heroId, text, arrow } */
+  floorHint: null,
   tile: 64,
   viewW: 0,
   viewH: 0,
@@ -354,7 +401,7 @@ const battle = createBattleApi({
         );
       }
       if (loot?.length) {
-        parts.push(`装备：${loot.map((it) => it.name).join("、")}`);
+        parts.push(`掉落：${loot.map((it) => it.name).join("、")}`);
       }
       const deadNames = state.party.filter((h) => h.dead).map((h) => h.name);
       if (deadNames.length) parts.push(`${deadNames.join("、")}阵亡`);
@@ -453,7 +500,11 @@ function draw() {
       playerScale: form.h / 40,
       ...state.cam,
     },
-    { monsters: state.monsters, exitOpen: !bossAlive() }
+    {
+      monsters: state.monsters,
+      exitOpen: !bossAlive(),
+      hintArrow: !!state.floorHint?.arrow,
+    }
   );
 }
 
@@ -470,8 +521,9 @@ function tryEnterBattle() {
   return false;
 }
 
+/** 出口只拦主 Boss；隐藏 Boss 不挡前进 */
 function bossAlive() {
-  return state.monsters.some((m) => m.isBoss);
+  return state.monsters.some((m) => m.isBoss && !m.isHiddenBoss);
 }
 
 /** Boss 未死时出口不可走；死后才能踩上 */
@@ -635,6 +687,7 @@ function pathToTile(x, y) {
     return;
   }
   const goal = { x: Math.floor(x), y: Math.floor(y) };
+  if (tryOpenFloorFlower(goal.x, goal.y)) return;
   // 逻辑坐标在迈步时已到目标格，寻路从该点开始
   const from = { x: state.playerPos.x, y: state.playerPos.y };
   if (from.x === goal.x && from.y === goal.y) return;

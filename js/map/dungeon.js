@@ -1,11 +1,11 @@
 /** 按楼层配置生成地牢地图与刷怪 */
 
-import { EXIT, FLOOR, createDungeonShell, canWalk } from "./island15.js?v=141";
-import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=141";
-import { buildFloorMask } from "./shapes.js?v=141";
-import { createPatrolMonster } from "../monsters/slime.js?v=141";
-import { createBoss } from "../monsters/boss.js?v=141";
-import { pickTrashType } from "../monsters/roster.js?v=141";
+import { EXIT, FLOOR, WALL, createDungeonShell, canWalk } from "./island15.js?v=142";
+import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=142";
+import { buildFloorMask } from "./shapes.js?v=142";
+import { createPatrolMonster } from "../monsters/slime.js?v=142";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=142";
+import { pickTrashType } from "../monsters/roster.js?v=142";
 
 function key(x, y) {
   return `${x},${y}`;
@@ -104,6 +104,31 @@ export function buildFloor(floorNum, opts = {}) {
     })
   );
 
+  // 隐藏花坛 / 墙内 Boss（点击花坛后打通并生成）
+  if (def.flowerBed && def.secretBoss && def.secretPath?.length) {
+    map.floor = def.floor;
+    map.flowerBed = {
+      x: map.ox + def.flowerBed.x,
+      y: map.oy + def.flowerBed.y,
+    };
+    map.secretBossPlay = { ...def.secretBoss };
+    map.secretPathPlay = def.secretPath.map((p) => ({ ...p }));
+    map.secretOpened = false;
+    map.combatFloor = def.combatFloor || def.floor;
+    // 确保花坛格可走，通路仍是墙
+    const fx = map.flowerBed.x;
+    const fy = map.flowerBed.y;
+    if (map.tiles[fy]?.[fx] != null) map.tiles[fy][fx] = FLOOR;
+    for (const p of map.secretPathPlay) {
+      const ax = map.ox + p.x;
+      const ay = map.oy + p.y;
+      if (map.tiles[ay]?.[ax] != null) map.tiles[ay][ax] = WALL;
+    }
+  } else {
+    map.floor = def.floor;
+    map.combatFloor = def.combatFloor || def.floor;
+  }
+
   return {
     map,
     monsters,
@@ -115,6 +140,37 @@ export function buildFloor(floorNum, opts = {}) {
     exitPlay: { ...def.exit },
     bossPlay: { ...def.boss },
   };
+}
+
+/** 点击花坛：打通短路径并刷出隐藏 Boss */
+export function openFloorSecret(map, monsters, defScale = 1) {
+  if (!map?.flowerBed || map.secretOpened) return null;
+  digFloorSecretPath(map);
+  const pos = map.secretBossPlay || (map.secretPathPlay || []).slice(-1)[0];
+  if (!pos) return null;
+  const boss = createFoolHiddenBoss({
+    pos,
+    ox: map.ox,
+    oy: map.oy,
+    scale: defScale,
+    floor: map.floor || 14,
+    combatFloor: map.combatFloor || map.floor || 14,
+  });
+  monsters.push(boss);
+  return boss;
+}
+
+/** 读档：已开过密道则只打通路径、去掉花坛，不重复刷怪 */
+export function digFloorSecretPath(map) {
+  if (!map) return;
+  map.secretOpened = true;
+  const path = map.secretPathPlay || [];
+  for (const p of path) {
+    const ax = map.ox + p.x;
+    const ay = map.oy + p.y;
+    if (map.tiles[ay]?.[ax] != null) map.tiles[ay][ax] = FLOOR;
+  }
+  map.flowerBed = null;
 }
 
 export function isExitTile(map, x, y) {

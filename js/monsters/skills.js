@@ -427,6 +427,16 @@ export const MONSTER_SKILLS = {
     weight: 0.28,
     apply: { slow: 0.35 },
   },
+  boss_mass_slow: {
+    id: "boss_mass_slow",
+    name: "愚人重压",
+    style: "ranged",
+    mult: 0.75,
+    flat: 3,
+    hitAll: true,
+    weight: 0.5,
+    apply: { slow: 0.4 },
+  },
   boss_silence: {
     id: "boss_silence",
     name: "封印之吼",
@@ -488,6 +498,7 @@ export const TYPE_SKILL_IDS = {
   boss_ruin: ["crush", "bone_slash", "soul_drain"],
   boss_saw: ["crush", "rend", "boss_cleave"],
   boss_claw: ["crush", "quake_roar", "soul_drain", "boss_meteor"],
+  boss_fool: ["crush", "boss_mass_slow", "quake_roar", "soul_drain"],
 };
 
 /** Boss 随层解锁更强技能（与小怪种类解锁同节奏） */

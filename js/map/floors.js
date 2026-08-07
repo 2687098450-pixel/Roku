@@ -298,7 +298,7 @@ function buildFloorDef(floor, loop = 0) {
   const decade = Math.floor((f - 1) / 10);
   const combatFloor = effectiveCombatFloor(f, loop);
   const loopMult = loopScaleBonus(loop);
-  return {
+  const def = {
     floor: f,
     combatFloor,
     loop: Math.max(0, Math.floor(loop || 0)),
@@ -316,6 +316,16 @@ function buildFloorDef(floor, loop = 0) {
     mobCount: mobCountForFloor(combatFloor),
     scale: Math.round(scaleForFloor(combatFloor) * loopMult * 100) / 100,
   };
+  // 14 层：左臂墙体旁花坛 + 墙内隐藏 Boss（通路很短）
+  if (f === 14) {
+    def.flowerBed = { x: 2, y: 4 };
+    def.secretBoss = { x: 1, y: 5 };
+    def.secretPath = [
+      { x: 2, y: 5 },
+      { x: 1, y: 5 },
+    ];
+  }
+  return def;
 }
 
 /**
