@@ -2452,6 +2452,14 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   background: #fff5f5;
 }
 
+.equip-pick-item.off,
+.equip-pick-item:disabled {
+  opacity: 0.48;
+  cursor: default;
+  filter: grayscale(0.2);
+  pointer-events: none;
+}
+
 .equip-pick-cta {
   align-self: stretch;
   text-align: center;
