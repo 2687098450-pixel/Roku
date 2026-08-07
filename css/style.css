@@ -173,6 +173,127 @@ html, body {
 
 .scene.hidden { display: none; }
 
+/* 启动选节奏 */
+.boot-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 255, 255, 0.55), transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(120, 200, 180, 0.28), transparent 45%),
+    linear-gradient(165deg, #fff1d6 0%, #dff3ea 55%, #cfe8f6 100%);
+  overflow: auto;
+}
+
+.boot-panel {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.boot-brand {
+  font-size: clamp(42px, 12vw, 56px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  line-height: 1;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.55);
+}
+
+.boot-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.boot-sub {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 36em;
+}
+
+.boot-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.boot-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 16px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(255, 240, 214, 0.92));
+  box-shadow: 0 10px 24px rgba(70, 50, 20, 0.12);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.boot-mode:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(70, 50, 20, 0.16);
+}
+
+.boot-mode:active { transform: translateY(1px); }
+
+.boot-mode.last {
+  outline: 2px solid rgba(60, 184, 106, 0.55);
+  outline-offset: 1px;
+}
+
+.boot-mode-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.boot-mode-title {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.boot-mode-tag {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2f7a55;
+}
+
+.boot-mode-desc {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.boot-mode-save {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #7a5530;
+}
+
+.boot-mode-save.empty {
+  color: #9a8a78;
+  font-weight: 650;
+}
+
 /* Explore — full-bleed map + overlay HUD */
 .explore-scene {
   position: relative;
@@ -526,6 +647,7 @@ html, body {
 /* Battle — field formation + bottom HUD (not cards) */
 .battle-scene {
   gap: 8px;
+  justify-content: center;
   padding:
     max(12px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right))
@@ -536,13 +658,18 @@ html, body {
 
 .battle-arena {
   position: relative;
-  flex: 1 1 auto;
-  width: min(100%, 820px);
-  min-height: 220px;
+  /* 不随平板竖屏无限拉高：高度封顶后，百分比站位仍接近手机密度 */
+  flex: 0 1 auto;
+  width: min(100%, 720px);
+  height: min(560px, calc(100dvh - 200px), 78svh);
+  min-height: 260px;
+  max-height: 560px;
   border-radius: 28px;
   border: 3px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
   overflow: hidden;
+  container-type: size;
+  container-name: arena;
   /* 上蓝（怪区）→ 中轴（按钮带 50%）→ 下绿（英雄区）对称 */
   background:
     radial-gradient(ellipse 95% 42% at 50% 12%, rgba(255, 255, 255, 0.5), transparent 58%),
@@ -962,10 +1089,12 @@ html, body {
 .arena-enemies,
 .arena-allies {
   position: absolute;
-  left: 6%;
-  right: 6%;
+  left: max(4%, calc(50% - 210px));
+  right: max(4%, calc(50% - 210px));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 88px));
+  justify-content: center;
+  column-gap: clamp(8px, 3cqi, 28px);
   align-items: center;
   justify-items: center;
   z-index: 2;
@@ -1003,7 +1132,7 @@ html, body {
 .arena-enemy-back .battle-unit,
 .arena-enemy-mid .battle-unit,
 .arena-enemy-front .battle-unit {
-  width: 72px;
+  width: clamp(64px, 16cqmin, 88px);
 }
 
 .arena-enemy-back .battle-unit .shape-wrap {
@@ -1019,7 +1148,7 @@ html, body {
 }
 
 .arena-enemy-back .battle-unit.boss-unit {
-  width: 84px;
+  width: clamp(76px, 19cqmin, 104px);
 }
 
 .arena-enemy-back .battle-unit.boss-unit .shape-wrap {
@@ -1044,7 +1173,7 @@ html, body {
 
 .battle-unit {
   position: relative;
-  width: 72px;
+  width: clamp(64px, 16cqmin, 88px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1058,7 +1187,7 @@ html, body {
 
 .arena-ally-mid .battle-unit,
 .arena-ally-back .battle-unit {
-  width: 72px;
+  width: clamp(64px, 16cqmin, 88px);
 }
 
 .arena-ally-mid .battle-unit .shape-wrap {
@@ -1705,12 +1834,12 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  border: 1.5px solid rgba(180, 140, 60, 0.55);
+  border: 1.5px solid rgba(180, 140, 60, 0.45);
   background:
-    radial-gradient(circle at 40% 35%, rgba(255, 236, 170, 0.9), transparent 70%),
-    rgba(255, 250, 235, 0.95);
+    radial-gradient(circle at 40% 35%, rgba(255, 236, 170, 0.55), transparent 70%),
+    rgba(255, 250, 235, 0.92);
   box-shadow: 0 1px 4px rgba(90, 60, 20, 0.12);
-  padding: 0;
+  padding: 3px;
   margin: 0;
   cursor: pointer;
   display: flex;
@@ -1726,25 +1855,16 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 .seal-slot.filled {
   border-color: #c9a227;
   background:
-    radial-gradient(circle at 40% 35%, rgba(255, 220, 120, 0.95), transparent 65%),
+    radial-gradient(circle at 40% 35%, rgba(255, 220, 120, 0.75), transparent 65%),
     #fff6d8;
 }
 
-.seal-slot-label {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
 .seal-slot-ico {
-  width: 22px;
-  height: 22px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
-}
-
-.seal-slot.has-icon .seal-slot-label {
-  display: none;
+  pointer-events: none;
 }
 
 .seal-slot:active {
@@ -2458,6 +2578,28 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   cursor: pointer;
   font: inherit;
   color: inherit;
+}
+
+.equip-pick-row-ico {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.equip-pick-seal {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.equip-pick-row-ico .equip-pick-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.equip-pick-row-ico .equip-pick-meta {
+  flex: 1 1 100%;
+  padding-left: 38px;
 }
 
 .equip-pick-row:active {
@@ -3824,8 +3966,11 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 @media (max-width: 600px) {
   .arena-fab { width: 58px; height: 58px; font-size: 13px; }
   .arena-fab.info { width: 54px; height: 54px; font-size: 12px; }
-  .battle-unit { width: 72px; }
   .skill-btn { width: 78px; min-height: 88px; }
+  .battle-arena {
+    width: min(100%, 720px);
+    height: min(520px, calc(100dvh - 180px), 76svh);
+  }
 }
 
 /* 探索右下：阵容 / 背包 */
@@ -3890,6 +4035,15 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   height: 6px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.45);
+}
+
+.menu-fab .ico-pace {
+  background:
+    linear-gradient(90deg, #7ad0a0 0 48%, transparent 48%),
+    linear-gradient(90deg, transparent 52%, #f0b35a 52% 100%),
+    #fff3d8;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
 }
 
 /* 背包弹窗 */

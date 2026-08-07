@@ -8,6 +8,12 @@
  * - pulse：每走 10 行动点跳一次（少用，单跳有倍率上限）
  */
 
+import {
+  bossSkillPowerMult,
+  isSpecialBossFloor,
+  isDecadeBossFloor,
+} from "./bossKinds.js?v=157";
+
 /** 脉动 DoT：每走多少行动点跳一次 */
 export const PULSE_DOT_INTERVAL = 10;
 /** 脉动单跳相对施法者攻击力的硬顶（防超模） */
@@ -501,19 +507,45 @@ export const TYPE_SKILL_IDS = {
   boss_fool: ["crush", "boss_mass_slow", "quake_roar", "soul_drain"],
 };
 
-/** Boss 随层解锁更强技能（与小怪种类解锁同节奏） */
-export function bossSkillIdsForFloor(floor) {
+/** Boss 技能组：普通关口一套弱技能；特殊层用主题技，逢 10 再加强 */
+export function bossSkillIdsForFloor(floor, kind = null) {
   const f = Math.max(1, floor || 1);
-  const ids = ["crush", "quake_roar", "soul_drain"];
-  if (f >= 5) ids.push("boss_slow");
-  if (f >= 8) ids.push("boss_healcut");
-  if (f >= 12) ids.push("boss_silence");
-  if (f >= 15) ids.push("boss_cleave");
-  if (f >= 18) ids.push("bash_stun");
-  if (f >= 25) ids.push("boss_meteor");
-  if (f >= 35) ids.push("boss_void");
-  if (f >= 45) ids.push("boss_apocalypse");
-  return ids;
+  const k = kind || "boss";
+
+  if (!isSpecialBossFloor(f)) {
+    const ids = ["crush", "quake_roar", "soul_drain"];
+    if (f >= 12) ids.push("boss_slow");
+    if (f >= 22) ids.push("boss_healcut");
+    return ids;
+  }
+
+  const themed = [...(TYPE_SKILL_IDS[k] || ["crush", "quake_roar", "soul_drain"])];
+  const add = (id) => {
+    if (!themed.includes(id)) themed.push(id);
+  };
+
+  if (isDecadeBossFloor(f)) {
+    // 10 / 20 / 30…：群体控制 + 高伤技
+    add("boss_silence");
+    add("bash_stun");
+    add("boss_cleave");
+    add("boss_meteor");
+    add("boss_healcut");
+    if (f >= 30) add("boss_void");
+    if (f >= 40) add("boss_apocalypse");
+  } else {
+    // 5 / 15 / 25…：中等威胁
+    add("boss_slow");
+    add("boss_healcut");
+    if (f >= 15) add("boss_cleave");
+    if (f >= 25) add("boss_meteor");
+  }
+  return themed;
+}
+
+/** @deprecated 用 bossSkillIdsForFloor(floor, kind) */
+export function bossSkillIdsForKind(kind, floor) {
+  return bossSkillIdsForFloor(floor, kind);
 }
 
 export function pickMonsterSkill(monster) {
@@ -588,7 +620,14 @@ function controlSkillCooldown(sk, floor) {
 export function monsterSkillDamage(monster, skill) {
   const mult = skill.mult ?? 1;
   const flat = skill.flat ?? 0;
-  return Math.max(1, Math.floor((monster.atk || 0) * mult) + flat);
+  let dmg = Math.max(1, Math.floor((monster.atk || 0) * mult) + flat);
+  // 关口 Boss（逢 5 / 10）技能伤害额外抬高
+  if (monster?.isBoss && !monster?.isHiddenBoss) {
+    const f = monster.combatFloor || monster.floor || 1;
+    const skillMult = bossSkillPowerMult(f);
+    if (skillMult !== 1) dmg = Math.max(1, Math.floor(dmg * skillMult));
+  }
+  return dmg;
 }
 
 /** 是否群体 / 范围技 */
@@ -597,8 +636,16 @@ export function monsterSkillIsAoe(sk) {
 }
 
 /** 范围文案（玩家可见） */
-export function monsterSkillRangeLabel(sk) {
+export function monsterSkillRangeLabel(sk, opts = {}) {
   if (!sk) return "单体";
+  if (opts.flow) {
+    if (sk.hitAll) return "半径2";
+    if (sk.hitAllFront || sk.hitFront || sk.hitCross || sk.hitRow || sk.hitCol) {
+      return "半径1";
+    }
+    if (sk.aoeRadius != null && sk.aoeRadius > 0) return `半径${sk.aoeRadius}`;
+    return "单体";
+  }
   if (sk.hitAll) return "全体";
   if (sk.hitFront) return "前排";
   if (sk.hitCross) return "目标十字";

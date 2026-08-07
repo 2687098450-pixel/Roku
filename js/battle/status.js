@@ -3,6 +3,11 @@
  * 时长按「行动条」计量（默认 50），与眩晕相同：按速度攒满后解除。
  */
 
+import {
+  bossControlEffectMult,
+  isSpecialBossFloor,
+} from "../monsters/bossKinds.js?v=157";
+
 export const DEFAULT_STATUS_GAUGE = 50;
 export const DEFAULT_HIT_RATE = 1;
 export const DEFAULT_DODGE_RATE = 0.05;
@@ -133,6 +138,33 @@ export function healReceivedMult(target) {
   return clamp(1 - statusPower(target, "healCut"), 0, 1);
 }
 
+/** 特殊 Boss 技能控制：加强减速/减疗幅度与行动条时长 */
+export function amplifyBossSkillApply(source, apply = {}) {
+  if (!source?.isBoss || source.isHiddenBoss) return apply;
+  if (!apply || !Object.keys(apply).length) return apply;
+  const f = source.combatFloor || source.floor || 1;
+  if (!isSpecialBossFloor(f)) return apply;
+  const amp = bossControlEffectMult(f);
+  if (amp === 1) return apply;
+  const out = { ...apply };
+  if (out.slow != null) out.slow = Math.min(0.72, +(out.slow * amp).toFixed(3));
+  if (out.healCut != null) out.healCut = Math.min(0.85, +(out.healCut * amp).toFixed(3));
+  const gBoost = f % 10 === 0 ? 1.3 : 1.12;
+  if (out.stun) {
+    out.stunGauge = Math.floor((out.stunGauge ?? DEFAULT_STATUS_GAUGE) * gBoost);
+  }
+  if (out.silence) {
+    out.silenceGauge = Math.floor((out.silenceGauge ?? DEFAULT_STATUS_GAUGE) * gBoost);
+  }
+  if (out.slow != null) {
+    out.slowGauge = Math.floor((out.slowGauge ?? DEFAULT_STATUS_GAUGE) * gBoost);
+  }
+  if (out.healCut != null) {
+    out.healCutGauge = Math.floor((out.healCutGauge ?? DEFAULT_STATUS_GAUGE) * gBoost);
+  }
+  return out;
+}
+
 /** 技能 / 词条命中后尝试上状态；返回本次施加的控制行动条总量 */
 export function tryApplySkillStatuses(source, target, apply = {}, mods = null) {
   if (!target || target.hp <= 0) return 0;
@@ -224,15 +256,17 @@ export function statusBadgesHtml(unit) {
   }
   if (unit?.dots && typeof unit.dots === "object") {
     const active = Object.values(unit.dots).filter(
-      (d) => d && (d.remain || 0) > (d.bar || 0)
+      (d) => d && ((d.remainSec != null ? d.remainSec : (d.remain || 0) - (d.bar || 0)) > 0)
     );
     if (active.length) {
-      const pulse = active.some((d) => d.type === "pulse" || d.sourceDriven);
-      badges.push(stIco("dot", "debuff", pulse ? "脉动灼烧" : "行动毒"));
+      badges.push(stIco("dot", "debuff", "持续伤害"));
     }
-  } else if (unit?.dot && (unit.dot.remain || 0) > (unit.dot.bar || 0)) {
-    const pulse = unit.dot.type === "pulse" || unit.dot.sourceDriven;
-    badges.push(stIco("dot", "debuff", pulse ? "脉动灼烧" : "行动毒"));
+  } else if (unit?.dot) {
+    const left =
+      unit.dot.remainSec != null
+        ? unit.dot.remainSec
+        : (unit.dot.remain || 0) - (unit.dot.bar || 0);
+    if (left > 0) badges.push(stIco("dot", "debuff", "持续伤害"));
   }
   if ((unit?.buffTurns || 0) > 0) {
     if ((unit.atkBuff || 0) > 0) badges.push(stIco("atkUp", "buff", "攻击↑"));

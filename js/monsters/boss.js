@@ -1,14 +1,14 @@
 /** 关卡出口守护 Boss（按层固定主题 kind） */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=149";
+import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=157";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=149";
-import { bossKindForFloor, bossMilestoneMult } from "./bossKinds.js?v=149";
-import { floorHasUniqueBossLoot } from "../loot/drops.js?v=149";
+} from "./skills.js?v=157";
+import { bossKindForFloor, bossMilestoneMult, isSpecialBossFloor } from "./bossKinds.js?v=157";
+import { floorHasUniqueBossLoot } from "../loot/drops.js?v=157";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -26,6 +26,7 @@ export function createBoss({
   const sheet = getMonsterStats(kind);
   const abs = { x: ox + pos.x, y: oy + pos.y };
   const cf = combatFloor || floor;
+  const special = !hidden && isSpecialBossFloor(floor);
   const s = Math.max(1, scale) * 1.55 * bossMilestoneMult(floor) * (hidden ? 0.92 : 1);
   const hp = Math.floor(sheet.hp * s);
   const atk = Math.max(1, Math.floor(sheet.atk * s * MONSTER_ATK_MULT));
@@ -38,7 +39,7 @@ export function createBoss({
     skillIdsOverride ||
     (hidden
       ? ["crush", "boss_mass_slow", "quake_roar"]
-      : bossSkillIdsForFloor(cf));
+      : bossSkillIdsForFloor(cf, kind));
 
   return {
     id: `m_boss_${hidden ? "hide_" : ""}${floor}_${Math.random().toString(36).slice(2, 6)}`,
@@ -46,6 +47,7 @@ export function createBoss({
     kind,
     isBoss: true,
     isHiddenBoss: !!hidden || kind === "boss_fool",
+    isSpecialBoss: special,
     name: nameOverride || `${sheet.name}·${floor}层`,
     color: sheet.color,
     shape: "square",
@@ -59,8 +61,18 @@ export function createBoss({
     atk,
     def,
     spd,
-    exp: Math.max(1, Math.round((sheet.exp || 12) * (0.9 + scale * 0.45) * (hidden ? 1.15 : 1))),
-    gold: Math.max(1, Math.round((sheet.gold || 80) * (0.9 + scale * 0.38) * (hidden ? 1.1 : 1))),
+    exp: Math.max(
+      1,
+      Math.round(
+        (sheet.exp || 12) * (0.9 + scale * 0.45) * (hidden ? 1.15 : special ? 1.2 : 1)
+      )
+    ),
+    gold: Math.max(
+      1,
+      Math.round(
+        (sheet.gold || 80) * (0.9 + scale * 0.38) * (hidden ? 1.1 : special ? 1.15 : 1)
+      )
+    ),
     floor,
     combatFloor: cf,
     hasUniqueLoot: hidden ? false : floorHasUniqueBossLoot(floor),

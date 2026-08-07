@@ -15,15 +15,21 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=149";
-import { createPatrolMonster } from "../monsters/slime.js?v=149";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=149";
-import { digFloorSecretPath } from "../map/dungeon.js?v=149";
-import { mergeStackableTools } from "../characters/affixItems.js?v=149";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=149";
+} from "../characters/omni/index.js?v=157";
+import { createPatrolMonster } from "../monsters/slime.js?v=157";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=157";
+import { digFloorSecretPath } from "../map/dungeon.js?v=157";
+import { mergeStackableTools } from "../characters/affixItems.js?v=157";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=157";
 
-export const SAVE_KEY = "moku_game_progress_v1";
+/** 默认经典槽；启动选节奏后由 setSaveKey 切换 */
+export let SAVE_KEY = "moku_game_progress_v1_classic";
 export const SAVE_VERSION = 1;
+
+export function setSaveKey(key) {
+  if (typeof key === "string" && key) SAVE_KEY = key;
+  return SAVE_KEY;
+}
 
 let saveTimer = 0;
 
@@ -314,7 +320,7 @@ export function clearSave() {
   }
 }
 
-/** 清空进度与角色设置，用于「重置游戏」 */
+/** 清空进度与角色设置，用于「重置游戏」（仅当前节奏槽） */
 export function resetGameLocalData() {
   clearSave();
   clearCharacterSettings();

@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=149";
+import { $, clamp, styleTag } from "../core/utils.js?v=157";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -57,22 +57,23 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=149";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=149";
-import { setSavedFormation } from "../characters/stats.js?v=149";
-import { resetGameLocalData } from "../core/save.js?v=149";
-import { createAllUniqueItems } from "../loot/drops.js?v=149";
-import { APP_VERSION } from "../core/version.js?v=149";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=149";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=149";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=149";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=149";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=149";
+} from "../characters/omni/index.js?v=157";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=157";
+import { setSavedFormation } from "../characters/stats.js?v=157";
+import { resetGameLocalData } from "../core/save.js?v=157";
+import { createAllUniqueItems } from "../loot/drops.js?v=157";
+import { APP_VERSION } from "../core/version.js?v=157";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=157";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=157";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=157";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=157";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=157";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
-} from "../characters/seals.js?v=149";
+  sealIconUrl,
+} from "../characters/seals.js?v=157";
 import {
   isAffixItem,
   toolSortPriority,
@@ -83,7 +84,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=149";
+} from "../characters/affixItems.js?v=157";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1515,10 +1516,11 @@ export function createUI(ctx) {
       if (title) title.textContent = "印章";
       setPreviewActions({ replace: false, sellOne: false });
       const def = sealDef(item);
+      const icon = sealIconUrl(item);
       body.innerHTML = `
         <div class="equip-preview-top">
-          <div class="equip-preview-ico empty misc" style="--tint:${item.tint || "#c9a227"}">
-            <i class="bag-ico preview-ball" aria-hidden="true"></i>
+          <div class="equip-preview-ico has-icon" style="--tint:${item.tint || "#c9a227"}">
+            <img class="bag-ico-img preview-seal" src="${icon}" alt="" decoding="async" />
           </div>
           <div class="equip-preview-meta">
             <div class="equip-preview-name-row">
@@ -1684,7 +1686,8 @@ export function createUI(ctx) {
       box.innerHTML = list
         .map(
           ({ it, index }) =>
-            `<button type="button" class="equip-pick-row" data-inv="${index}">
+            `<button type="button" class="equip-pick-row equip-pick-row-ico" data-inv="${index}">
+              <img class="equip-pick-seal" src="${sealIconUrl(it)}" alt="" />
               <span class="equip-pick-name" style="color:${it.tint || "#c9a227"}">${it.name}</span>
               <span class="equip-pick-meta">${sealDef(it)?.desc || it.desc || "印章"}</span>
             </button>`
@@ -2072,14 +2075,11 @@ export function createUI(ctx) {
     if (sealBtn) {
       const seal = hero.seal;
       const ico = sealBtn.querySelector(".seal-slot-ico");
-      const label = sealBtn.querySelector(".seal-slot-label");
       sealBtn.classList.toggle("filled", !!seal);
-      sealBtn.classList.toggle("has-icon", false);
-      sealBtn.title = seal ? `${seal.name}（点击卸下）` : "印章（空）· 点击从背包装备";
-      if (label) label.textContent = seal ? "愚" : "印";
+      sealBtn.title = seal ? `${seal.name}（点击卸下）` : "印章槽（空）· 点击从背包装备";
       if (ico) {
-        ico.hidden = true;
-        ico.removeAttribute("src");
+        ico.src = sealIconUrl(seal || null);
+        ico.alt = seal ? seal.name : "空印章槽";
       }
       sealBtn.onclick = () => {
         if (seal) unequipSeal(hero);
@@ -2721,14 +2721,14 @@ export function createUI(ctx) {
             : !equip && !seal && !affix
               ? `<em>×${it.qty ?? 1}</em>`
               : "";
-      const icon = itemIconUrl(it);
+      const icon = seal ? sealIconUrl(it) : itemIconUrl(it);
       const rarity = equip || it.rarity ? rarityInfo(it.rarity).id : "";
       const rarityCls = rarity ? ` rarity-${rarity}` : "";
-      const miscCls = !equip && !icon ? " misc" : "";
+      const miscCls = !equip && !seal && !icon ? " misc" : "";
       const sealCls = seal ? " seal-item" : "";
       const affixCls = affix ? " seal-item" : "";
       const shortName =
-        !equip && !icon
+        !equip && !seal && !icon
           ? `<span class="bag-name">${(it.name || "").slice(0, 4)}</span>`
           : "";
       const icoHtml = icon

@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=149";
+import { scaleGoldGain } from "../../core/economy.js?v=157";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -112,14 +112,9 @@ const SKILL_AFFIX_POOL = [
     text: "行动回血：每 10 行动回复最大生命 1.5%",
   },
   {
-    id: "gauge_mp",
-    skillMods: { gaugeMpOnAct: 2 },
-    text: "行动回蓝：每次行动回复 2 蓝",
-  },
-  {
     id: "gauge_vital",
-    skillMods: { gaugeHpPer10: 0.005, gaugeMpOnAct: 2 },
-    text: "行动调息：每 10 行动回复最大生命 0.5%；每次行动回复 2 蓝",
+    skillMods: { gaugeHpPer10: 0.01 },
+    text: "行动调息：每 10 行动回复最大生命 1%",
   },
 ];
 
@@ -552,20 +547,12 @@ export function upgradeEquip(item, state) {
       if (a.id !== "cast_echo" && m.hitBonus && !m.hitDamageMult && next % 20 === 0) {
         m.hitBonus += 1;
       }
-      refreshAffixText(a);
-    }
-    // 行动回蓝：每强化 2 次 +1（兼容旧 gaugeMpPer10）
-    if (a.type === "skill" && a.skillMods) {
-      const m = a.skillMods;
-      if (m.gaugeMpPer10 != null && m.gaugeMpOnAct == null) {
-        m.gaugeMpOnAct = Math.max(2, Math.floor(m.gaugeMpPer10));
+      // 旧版回蓝词条：强化时清掉，不再成长
+      if (m.gaugeMpOnAct != null || m.gaugeMpPer10 != null) {
+        delete m.gaugeMpOnAct;
         delete m.gaugeMpPer10;
-        refreshAffixText(a);
       }
-      if (m.gaugeMpOnAct && item.enhanceCount % 2 === 0) {
-        m.gaugeMpOnAct = Math.max(1, Math.floor(m.gaugeMpOnAct) + 1);
-        refreshAffixText(a);
-      }
+      refreshAffixText(a);
     }
   }
 
@@ -827,10 +814,6 @@ function formatSkillModsText(m = {}) {
       const pct = Math.round(m.gaugeHpPer10 * 1000) / 10;
       parts.push(`每 10 行动回复最大生命 ${pct}%`);
     }
-    const mpAct = m.gaugeMpOnAct || m.gaugeMpPer10;
-    if (mpAct) {
-      parts.push(`每次行动回复 ${Math.floor(mpAct)} 蓝`);
-    }
   }
   return parts.join("，") || "技能强化";
 }
@@ -1013,7 +996,6 @@ function blankSkillModsSum() {
     selfDodge: 0,
     selfHit: 0,
     gaugeHpPer10: 0,
-    gaugeMpOnAct: 0,
   };
 }
 
@@ -1037,7 +1019,6 @@ function mergeSkillModsInto(sum, m) {
   sum.selfDodge = Math.max(sum.selfDodge || 0, m.selfDodge || 0);
   sum.selfHit = Math.max(sum.selfHit || 0, m.selfHit || 0);
   sum.gaugeHpPer10 += m.gaugeHpPer10 || 0;
-  sum.gaugeMpOnAct += m.gaugeMpOnAct || m.gaugeMpPer10 || 0;
 }
 
 export function bonusFromParts(primary = {}, affixes = []) {

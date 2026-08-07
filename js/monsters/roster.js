@@ -4,17 +4,17 @@
  * - Boss：多在后排中央；坦克 Boss 偶发前排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=149";
+import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=157";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=149";
+} from "./skills.js?v=157";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=149";
-import { createBoss } from "./boss.js?v=149";
+} from "../characters/progression.js?v=157";
+import { createBoss } from "./boss.js?v=157";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -381,7 +381,9 @@ export function spawnTrashOnMap(x, y, floor, scale) {
 /** 图鉴用：该种类在本层可能带的技能（含已解锁控制技，非随机） */
 export function floorMonsterSkillIds(kind, floor) {
   const f = Math.max(1, floor || 1);
-  if (kind === "boss") return bossSkillIdsForFloor(f);
+  if (kind === "boss" || String(kind || "").startsWith("boss_")) {
+    return bossSkillIdsForFloor(f, kind);
+  }
   const ids = [...(TYPE_SKILL_IDS[kind] || ["gnaw"])];
   for (const id of trashControlSkillIdsForFloor(f)) {
     if (!ids.includes(id)) ids.push(id);
@@ -403,7 +405,7 @@ export function buildFloorMonsterCatalog(floor, scale = 1) {
     return m;
   });
   const boss = createBoss({ floor: f, scale: s });
-  boss.skillIds = floorMonsterSkillIds("boss", f);
+  boss.skillIds = floorMonsterSkillIds(boss.kind, f);
   boss.hp = boss.maxHp;
   return [...trash, boss];
 }

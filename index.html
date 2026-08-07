@@ -33,12 +33,22 @@
   <meta name="theme-color" content="#fff4e0" />
   <title>魔窟 · 探索</title>
   <!-- 不用 Google Fonts：国内 WiFi / pad 上常被拦，易被浏览器报「网络出错」 -->
-  <link rel="stylesheet" href="css/style.css?v=149" />
+  <link rel="stylesheet" href="css/style.css?v=157" />
 </head>
 <body>
   <div id="app">
+    <!-- 启动：选择节奏（两套存档独立，内容共用） -->
+    <section id="boot" class="scene boot-scene" aria-label="选择游戏">
+      <div class="boot-panel">
+        <p class="boot-brand">魔窟</p>
+        <h1 class="boot-title">选择战斗节奏</h1>
+        <p class="boot-sub">同一套探索与角色，仅「别人行动时行动条是否继续走」不同。存档互不影响。</p>
+        <div class="boot-modes" id="bootModes"></div>
+      </div>
+    </section>
+
     <!-- 探索界面：全屏地图 + 叠层 HUD -->
-    <section id="explore" class="scene explore-scene">
+    <section id="explore" class="scene explore-scene hidden">
       <div id="mapWrap" class="explore-map">
         <canvas id="map"></canvas>
       </div>
@@ -61,6 +71,10 @@
       <aside id="partyStrip" class="party-strip" aria-label="队伍状态"></aside>
 
       <nav class="explore-menu" aria-label="功能入口">
+        <button type="button" id="btnPaceHome" class="menu-fab" title="换节奏 / 回标题">
+          <i class="ico-pace"></i>
+          <span>节奏</span>
+        </button>
         <button type="button" id="btnFormation" class="menu-fab" title="战斗阵容">
           <i class="ico-form"></i>
           <span>阵容</span>
@@ -110,8 +124,7 @@
                 <span id="detailDeploy" class="hero-tag">已上阵</span>
               </div>
               <button type="button" id="detailSealSlot" class="seal-slot" title="印章" aria-label="印章">
-                <span class="seal-slot-label">印</span>
-                <img class="seal-slot-ico" alt="" hidden />
+                <img class="seal-slot-ico" alt="" />
               </button>
               <div class="hero-portrait">
                 <div id="detailSpin" class="hero-spin-wrap">
@@ -388,6 +401,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="js/main.js?v=149"></script>
+  <script type="module" src="js/main.js?v=157"></script>
 </body>
 </html>

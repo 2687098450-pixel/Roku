@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=149";
+import { $, wait } from "../core/utils.js?v=157";
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();
@@ -114,8 +114,11 @@ export function resolveFxProfile(style, meta = {}) {
 export async function animMelee(attackerId, targetId, profile = {}) {
   const wrap = document.querySelector(`[data-wrap="${attackerId}"]`);
   const targetEl = document.querySelector(`.battle-unit[data-id="${targetId}"]`);
+  const totalMs = profile.duration ?? 420;
+  const lungeMs = Math.max(80, Math.floor(totalMs * 0.31));
+  const returnMs = Math.max(80, Math.floor(totalMs * 0.38));
   if (!wrap || !targetEl) {
-    await wait(120);
+    await wait(Math.min(totalMs, 120));
     return;
   }
   const a = centerOf(wrap);
@@ -125,9 +128,9 @@ export async function animMelee(attackerId, targetId, profile = {}) {
   const theme = profile.theme || "enemy";
   const impactKind = profile.impact || "punch";
 
-  wrap.style.transition = "transform 0.14s cubic-bezier(.2,.8,.2,1)";
+  wrap.style.transition = `transform ${(lungeMs / 1000).toFixed(2)}s cubic-bezier(.2,.8,.2,1)`;
   wrap.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
-  await wait(130);
+  await wait(lungeMs);
 
   const field = fieldRect();
   if (field) {
@@ -149,10 +152,10 @@ export async function animMelee(attackerId, targetId, profile = {}) {
     wait(280).then(() => targetEl.classList.remove("melee-punched"));
   }
 
-  await wait(40);
-  wrap.style.transition = "transform 0.16s ease-in";
+  await wait(Math.max(20, Math.floor(totalMs * 0.1)));
+  wrap.style.transition = `transform ${(returnMs / 1000).toFixed(2)}s ease-in`;
   wrap.style.transform = "translate(0, 0) scale(1)";
-  await wait(160);
+  await wait(returnMs);
   wrap.style.transition = "";
   wrap.style.transform = "";
 }
@@ -325,15 +328,16 @@ async function animHealBloom(attackerId, targetId, profile) {
 async function animBuffRing(attackerId, profile) {
   const wrap = document.querySelector(`[data-wrap="${attackerId}"]`);
   const field = fieldRect();
+  const duration = profile.duration ?? 180;
   if (!wrap || !field) {
-    await wait(200);
+    await wait(Math.min(duration, 200));
     return;
   }
   const a = toField(centerOf(wrap), field);
   const theme = profile.theme || "pink";
   const ring = spawnFx(`fx-buff-ring theme-${theme}`, a.x, a.y);
   wrap.classList.add("fx-buffed");
-  await wait(420);
+  await wait(duration);
   wrap.classList.remove("fx-buffed");
   if (ring) ring.remove();
 }

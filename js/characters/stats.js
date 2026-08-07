@@ -10,7 +10,7 @@
  * 自动战斗相关会写入 localStorage，刷新页面后仍保留。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=149";
+import { TICK_SECONDS } from "../core/time.js?v=157";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };
@@ -18,7 +18,23 @@ export { TICK_SECONDS };
 /** 角色默认速度（点 / 0.1秒） */
 export const DEFAULT_HERO_SPEED = 20;
 
-const STORAGE_KEY = "moku_character_settings_v1";
+/** 默认经典槽；启动选节奏后由 setCharacterSettingsKey 切换 */
+let STORAGE_KEY = "moku_character_settings_v1_classic";
+
+export function setCharacterSettingsKey(key) {
+  if (typeof key !== "string" || !key) return STORAGE_KEY;
+  STORAGE_KEY = key;
+  battleAutoMode = 0;
+  savedFormation = null;
+  for (const id of Object.keys(CHARACTER_STATS)) {
+    const row = CHARACTER_STATS[id];
+    if (row && Array.isArray(row.autoRotation)) {
+      row.autoRotation = ["", "", "", "", ""];
+    }
+  }
+  loadSavedSettings();
+  return STORAGE_KEY;
+}
 
 /**
  * 角色基础属性表
@@ -175,8 +191,8 @@ export const CHARACTER_STATS = {
   },
 };
 
-/** 战斗是否默认开启自动（跨刷新保存） */
-let battleAutoEnabled = false;
+/** 自动战斗模式 0=关 1=1x 2=1.5x 3=2x（跨刷新保存） */
+let battleAutoMode = 0;
 
 /** 战斗阵容：statsId 或 null，长度 6（跨刷新保存） */
 let savedFormation = null;
@@ -205,7 +221,7 @@ function collectSave() {
     rotations[id] = [...CHARACTER_STATS[id].autoRotation];
   }
   return {
-    battleAutoEnabled,
+    battleAutoMode,
     rotations,
     formation: savedFormation,
   };
@@ -215,8 +231,10 @@ function collectSave() {
 export function loadSavedSettings() {
   const data = readStorage();
   if (!data) return;
-  if (typeof data.battleAutoEnabled === "boolean") {
-    battleAutoEnabled = data.battleAutoEnabled;
+  if (typeof data.battleAutoMode === "number") {
+    battleAutoMode = Math.max(0, Math.min(3, Math.floor(data.battleAutoMode)));
+  } else if (typeof data.battleAutoEnabled === "boolean") {
+    battleAutoMode = data.battleAutoEnabled ? 1 : 0;
   }
   if (data.rotations && typeof data.rotations === "object") {
     const validActives = {
@@ -300,15 +318,24 @@ export function setAutoRotation(id, rotation) {
   return getAutoRotation(id);
 }
 
-export function getBattleAutoEnabled() {
-  return battleAutoEnabled;
+export function getBattleAutoMode() {
+  return battleAutoMode;
 }
 
 /** 战斗里点「自动」时调用，刷新后进战斗仍保持 */
-export function setBattleAutoEnabled(on) {
-  battleAutoEnabled = !!on;
+export function setBattleAutoMode(mode) {
+  battleAutoMode = Math.max(0, Math.min(3, Math.floor(Number(mode) || 0)));
   persist();
-  return battleAutoEnabled;
+  return battleAutoMode;
+}
+
+export function getBattleAutoEnabled() {
+  return getBattleAutoMode() > 0;
+}
+
+/** @deprecated 兼容旧调用；true→1 false→0 */
+export function setBattleAutoEnabled(on) {
+  return setBattleAutoMode(on ? Math.max(1, battleAutoMode) : 0);
 }
 
 /** 读取已保存的阵容（statsId[]，未保存过则为 null） */

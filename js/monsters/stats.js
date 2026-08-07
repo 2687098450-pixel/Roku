@@ -7,7 +7,7 @@ export const GAUGE_MAX = 100;
 export const DEFAULT_MONSTER_SPEED = 15;
 
 /** 怪物攻击整体倍率（相对表内基础） */
-export const MONSTER_ATK_MULT = 0.7;
+export const MONSTER_ATK_MULT = 0.63;
 
 export const MONSTER_STATS = {
   slime: {

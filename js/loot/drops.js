@@ -9,10 +9,10 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=149";
-import { makeFoolSeal } from "../characters/seals.js?v=149";
-import { makeAffixCondenser } from "../characters/affixItems.js?v=149";
-import { getFloorDef } from "../map/floors.js?v=149";
+} from "../characters/omni/equipment.js?v=157";
+import { makeFoolSeal } from "../characters/seals.js?v=157";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=157";
+import { getFloorDef } from "../map/floors.js?v=157";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -26,13 +26,9 @@ const NORMAL_POOL = [
   { name: "法杖", slot: "weapon", base: { atk: 2, hp: 12 }, icon: "staff.png", kind: "法杖" },
 ];
 
-/**
- * 各层 Boss 专属掉落（技能装）
- * 每层独立池：打哪个关口，掉哪套主题装备
- */
-/** 部分层必掉唯一红装（可多层数组；仅对应角色装备时生效） */
+/** 部分层特殊 Boss 必掉唯一红装（仅 5 / 10 / 30… 等关口） */
 export const UNIQUE_BOSS_BY_FLOOR = {
-  3: [
+  5: [
     {
       name: "冠廊爆裂枪",
       slot: "weapon",
@@ -42,7 +38,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "pink_burst_echo",
       skillOwner: "pink",
       uniqueText: "强化爆裂矢",
-      desc: "潮冕祭司掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
+      desc: "雾林树妖掉落。唯一词条强化小粉二技能；仅小粉装备时生效。",
     },
     {
       name: "冠廊反伤盾",
@@ -53,10 +49,8 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "yellow_reflect_shield",
       skillOwner: "yellow",
       uniqueText: "强化反伤",
-      desc: "潮冕祭司掉落。唯一词条将反伤改为对全体生效；仅小黄装备时生效。",
+      desc: "雾林树妖掉落。唯一词条将反伤改为对全体生效；仅小黄装备时生效。",
     },
-  ],
-  5: [
     {
       name: "雾林灵衡坠",
       slot: "necklace",
@@ -90,8 +84,6 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueText: "开场春芽",
       desc: "雾林树妖掉落。与脉动戒孪生。开场释放 10% 春芽治疗；大幅缩短治疗动画。任意职业可触发。",
     },
-  ],
-  6: [
     {
       name: "环礁生机杖",
       slot: "weapon",
@@ -101,7 +93,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "green_life_flow",
       skillOwner: "green",
       uniqueText: "强化生机流转",
-      desc: "环礁海巫掉落。唯一词条强化生机流转；仅小绿装备时生效。",
+      desc: "雾林树妖掉落。唯一词条强化生机流转；仅小绿装备时生效。",
     },
   ],
   10: [
@@ -116,8 +108,6 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueText: "强化寒锁",
       desc: "终焉爪兽掉落。唯一词条强化小蓝「寒锁」；仅小蓝装备时生效。",
     },
-  ],
-  20: [
     {
       name: "黑曜烬焚枪",
       slot: "weapon",
@@ -140,7 +130,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "cyan_tailwind_gale",
       skillOwner: "cyan",
       uniqueText: "强化疾风",
-      desc: "深渊门廊爪兽掉落。唯一词条强化小青「疾风」；仅小青装备时生效。",
+      desc: "深渊门廊双殿石像掉落。唯一词条强化小青「疾风」；仅小青装备时生效。",
     },
     {
       name: "深渊风刃戒",
@@ -151,7 +141,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "cyan_cut_gale",
       skillOwner: "cyan",
       uniqueText: "强化风刃",
-      desc: "深渊门廊爪兽掉落。唯一词条强化小青「风刃」整段附魔并开局释放；仅小青装备时生效。",
+      desc: "深渊门廊双殿石像掉落。唯一词条强化小青「风刃」整段附魔并开局释放；仅小青装备时生效。",
     },
     {
       name: "深渊织律戒",
@@ -162,14 +152,15 @@ export const UNIQUE_BOSS_BY_FLOOR = {
       uniqueId: "status_weave_ring",
       skillOwner: "",
       uniqueText: "织律",
-      desc: "深渊门廊爪兽掉落。增益/减益取消瞬伤、效果+20%、动画加速。任意职业可触发。",
+      desc: "深渊门廊双殿石像掉落。增益/减益取消瞬伤、效果+20%、动画加速。任意职业可触发。",
     },
   ],
 };
 
-/** 该展示层 Boss 是否掉唯一红装 */
 export function floorHasUniqueBossLoot(floor) {
   const f = Math.max(1, Math.floor(floor || 1));
+  // 唯一装只挂在特殊关口（逢 5 / 逢 10…）
+  if (f % 5 !== 0) return false;
   const list = UNIQUE_BOSS_BY_FLOOR[f];
   return Array.isArray(list) && list.some((t) => t && t.uniqueId);
 }

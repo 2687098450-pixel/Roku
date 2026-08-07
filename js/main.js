@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=149";
+import { $ } from "./core/utils.js?v=157";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=149";
-import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=149";
-import { MAX_FLOOR } from "./map/floors.js?v=149";
+} from "./map/island15.js?v=157";
+import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=157";
+import { MAX_FLOOR } from "./map/floors.js?v=157";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,16 +25,28 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=149";
-import { getSavedFormation } from "./characters/stats.js?v=149";
-import { moveSlimeOnce } from "./monsters/slime.js?v=149";
-import { createBattleApi } from "./battle/system.js?v=149";
-import { createUI } from "./ui/shell.js?v=149";
+} from "./characters/omni/index.js?v=157";
+import { getSavedFormation, setCharacterSettingsKey } from "./characters/stats.js?v=157";
+import { moveSlimeOnce } from "./monsters/slime.js?v=157";
+import { createBattleApi } from "./battle/system.js?v=157";
+import { createUI } from "./ui/shell.js?v=157";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
-} from "./core/save.js?v=149";
+  setSaveKey,
+} from "./core/save.js?v=157";
+import {
+  PACE_MODES,
+  PACE_META,
+  isPaceMode,
+  saveKeyFor,
+  settingsKeyFor,
+  readPacePref,
+  writePacePref,
+  migrateLegacyForMode,
+  peekModeSaveSummary,
+} from "./core/gameMode.js?v=157";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -116,7 +128,9 @@ function applyFloor(state, floorNum) {
 }
 
   const state = {
-  mode: "explore",
+  mode: "boot",
+  paceMode: null,
+  gameStarted: false,
   floor: 1,
   loop: 0,
   floorScale: 1,
@@ -125,7 +139,7 @@ function applyFloor(state, floorNum) {
   playerPos: null,
   displayPos: null,
   party: [omni, pink, green, yellow, blue, orange, cyan],
-  formation: restoreFormation([omni, pink, green, yellow, blue, orange, cyan]),
+  formation: defaultFormation(),
   captainId: yellow.id,
   inventory: [
     {
@@ -681,6 +695,16 @@ function bindExplore() {
     pathToTile(x, y);
   });
 
+  $("btnPaceHome")?.addEventListener("click", () => {
+    if (!state.gameStarted) return;
+    if (state.mode === "battle") {
+      showToast("战斗中无法切换节奏", 1800);
+      return;
+    }
+    flushSave(state);
+    location.reload();
+  });
+
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const reset = $("resetConfirmModal");
@@ -752,6 +776,10 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   state.time += dt;
+  if (!state.gameStarted) {
+    requestAnimationFrame(frame);
+    return;
+  }
   if (state.mode === "explore") {
     updateStep(dt);
     updateCamera(dt);
@@ -762,45 +790,104 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+function renderBootScreen() {
+  const box = $("bootModes");
+  if (!box) return;
+  const lastPace = readPacePref();
+  box.innerHTML = PACE_MODES.map((id) => {
+    const meta = PACE_META[id];
+    const sum = peekModeSaveSummary(id);
+    const lastCls = lastPace === id ? " last" : "";
+    let saveLine = '<span class="boot-mode-save empty">新游戏</span>';
+    if (sum.hasSave) {
+      const loop =
+        sum.loop > 0 ? ` · 轮回${sum.loop}` : "";
+      saveLine = `<span class="boot-mode-save">继续 · ${sum.floor}层${loop}</span>`;
+    }
+    return `<button type="button" class="boot-mode${lastCls}" data-pace="${id}">
+      <div class="boot-mode-head">
+        <span class="boot-mode-title">${meta.title}</span>
+        <span class="boot-mode-tag">${meta.tagline}</span>
+      </div>
+      <span class="boot-mode-desc">${meta.desc}</span>
+      ${saveLine}
+    </button>`;
+  }).join("");
+
+  box.querySelectorAll("[data-pace]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pace = btn.getAttribute("data-pace");
+      if (isPaceMode(pace)) startGame(pace);
+    });
+  });
+}
+
+function startGame(paceMode) {
+  if (state.gameStarted) return;
+  if (!isPaceMode(paceMode)) return;
+
+  migrateLegacyForMode(paceMode);
+  setSaveKey(saveKeyFor(paceMode));
+  setCharacterSettingsKey(settingsKeyFor(paceMode));
+  writePacePref(paceMode);
+
+  state.paceMode = paceMode;
+  state.formation = restoreFormation(state.party);
+
+  const loaded = loadProgressIntoState(state, applyFloor);
+  if (!loaded.restored) {
+    applyFloor(state, 1);
+  }
+  if (!state.captainId || !state.party.some((h) => h.id === state.captainId)) {
+    state.captainId =
+      (state.formation || []).find((id) => !!id) || state.party[0]?.id || null;
+  }
+  for (const h of state.party) {
+    h.isCaptain = h.id === state.captainId;
+    refreshHeroStats(h);
+  }
+  sanitizeInventory(state);
+
+  state.gameStarted = true;
+  state.mode = "explore";
+  $("boot")?.classList.add("hidden");
+  $("explore")?.classList.remove("hidden");
+
+  flushSave(state);
+  resize();
+  ui.refreshExploreHud();
+
+  const meta = PACE_META[paceMode];
+  if (loaded.restored) {
+    const f = state.floor || 1;
+    showToast(
+      `${meta.title} · 已读取进度 · ${state.placeName || ""} ${f}层`,
+      3200
+    );
+  } else {
+    showToast(
+      `${meta.title} · ${meta.tagline}。点击地面可寻路，出口在蓝色楼梯。`,
+      3600
+    );
+  }
+}
+
 ui.bind();
 bindExplore();
 battle.bind();
 preloadMonsterImages();
-
-const loaded = loadProgressIntoState(state, applyFloor);
-if (!loaded.restored) {
-  applyFloor(state, 1);
-}
-if (!state.captainId || !state.party.some((h) => h.id === state.captainId)) {
-  state.captainId =
-    (state.formation || []).find((id) => !!id) || state.party[0]?.id || null;
-}
-for (const h of state.party) {
-  h.isCaptain = h.id === state.captainId;
-  refreshHeroStats(h);
-}
-sanitizeInventory(state);
-flushSave(state);
-
-resize();
-ui.refreshExploreHud();
-if (loaded.restored) {
-  const f = state.floor || 1;
-  showToast(`已读取本地进度 · 当前 ${state.placeName || ""} ${f}层`, 3200);
-} else {
-  showToast("点击地面可自动寻路。出口在蓝色楼梯，击败紫色 Boss 后前进。", 3600);
-}
+renderBootScreen();
 
 window.addEventListener("pagehide", () => {
-  if (window.__MOKU_SKIP_SAVE__) return;
+  if (window.__MOKU_SKIP_SAVE__ || !state.gameStarted) return;
   flushSave(state);
 });
 window.addEventListener("beforeunload", () => {
-  if (window.__MOKU_SKIP_SAVE__) return;
+  if (window.__MOKU_SKIP_SAVE__ || !state.gameStarted) return;
   flushSave(state);
 });
 document.addEventListener("visibilitychange", () => {
-  if (window.__MOKU_SKIP_SAVE__) return;
+  if (window.__MOKU_SKIP_SAVE__ || !state.gameStarted) return;
   if (document.visibilityState === "hidden") flushSave(state);
 });
 

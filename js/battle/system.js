@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=149";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=149";
+import { $, clamp, irand, wait } from "../core/utils.js?v=157";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=157";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=149";
-import { mergeStackableTools } from "../characters/affixItems.js?v=149";
+} from "../characters/omni/index.js?v=157";
+import { mergeStackableTools } from "../characters/affixItems.js?v=157";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,28 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=149";
+} from "../characters/progression.js?v=157";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=149";
-import { buildEncounter } from "../monsters/roster.js?v=149";
+} from "../characters/skills.js?v=157";
+import { buildEncounter } from "../monsters/roster.js?v=157";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
-  clampMonsterDotGauge,
-  PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=149";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=149";
+} from "../monsters/skills.js?v=157";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=157";
 import {
   GAUGE_MAX,
-  getBattleAutoEnabled,
-  setBattleAutoEnabled,
-} from "../characters/stats.js?v=149";
-import { createTicker } from "../core/time.js?v=149";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=149";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=149";
+  getBattleAutoMode,
+  setBattleAutoMode,
+} from "../characters/stats.js?v=157";
+import { createTicker } from "../core/time.js?v=157";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=157";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=157";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -69,13 +67,32 @@ import {
   rollHit,
   healReceivedMult,
   tryApplySkillStatuses,
+  amplifyBossSkillApply,
   tryApplySelfBuffs,
   tickStatuses,
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=149";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=149";
+} from "./status.js?v=157";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=157";
+import {
+  DOT_TICK_SECONDS,
+  ANIM_FAST_MS,
+  ANIM_SLOW_MS,
+  dotDurationSec,
+  skillAnimMs,
+  battleSpeedFromMode,
+  AUTO_MODE_LABELS,
+} from "./timing.js?v=157";
+import {
+  skillAttackRange,
+  skillAoeRadius,
+  unitsInRadius,
+  splashDamageScale,
+  stepUnitToward,
+  pickNearestUnit,
+  unitsInAttackRange,
+} from "./grid.js?v=157";
 
 export function createBattleApi(ctx) {
   const {
@@ -399,7 +416,7 @@ export function createBattleApi(ctx) {
     return targetableAllies(b).filter((a) => a.col === center.col);
   }
 
-  /** 怪物技能目标选取 */
+  /** 怪物技能目标选取（经典：前排/十字/行列） */
   function pickEnemySkillTargets(b, skill) {
     if (skill.hitAll) return targetableAllies(b);
     if (skill.hitFront) {
@@ -414,139 +431,362 @@ export function createBattleApi(ctx) {
     return [primary];
   }
 
+  function isFlowBattle(b) {
+    return !!b?.atbDuringAct;
+  }
+
+  function battleOccupants(b) {
+    return [...(b?.allies || []), ...(b?.enemies || [])];
+  }
+
+  async function approachTarget(b, mover, target) {
+    if (!mover || !target) return false;
+    const moved = stepUnitToward(mover, target, battleOccupants(b));
+    if (moved) {
+      renderBattle(b);
+      await wait(Math.max(120, Math.floor(ANIM_FAST_MS * 0.85)));
+    }
+    return moved;
+  }
+
+  /** 流畅：优先在射程内挑目标，否则 null */
+  function pickFlowEnemy(b, ally, skillId, def, hero) {
+    const range = skillAttackRange(def);
+    const pool = unitsInAttackRange(ally, livingEnemies(b), range);
+    if (!pool.length) return null;
+    if (skillId === "pink_burst") {
+      return pool
+        .slice()
+        .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
+    }
+    if (skillId === "blue_bolt" || skillId === "blue_freeze") {
+      const mode = getSkillAiMode(hero, skillId);
+      if (mode === "maxAtk") {
+        return pool.slice().sort((a, c) => (c.atk || 0) - (a.atk || 0))[0];
+      }
+      if (mode === "maxSpd") {
+        return pool
+          .slice()
+          .sort((a, c) => effectiveSpd(c) - effectiveSpd(a))[0];
+      }
+    }
+    return pool[irand(0, pool.length - 1)];
+  }
+
+  function flowSplashTargets(b, center, def) {
+    const r = skillAoeRadius(def);
+    if (r <= 0) return center ? [center] : [];
+    return unitsInRadius(livingEnemies(b), center, r);
+  }
+
+  function flowAllySplashTargets(b, center, skill) {
+    const r = skillAoeRadius(skill);
+    if (r <= 0) return center ? [center] : [];
+    return unitsInRadius(targetableAllies(b), center, r);
+  }
+
+  async function resolveHeroSkillFlow(
+    b,
+    ally,
+    used,
+    def,
+    style,
+    mods,
+    hits,
+    skillLv,
+    fxMeta,
+    opts,
+    hero
+  ) {
+    let appliedBuff = false;
+
+    if (isBuffSkill(used)) {
+      const applyBuffTo = (unit) => {
+        if (!unit || unit.hp <= 0) return;
+        if (def.windEnchant) {
+          applyWindEnchant(b, ally, unit);
+          return;
+        }
+        if (def.atkMult) unit.atkBuff = Math.max(unit.atkBuff || 0, def.atkMult || 0);
+        if (def.critDmgBonus) {
+          unit.critDmgBonus = Math.max(unit.critDmgBonus || 0, def.critDmgBonus || 0);
+        }
+        if (def.defMult) unit.defBuff = Math.max(unit.defBuff || 0, def.defMult || 0);
+        unit.buffTurns = Math.max(unit.buffTurns || 0, def.turns || 3);
+        if (def.hastePower) {
+          applyStatus(unit, "haste", {
+            gauge: def.hasteGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.hastePower,
+          });
+        }
+        if (def.dodgePower) {
+          applyStatus(unit, "dodgeUp", {
+            gauge: def.dodgeGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.dodgePower,
+          });
+        }
+        if (def.hitUpPower) {
+          applyStatus(unit, "hitUp", {
+            gauge: def.hitUpGauge ?? DEFAULT_STATUS_GAUGE,
+            power: def.hitUpPower,
+          });
+        }
+      };
+      if (def.target === "all") {
+        const list = livingAllies(b);
+        const primary = list[0] || ally;
+        await playSkillAnim("buff", ally.id, primary.id, fxMeta);
+        for (const a of list) applyBuffTo(a);
+      } else if (def.target === "ally") {
+        const range = skillAttackRange(def);
+        let candidates = livingAllies(b).filter((a) => a.id !== ally.id);
+        if (def.windEnchant) {
+          candidates = candidates.length ? candidates : livingAllies(b);
+        }
+        let t = null;
+        const inRange = unitsInAttackRange(ally, candidates, range);
+        if (inRange.length) {
+          t = def.windEnchant
+            ? inRange.slice().sort((a, c) => (c.atk || 0) - (a.atk || 0))[0]
+            : inRange
+                .slice()
+                .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
+        } else {
+          const goal =
+            pickNearestUnit(ally, candidates) ||
+            pickNearestUnit(ally, livingAllies(b));
+          if (goal && goal.id !== ally.id) {
+            await approachTarget(b, ally, goal);
+            ally.firstSkillDone = true;
+            ally.mp = hero.mp;
+            ally.maxMp = hero.maxMp;
+            syncHeroHp(b);
+            renderBattle(b);
+            return true;
+          }
+          t = ally;
+        }
+        if (!t) return false;
+        await playSkillAnim("buff", ally.id, t.id, fxMeta);
+        applyBuffTo(t);
+      } else {
+        await playSkillAnim("buff", ally.id, ally.id, fxMeta);
+        applyBuffTo(ally);
+      }
+      appliedBuff = true;
+    } else if (isHealSkill(used)) {
+      if (def.target === "all") {
+        const amount = skillHealAmount(ally, used, mods, skillLv);
+        const list = livingAllies(b);
+        const primary = pickLowestAlly(b) || list[0];
+        await playSkillAnim(style, ally.id, primary.id, fxMeta);
+        for (const t of list) {
+          const healed = applyHeal(t, amount, { source: ally });
+          applyMendPulse(b, ally, t, healed || amount);
+        }
+      } else {
+        const range = skillAttackRange(def);
+        const allies = livingAllies(b);
+        const inRange = unitsInAttackRange(ally, allies, range);
+        let t = null;
+        if (inRange.length) {
+          t =
+            used === "green_mend"
+              ? (() => {
+                  const mode = getSkillAiMode(hero, used);
+                  if (mode === "maxDef") {
+                    return inRange
+                      .slice()
+                      .sort(
+                        (a, c) =>
+                          (c.def || 0) - (a.def || 0) ||
+                          a.hp / a.maxHp - c.hp / c.maxHp
+                      )[0];
+                  }
+                  return inRange
+                    .slice()
+                    .sort(
+                      (a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp
+                    )[0];
+                })()
+              : inRange
+                  .slice()
+                  .sort(
+                    (a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp
+                  )[0];
+        } else {
+          const goal = pickNearestUnit(ally, allies);
+          if (goal) {
+            await approachTarget(b, ally, goal);
+            ally.firstSkillDone = true;
+            ally.mp = hero.mp;
+            ally.maxMp = hero.maxMp;
+            syncHeroHp(b);
+            renderBattle(b);
+            return true;
+          }
+        }
+        if (!t) return false;
+        const amount = skillHealAmount(ally, used, mods, skillLv, t);
+        await playSkillAnim(style, ally.id, t.id, fxMeta);
+        const healed = applyHeal(t, amount, { source: ally });
+        applyMendPulse(b, ally, t, healed || amount);
+      }
+      applyLifeFlowBuff(b, ally);
+      syncHeroHp(b);
+    } else {
+      // 攻击：够不着就走近；够着则按半径溅射，伤害随命中人数变薄
+      let center = pickFlowEnemy(b, ally, used, def, hero);
+      if (!center) {
+        const goal = pickNearestUnit(ally, livingEnemies(b));
+        if (!goal) return false;
+        await approachTarget(b, ally, goal);
+        if (!opts.freeCast) {
+          // 走位不耗蓝，算一次行动
+          ally.firstSkillDone = true;
+        }
+        ally.mp = hero.mp;
+        ally.maxMp = hero.maxMp;
+        syncHeroHp(b);
+        renderBattle(b);
+        return true;
+      }
+
+      if (
+        used === "pink_burst" &&
+        heroHasUnique(hero, "pink_burst_echo")
+      ) {
+        await resolvePinkBurstEcho(b, ally, used, mods, skillLv, fxMeta);
+      } else {
+        const list = flowSplashTargets(b, center, def);
+        if (!list.length) return false;
+        const scale = splashDamageScale(list.length);
+        const aoe = skillAoeRadius(def) > 0;
+        const stunNeed =
+          def.stunGauge != null
+            ? Math.max(1, Math.floor(def.stunGauge))
+            : def.stunTurns
+              ? Math.max(1, Math.floor((def.stunTurns || 1) * GAUGE_MAX))
+              : 0;
+        const stunAmt = ally.spiritForm
+          ? Math.max(1, Math.floor(stunNeed * 0.5))
+          : stunNeed;
+
+        if (used === "pink_burst" && hits > 1 && !aoe) {
+          for (let h = 0; h < hits; h++) {
+            const cur = pickFlowEnemy(b, ally, used, def, hero);
+            if (!cur) break;
+            await playSkillAnim(style, ally.id, cur.id, {
+              ...fxMeta,
+              shotDuration: ANIM_FAST_MS,
+            });
+            heroStrike(ally, cur, used, mods, 1);
+          }
+        } else {
+          await playSkillAnim(style, ally.id, center.id, fxMeta);
+          for (let h = 0; h < hits; h++) {
+            if (ally.windEnchant) ally.windEnchant.consumedThisCast = false;
+            for (const t of list) {
+              if (t.hp <= 0) continue;
+              if (!ally.spiritForm) {
+                heroStrike(ally, t, used, mods, scale);
+              }
+              if (stunNeed && h === 0) {
+                applyStunStatus(t, stunAmt);
+                recordControl(ally, stunAmt);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!appliedBuff) tickUnitBuffs(ally);
+    if (!opts.freeCast) {
+      spendSkillMp(hero, used);
+      ally.firstSkillDone = true;
+    }
+    ally.mp = hero.mp;
+    ally.maxMp = hero.maxMp;
+    syncHeroHp(b);
+    renderBattle(b);
+    return true;
+  }
+
   function ensureDots(unit) {
     if (!unit.dots || typeof unit.dots !== "object") unit.dots = {};
-    // 兼容旧单槽
     if (unit.dot && !unit.dots[unit.dot.skillId || "_legacy"]) {
       const id = unit.dot.skillId || "_legacy";
       unit.dots[id] = { ...unit.dot, skillId: id };
     }
     unit.dot = null;
+    for (const d of Object.values(unit.dots)) {
+      if (!d) continue;
+      if (d.remainSec == null && d.remain != null) {
+        const left = Math.max(0, (d.remain || 0) - (d.bar || 0));
+        d.remainSec = dotDurationSec(left || d.remain || 50);
+        d.tickAcc = d.tickAcc || 0;
+      }
+    }
     return unit.dots;
   }
 
   function listActiveDots(unit) {
     if (!unit) return [];
     const map = ensureDots(unit);
-    return Object.values(map).filter(
-      (d) => d && (d.remain || 0) > (d.bar || 0)
-    );
+    return Object.values(map).filter((d) => d && (d.remainSec || 0) > 0);
   }
 
   function applyMonsterDot(target, caster, skill) {
     const def = skill?.dot;
     if (!def || !target || target.hp <= 0) return;
     const skillId = skill?.id || def.skillId || "dot";
-    // 对怪物：与脉动治疗同理，按施法者行动条每 10 跳一次
-    const sourceDriven = !target.isHero;
-    const type = sourceDriven || def.type === "pulse" ? "pulse" : "onAct";
-    const tickDef = { ...def, type };
     let tickDmg;
-    if (sourceDriven) {
+    if (!target.isHero) {
       const atk = Math.max(0, Number(caster?.atk) || 0);
       tickDmg = Math.max(
         1,
         Math.floor(atk * (Number(def.mult) || 0)) + (Number(def.flat) || 0)
       );
     } else {
-      tickDmg = monsterDotTickDamage(caster?.atk || 0, tickDef);
+      tickDmg = monsterDotTickDamage(caster?.atk || 0, def);
     }
-    let remain = Math.max(1, Math.floor(def.gauge ?? 50));
-    if (type === "pulse" && !sourceDriven) {
-      remain = clampMonsterDotGauge(tickDef);
-    }
+    const remainSec = dotDurationSec(def.gauge ?? 50);
     const dots = ensureDots(target);
-    const prev = dots[skillId];
-    // 同一技能：不叠加，只刷新持续时间与跳伤
     dots[skillId] = {
       skillId,
-      type,
-      sourceDriven,
       tickDmg,
-      remain,
-      bar: 0,
-      walk: 0,
-      interval: type === "pulse" ? def.interval || PULSE_DOT_INTERVAL : 0,
+      remainSec,
+      tickAcc: 0,
       sourceId: caster?.id || null,
-      refreshed: !!prev,
     };
   }
 
-  function advanceOneDot(b, unit, d, walked) {
-    if (!d || unit.hp <= 0) return false;
-    if (d.sourceDriven) return true;
-    d.bar = (d.bar || 0) + walked;
-    if (d.type === "pulse") {
-      d.walk = (d.walk || 0) + walked;
-      const interval = d.interval || PULSE_DOT_INTERVAL;
-      while (d.walk >= interval) {
-        d.walk -= interval;
-        const src = findUnitById(b, d.sourceId);
-        dealDamage(unit, d.tickDmg, { source: src || null });
-        if (unit.hp <= 0) break;
-      }
-    }
-    return (d.remain || 0) > (d.bar || 0);
-  }
-
-  function advanceUnitDot(b, unit, walked) {
-    if (!unit || unit.hp <= 0) {
-      if (unit) {
-        unit.dots = {};
-        unit.dot = null;
-      }
-      return;
-    }
-    const dots = ensureDots(unit);
-    for (const id of Object.keys(dots)) {
-      const d = dots[id];
-      if (!d) {
-        delete dots[id];
+  /** 按真实时间推进所有 DoT（受 battleSpeed 缩放） */
+  function advanceTimedDots(b, scaledDt) {
+    if (!(scaledDt > 0)) return;
+    for (const u of battleUnits(b)) {
+      if (u.hp <= 0) {
+        u.dots = {};
+        u.dot = null;
         continue;
       }
-      if (!advanceOneDot(b, unit, d, walked)) delete dots[id];
-      if (unit.hp <= 0) break;
-    }
-  }
-
-  /** 施法者走行动条时，推进其施加在怪物上的脉动灼烧 */
-  function advanceDotsFromSource(b, source, walked) {
-    if (!source?.id || !(walked > 0)) return;
-    for (const u of battleUnits(b)) {
-      if (!u || u.hp <= 0) continue;
       const dots = ensureDots(u);
       for (const id of Object.keys(dots)) {
         const d = dots[id];
-        if (!d?.sourceDriven || d.sourceId !== source.id) continue;
-        const src = findUnitById(b, d.sourceId);
-        if (!src || src.hp <= 0) {
+        if (!d || !(d.remainSec > 0)) {
           delete dots[id];
           continue;
         }
-        d.bar = (d.bar || 0) + walked;
-        d.walk = (d.walk || 0) + walked;
-        const interval = d.interval || PULSE_DOT_INTERVAL;
-        while (d.walk >= interval && u.hp > 0 && dots[id]) {
-          d.walk -= interval;
-          dealDamage(u, d.tickDmg, { source: src });
-          if (u.hp <= 0) break;
+        d.tickAcc = (d.tickAcc || 0) + scaledDt;
+        while (d.tickAcc >= DOT_TICK_SECONDS && d.remainSec > 0 && u.hp > 0) {
+          d.tickAcc -= DOT_TICK_SECONDS;
+          const src = findUnitById(b, d.sourceId);
+          dealDamage(u, d.tickDmg, { source: src || null });
         }
-        if (!dots[id]) continue;
-        if ((d.remain || 0) <= (d.bar || 0) || u.hp <= 0) delete dots[id];
+        d.remainSec -= scaledDt;
+        if (d.remainSec <= 0 || u.hp <= 0) delete dots[id];
       }
-    }
-  }
-
-  /** 行动时持续：出手瞬间跳伤（仅非施法者推进型） */
-  function triggerActDot(b, unit) {
-    if (!unit || unit.hp <= 0) return;
-    const dots = ensureDots(unit);
-    for (const id of Object.keys(dots)) {
-      const d = dots[id];
-      if (!d || d.sourceDriven || d.type !== "onAct") continue;
-      const src = findUnitById(b, d.sourceId);
-      dealDamage(unit, d.tickDmg, { source: src || null });
-      if (unit.hp <= 0) break;
     }
   }
 
@@ -1126,7 +1366,7 @@ export function createBattleApi(ctx) {
       remaining -= 1;
       await playSkillAnim("ranged", ally.id, t.id, {
         ...fxMeta,
-        shotDuration: 160,
+        shotDuration: ANIM_FAST_MS,
       });
       const dealt = dealDamage(t, shotPower, {
         canCrit: true,
@@ -1214,7 +1454,7 @@ export function createBattleApi(ctx) {
     }
   }
 
-  /** 行动条词条：推进时按累计回血；回蓝改为每次出手结算 */
+  /** 行动条词条：推进时按累计回血 */
   function applyGaugeRegen(unit, walked) {
     if (!unit?.isHero || !(walked > 0) || unit.hp <= 0) return;
     const hero = actingHero(unit);
@@ -1222,27 +1462,13 @@ export function createBattleApi(ctx) {
     const mods = sumSkillMods(hero.equip);
     const hpPer = mods?.gaugeHpPer10 || 0;
     if (!(hpPer > 0)) return;
-    if (!unit.gaugeRegen) unit.gaugeRegen = { hp: 0, mp: 0 };
+    if (!unit.gaugeRegen) unit.gaugeRegen = { hp: 0 };
     unit.gaugeRegen.hp += walked;
     while (unit.gaugeRegen.hp >= 10) {
       unit.gaugeRegen.hp -= 10;
       const amt = Math.max(1, Math.floor((unit.maxHp || 1) * hpPer));
       applyHeal(unit, amt, { source: unit });
     }
-  }
-
-  /** 行动回蓝：每次轮到行动时回复 */
-  function applyActMpRegen(unit) {
-    if (!unit?.isHero || unit.hp <= 0) return;
-    const hero = actingHero(unit);
-    if (!hero) return;
-    const mods = sumSkillMods(hero.equip);
-    const gain = Math.max(0, Math.floor(mods?.gaugeMpOnAct || 0));
-    if (!(gain > 0)) return;
-    const maxMp = hero.maxMp || unit.maxMp || 0;
-    hero.mp = Math.min(maxMp, (hero.mp || 0) + gain);
-    unit.mp = hero.mp;
-    unit.maxMp = maxMp;
   }
 
   function advanceMendPulse(b, unit, walked) {
@@ -1529,14 +1755,31 @@ export function createBattleApi(ctx) {
       skillId: used,
       statsId: hero?.statsId || "",
       color: hero?.color || ally.color || "",
+      shotDuration: skillAnimMs({
+        style,
+        skillId: used,
+        pace: isBuffSkill(used) || weave ? "fast" : "slow",
+      }),
     };
-    if (isHealSkill(used) && heroHasUnique(hero, "green_spring_bloom")) {
-      fxMeta.shotDuration = 95;
-    }
-    if (weave) fxMeta.shotDuration = 95;
 
     tryApplySelfBuffs(ally, mods);
     armWindEnchantForSkill(b, ally, used);
+
+    if (isFlowBattle(b)) {
+      return resolveHeroSkillFlow(
+        b,
+        ally,
+        used,
+        def,
+        style,
+        mods,
+        hits,
+        skillLv,
+        fxMeta,
+        opts,
+        hero
+      );
+    }
 
     let appliedBuff = false;
     if (isBuffSkill(used)) {
@@ -1654,6 +1897,26 @@ export function createBattleApi(ctx) {
       heroHasUnique(hero, "pink_burst_echo")
     ) {
       await resolvePinkBurstEcho(b, ally, used, mods, skillLv, fxMeta);
+    } else if (used === "pink_barrage" && hits > 1) {
+      for (let h = 0; h < hits; h++) {
+        const cur = pickRandomFront(b) || livingEnemies(b)[0];
+        if (!cur) break;
+        await playSkillAnim(style, ally.id, cur.id, {
+          ...fxMeta,
+          shotDuration: ANIM_FAST_MS,
+        });
+        heroStrike(ally, cur, used, mods);
+      }
+    } else if (used === "pink_burst" && hits > 1) {
+      for (let h = 0; h < hits; h++) {
+        const cur = pickLowestEnemy(b) || livingEnemies(b)[0];
+        if (!cur) break;
+        await playSkillAnim(style, ally.id, cur.id, {
+          ...fxMeta,
+          shotDuration: ANIM_FAST_MS,
+        });
+        heroStrike(ally, cur, used, mods);
+      }
     } else {
       const t =
         used === "pink_burst"
@@ -1705,7 +1968,55 @@ export function createBattleApi(ctx) {
 
     const skill = pickMonsterSkill(actor);
     const power = monsterSkillDamage(actor, skill);
-    const targets = pickEnemySkillTargets(b, skill);
+
+    let targets;
+    if (isFlowBattle(b)) {
+      const range = skillAttackRange(skill);
+      const inRange = unitsInAttackRange(actor, targetableAllies(b), range);
+      if (!inRange.length) {
+        const goal = pickNearestUnit(actor, targetableAllies(b));
+        if (goal) await approachTarget(b, actor, goal);
+        else renderBattle(b);
+        return;
+      }
+      const primary =
+        inRange[irand(0, inRange.length - 1)] || inRange[0];
+      targets = flowAllySplashTargets(b, primary, skill);
+      if (!targets.length) targets = [primary];
+      const scale = splashDamageScale(targets.length);
+      await playSkillAnim(skill.style || "melee", actor.id, primary.id, {
+        skillId: skill.id,
+        statsId: "enemy",
+        color: actor.color || "",
+        shotDuration: skillAnimMs({
+          style: skill.style || "melee",
+          skillId: skill.id,
+          pace: skill.style === "buff" ? "fast" : "slow",
+        }),
+      });
+      for (const t of targets) {
+        const dealt = dealDamage(t, Math.max(1, Math.floor(power * scale)), {
+          source: actor,
+        });
+        if (dealt > 0) {
+          recordControl(
+            actor,
+            tryApplySkillStatuses(
+              actor,
+              t,
+              amplifyBossSkillApply(actor, skill.apply || {}),
+              null
+            )
+          );
+          applyMonsterDot(t, actor, skill);
+        }
+      }
+      syncHeroHp(b);
+      renderBattle(b);
+      return;
+    }
+
+    targets = pickEnemySkillTargets(b, skill);
 
     // 无目标时也算消耗回合，避免行动条顶满却卡住
     if (!targets.length) {
@@ -1716,11 +2027,16 @@ export function createBattleApi(ctx) {
       skillId: skill.id,
       statsId: "enemy",
       color: actor.color || "",
+      shotDuration: skillAnimMs({
+        style: skill.style || "melee",
+        skillId: skill.id,
+        pace: skill.style === "buff" ? "fast" : "slow",
+      }),
     });
     for (const t of targets) {
       const dealt = dealDamage(t, power, { source: actor });
       if (dealt > 0) {
-        recordControl(actor, tryApplySkillStatuses(actor, t, skill.apply || {}, null));
+        recordControl(actor, tryApplySkillStatuses(actor, t, amplifyBossSkillApply(actor, skill.apply || {}), null));
         applyMonsterDot(t, actor, skill);
       }
     }
@@ -1731,9 +2047,10 @@ export function createBattleApi(ctx) {
   function syncAutoButton(b) {
     const btn = $("btnAuto");
     if (!btn) return;
-    btn.textContent = b.auto ? "自动中" : "自动";
-    btn.classList.toggle("on", !!b.auto);
-    btn.setAttribute("aria-pressed", b.auto ? "true" : "false");
+    const mode = b.autoMode || 0;
+    btn.textContent = AUTO_MODE_LABELS[mode] || "自动";
+    btn.classList.toggle("on", mode > 0);
+    btn.setAttribute("aria-pressed", mode > 0 ? "true" : "false");
   }
 
   function pickReadyUnit(b) {
@@ -1758,6 +2075,7 @@ export function createBattleApi(ctx) {
     b.waitingPlayer = false;
     b.readyHero = null;
     b.autoResolving = false;
+    b.actingId = null;
 
     // 已有满条单位时立刻接上，避免 Boss 顶满条却要等小怪先打完才动
     const next = pickReadyUnit(b);
@@ -1779,9 +2097,9 @@ export function createBattleApi(ctx) {
     b.autoResolving = true;
     b.busy = true;
     b.waitingPlayer = false;
+    b.actingId = unit.id;
     setBattleButtons(false);
 
-    triggerActDot(b, unit);
     syncHeroHp(b);
     if (unit.hp <= 0) {
       await finishUnitAction(b);
@@ -1804,19 +2122,17 @@ export function createBattleApi(ctx) {
     if (b.busy && !opts.chained) return;
     b.busy = true;
     b.waitingPlayer = false;
+    b.actingId = unit.id;
     setBattleButtons(false);
     unit.gauge = 0;
-    if (unit.isHero) applyActMpRegen(unit);
 
     if (unit.isHero) {
-      if (!b.auto) {
-        // 手动：挂起，等点技能或打开自动
+      if (!(b.autoMode > 0)) {
         b.waitingPlayer = true;
         b.readyHero = unit;
         updateBattleSkillButtons(unit);
         setBattleButtons(true);
         $("btnFlee").disabled = false;
-        // busy 保持 true，暂停他人读条
         return;
       }
       await runHeroAutoSkill(b, unit);
@@ -1824,7 +2140,6 @@ export function createBattleApi(ctx) {
     }
 
     try {
-      triggerActDot(b, unit);
       syncHeroHp(b);
       if (unit.hp <= 0) return;
       await resolveEnemySkill(b, unit);
@@ -1840,9 +2155,9 @@ export function createBattleApi(ctx) {
     const unit = b.readyHero;
     b.waitingPlayer = false;
     b.busy = true;
+    b.actingId = unit.id;
     setBattleButtons(false);
     try {
-      triggerActDot(b, unit);
       syncHeroHp(b);
       if (unit.hp <= 0) return;
       await resolveHeroSkill(b, unit, skillId);
@@ -1857,27 +2172,22 @@ export function createBattleApi(ctx) {
 
     if (!b.ticker) b.ticker = createTicker();
 
-    // 已开自动且正在等手操 → 由读条循环接管自动出手
-    if (b.auto && b.waitingPlayer && b.readyHero && !b.autoResolving) {
-      void runHeroAutoSkill(b, b.readyHero);
-      return;
-    }
+    const scaledDt = dt * (b.battleSpeed || 1);
+    advanceTimedDots(b, scaledDt);
 
-    if (b.busy || b.waitingPlayer || b.autoResolving) {
-      updateGaugeBars(b);
-      return;
-    }
+    // classic：有人行动/等操作时全体条停住；flow：仅行动中单位自己停条
+    const freezeAtb =
+      !b.atbDuringAct && (b.busy || b.waitingPlayer || b.autoResolving);
 
-    const steps = b.ticker.step(dt);
-    let ready = null;
+    const steps = b.ticker.step(scaledDt);
     for (let i = 0; i < steps; i++) {
       for (const u of battleUnits(b)) {
         if (u.hp <= 0) continue;
+        if (freezeAtb) continue;
+        if (b.actingId && u.id === b.actingId) continue;
         const walk = Math.max(1, u.spd || 1);
-        // 眩晕：真实行动条冻结；状态条按基础速度走
         if (isStunned(u)) {
           tickStatuses(u, walk);
-          advanceUnitDot(b, u, walk);
           continue;
         }
         tickStatuses(u, walk);
@@ -1885,28 +2195,34 @@ export function createBattleApi(ctx) {
         u.gauge += spd;
         applyGaugeRegen(u, spd);
         advanceMendPulsesFromHealer(b, u, spd);
-        advanceDotsFromSource(b, u, spd);
-        advanceUnitDot(b, u, spd);
-        if (u.gauge >= GAUGE_MAX) {
-          u.gauge = GAUGE_MAX;
-          if (!ready || spd > effectiveSpd(ready)) ready = u;
-        }
+        if (u.gauge >= GAUGE_MAX) u.gauge = GAUGE_MAX;
       }
-      if (ready) break;
     }
+
     syncHeroHp(b);
     updateGaugeBars(b);
-    if (ready) void unitAct(b, ready);
+
+    if (b.autoMode > 0 && b.waitingPlayer && b.readyHero && !b.autoResolving) {
+      void runHeroAutoSkill(b, b.readyHero);
+      return;
+    }
+
+    if (!b.busy && !b.waitingPlayer && !b.autoResolving) {
+      const ready = pickReadyUnit(b);
+      if (ready) void unitAct(b, ready);
+    }
   }
 
   function toggleAuto() {
     const b = getState().battle;
     if (!b || b.ending) return;
-    b.auto = !b.auto;
-    setBattleAutoEnabled(b.auto); // 刷新后仍记住开/关
+    const next = ((b.autoMode || 0) + 1) % 4;
+    b.autoMode = next;
+    b.battleSpeed = battleSpeedFromMode(next);
+    setBattleAutoMode(next);
     syncAutoButton(b);
 
-    if (b.auto && b.waitingPlayer && b.readyHero && !b.autoResolving) {
+    if (b.autoMode > 0 && b.waitingPlayer && b.readyHero && !b.autoResolving) {
       void runHeroAutoSkill(b, b.readyHero);
     }
   }
@@ -2010,13 +2326,18 @@ export function createBattleApi(ctx) {
 
     for (const e of enemies) ensureCombat(e);
 
+    const autoMode = getBattleAutoMode();
     state.battle = {
       allies,
       enemies,
       busy: false,
       waitingPlayer: false,
       autoResolving: false,
-      auto: getBattleAutoEnabled(),
+      actingId: null,
+      /** flow=别人行动时条继续走；classic=全体暂停 */
+      atbDuringAct: state.paceMode === "flow",
+      autoMode,
+      battleSpeed: battleSpeedFromMode(autoMode),
       ending: false,
       ticker: createTicker(),
     };
@@ -2099,7 +2420,7 @@ export function createBattleApi(ctx) {
             skillId: "green_bloom",
             statsId: "green",
             color: hero?.color || ally.color || "",
-            shotDuration: 95,
+            shotDuration: ANIM_SLOW_MS,
           });
           for (const t of list) {
             if (t.hp <= 0) continue;

@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=149";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=149";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=149";
+import { getCharacterStats } from "./stats.js?v=156";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=156";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=156";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
@@ -39,7 +39,7 @@ export const SKILL_POWER = {
   attack: { mult: 1.0, flat: 0, style: "melee" },
   radiant: { mult: 1.2, flat: 2, style: "ranged", apply: { slow: 0.25 } },
   /** stunGauge：眩晕隐形行动条目标值（默认 50） */
-  quake: { mult: 1.15, flat: 0, stunGauge: 50, style: "melee" },
+  quake: { mult: 1.15, flat: 0, stunGauge: 50, style: "melee", aoeRadius: 1, range: 1 },
   omni_bless: {
     style: "buff",
     target: "all",
@@ -51,7 +51,14 @@ export const SKILL_POWER = {
   // —— 小粉：远程爆发 ——
   /** 普通攻击（原粉晶箭倍率） */
   pink_burst: { mult: 1.15, flat: 3, style: "ranged" },
-  pink_barrage: { mult: 1.05, flat: 2, style: "ranged", hitAllFront: true },
+  pink_barrage: {
+    mult: 1.05,
+    flat: 2,
+    style: "ranged",
+    hitAllFront: true,
+    aoeRadius: 1,
+    range: 3,
+  },
   /** 主动：提升自身攻击与暴击伤害 */
   pink_fervor: {
     style: "buff",
@@ -104,6 +111,8 @@ export const SKILL_POWER = {
     flat: 1,
     style: "ranged",
     hitAllFront: true,
+    aoeRadius: 1,
+    range: 3,
     apply: { slow: 0.25 },
   },
   blue_freeze: { mult: 0.9, flat: 2, style: "ranged", apply: { stun: true } },
@@ -128,6 +137,8 @@ export const SKILL_POWER = {
     flat: 1,
     style: "ranged",
     hitAllFront: true,
+    aoeRadius: 1,
+    range: 3,
     dot: { type: "pulse", mult: 0.06, flat: 0, gauge: 100 },
   },
   orange_blaze: {
@@ -543,21 +554,20 @@ function skillNumsAndDesc(skillId, level = 1, opts = {}) {
         casts > 1
           ? `${dmg} · 命中眩晕${skVal(stun)} · ${skVal(casts)}次`
           : `${dmg} · 命中眩晕${skVal(stun)}`,
-      desc: `对十字范围造成 ${dmg} 伤害，命中眩晕 ${skVal(stun)}。${castNote}`,
+      desc: `范围伤害并眩晕 ${skVal(stun)}（经典：目标同行左右；流畅：目标半径1，命中越多单体越薄）。${castNote}`,
     };
   }
   if (s.hitAllFront) {
     const castNote = casts > 1 ? `释放 ${skVal(casts)} 次。` : "";
     const effects = statusEffectNotes(s, scale);
     const effectStr = effects.length ? ` · ${effects.join(" · ")}` : "";
-    const scope = "对前排全体";
     const descEffects = effects.length ? `，${effects.join("，")}` : "";
     return {
       nums:
         casts > 1
-          ? `${dmg} · 前排全体${effectStr} · ${skVal(casts)}次`
-          : `${dmg} · 前排全体${effectStr}`,
-      desc: `${scope}造成 ${dmg} 伤害${descEffects}。${castNote}`,
+          ? `${dmg} · 范围${effectStr} · ${skVal(casts)}次`
+          : `${dmg} · 范围${effectStr}`,
+      desc: `范围伤害${descEffects}（经典：前排；流畅：目标半径1，命中越多单体越薄）。${castNote}`,
     };
   }
   if (skillId === "pink_burst") {
