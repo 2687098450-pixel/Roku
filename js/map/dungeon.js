@@ -1,11 +1,11 @@
 /** 按楼层配置生成地牢地图与刷怪 */
 
-import { EXIT, FLOOR, WALL, createDungeonShell, canWalk } from "./island15.js?v=144";
-import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=144";
-import { buildFloorMask } from "./shapes.js?v=144";
-import { createPatrolMonster } from "../monsters/slime.js?v=144";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=144";
-import { pickTrashType } from "../monsters/roster.js?v=144";
+import { EXIT, FLOOR, WALL, createDungeonShell, canWalk } from "./island15.js?v=145";
+import { getFloorDef, MAX_MOB_COUNT } from "./floors.js?v=145";
+import { buildFloorMask } from "./shapes.js?v=145";
+import { createPatrolMonster } from "../monsters/slime.js?v=145";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=145";
+import { pickTrashType } from "../monsters/roster.js?v=145";
 
 function key(x, y) {
   return `${x},${y}`;

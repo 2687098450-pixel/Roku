@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=144";
+import { $, clamp, styleTag } from "../core/utils.js?v=145";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -56,22 +56,22 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=144";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=144";
-import { setSavedFormation } from "../characters/stats.js?v=144";
-import { resetGameLocalData } from "../core/save.js?v=144";
-import { createAllUniqueItems } from "../loot/drops.js?v=144";
-import { APP_VERSION } from "../core/version.js?v=144";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=144";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=144";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=144";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=144";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=144";
+} from "../characters/omni/index.js?v=145";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=145";
+import { setSavedFormation } from "../characters/stats.js?v=145";
+import { resetGameLocalData } from "../core/save.js?v=145";
+import { createAllUniqueItems } from "../loot/drops.js?v=145";
+import { APP_VERSION } from "../core/version.js?v=145";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=145";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=145";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=145";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=145";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=145";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
-} from "../characters/seals.js?v=144";
+} from "../characters/seals.js?v=145";
 import {
   isAffixItem,
   toolSortPriority,
@@ -82,7 +82,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=144";
+} from "../characters/affixItems.js?v=145";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -831,7 +831,7 @@ export function createUI(ctx) {
     if (title) title.textContent = "选择吞噬材料";
     const render = () => {
       if (sub) {
-        sub.textContent = `已选 ${devourPick.selected.length}/2 · 宿主 Lv${itemLevel(host)} · 材料须更高，完成后取均值并清空强化`;
+        sub.textContent = `已选 ${devourPick.selected.length}/2 · 宿主 Lv${itemLevel(host)} · 材料须更高，完成后取较低等级并清空强化`;
       }
       list.innerHTML = mats
         .map((m, i) => {

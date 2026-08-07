@@ -9,10 +9,10 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=144";
-import { makeFoolSeal } from "../characters/seals.js?v=144";
-import { makeAffixCondenser } from "../characters/affixItems.js?v=144";
-import { getFloorDef } from "../map/floors.js?v=144";
+} from "../characters/omni/equipment.js?v=145";
+import { makeFoolSeal } from "../characters/seals.js?v=145";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=145";
+import { getFloorDef } from "../map/floors.js?v=145";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
@@ -717,12 +717,34 @@ function rollBossNormalItem(displayFloor, powerFloor = displayFloor) {
   );
 }
 
-/** 小怪：10% 掉一件装备（共用普通池） */
+/** 小怪：10% 掉一件装备；强化小怪另有 30% 掉红装 */
 export function rollTrashLoot(monster) {
-  if (Math.random() >= 0.1) return [];
   const display = monster?.floor || 1;
   const power = lootPowerFloor(monster);
-  return [rollNormalItem(power, display)];
+  const drops = [];
+  if (monster?.isElite && Math.random() < 0.3) {
+    drops.push(rollEliteRedItem(power, display));
+  }
+  if (Math.random() < 0.1) {
+    drops.push(rollNormalItem(power, display));
+  }
+  return drops;
+}
+
+function rollEliteRedItem(powerFloor, displayFloor = powerFloor) {
+  const tpl = pick(NORMAL_POOL);
+  const level = floorItemLevel(powerFloor);
+  const place = floorName(displayFloor);
+  return toBagEquip(
+    makeItem(tpl.name, tpl.slot, { ...tpl.base }, {
+      id: `${tpl.slot}_${tpl.name}_elite_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
+      rarity: "red",
+      icon: tpl.icon,
+      kind: tpl.kind || "",
+      level,
+      desc: `${place}强化怪掉落 · 装备等级 ${level}。`,
+    })
+  );
 }
 
 /**

@@ -15,12 +15,12 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=144";
-import { createPatrolMonster } from "../monsters/slime.js?v=144";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=144";
-import { digFloorSecretPath } from "../map/dungeon.js?v=144";
-import { mergeStackableTools } from "../characters/affixItems.js?v=144";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=144";
+} from "../characters/omni/index.js?v=145";
+import { createPatrolMonster } from "../monsters/slime.js?v=145";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=145";
+import { digFloorSecretPath } from "../map/dungeon.js?v=145";
+import { mergeStackableTools } from "../characters/affixItems.js?v=145";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=145";
 
 export const SAVE_KEY = "moku_game_progress_v1";
 export const SAVE_VERSION = 1;
@@ -179,6 +179,7 @@ function serializeMonster(m, map) {
     isBoss: !!m.isBoss,
     isHiddenBoss: !!m.isHiddenBoss,
     dropsFoolSeal: !!m.dropsFoolSeal,
+    isElite: !!m.isElite,
     from: toPlay(m.from) || toPlay(m),
     to: toPlay(m.to) || toPlay(m.from) || toPlay(m),
     x: Math.round((m.x ?? 0) - ox),
@@ -230,6 +231,7 @@ function reviveMonsters(list, map, floor, scale) {
       oy,
       scale,
       floor,
+      elite: !!raw.isElite,
     });
     m.x = ox + (raw.x ?? from.x);
     m.y = oy + (raw.y ?? from.y);

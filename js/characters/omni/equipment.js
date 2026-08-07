@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=144";
+import { scaleGoldGain } from "../../core/economy.js?v=145";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -574,7 +574,7 @@ export function upgradeEquip(item, state) {
   };
 }
 
-/** 红装吞噬：消耗两件更高红装，等级取二者均值，强化次数清零并重算词条数值 */
+/** 红装吞噬：消耗两件更高红装，等级取二者中较低者，强化次数清零并重算词条数值 */
 export function canDevourRedEquip(host, matA, matB) {
   if (!host || !matA || !matB) return { ok: false, reason: "材料不足" };
   if (normalizeRarity(host.rarity) !== "red") {
@@ -598,7 +598,7 @@ export function devourRedEquip(host, matA, matB, rng = Math.random) {
   if (!check.ok) return check;
   const newLv = Math.max(
     1,
-    Math.floor((itemLevel(matA) + itemLevel(matB)) / 2)
+    Math.min(itemLevel(matA), itemLevel(matB))
   );
   host.level = Math.min(MAX_EQUIP_LEVEL, newLv);
   host.enhanceCount = 0;

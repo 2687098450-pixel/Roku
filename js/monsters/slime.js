@@ -1,14 +1,14 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { OX, OY, canWalk } from "../map/island15.js?v=144";
-import { createMonster } from "./roster.js?v=144";
+import { OX, OY, canWalk } from "../map/island15.js?v=145";
+import { createMonster } from "./roster.js?v=145";
 import {
   MONSTER_SKILLS,
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=144";
+} from "./skills.js?v=145";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 
@@ -30,7 +30,7 @@ function skillListFor(kind, floor = 1) {
   });
 }
 
-/** 地图巡逻小怪（多类型） */
+/** 地图巡逻小怪（多类型）；约 10% 强化：属性 ×1.3 */
 export function createPatrolMonster(
   kind,
   {
@@ -41,6 +41,8 @@ export function createPatrolMonster(
     scale = 1,
     floor = 1,
     combatFloor = null,
+    /** null=随机；true/false=强制 */
+    elite = null,
   } = {}
 ) {
   const absFrom = { x: ox + from.x, y: oy + from.y };
@@ -54,7 +56,8 @@ export function createPatrolMonster(
     floor,
     combatFloor: cf,
   });
-  return {
+  const isElite = elite == null ? Math.random() < 0.1 : !!elite;
+  const m = {
     ...base,
     type: kind,
     kind,
@@ -64,9 +67,31 @@ export function createPatrolMonster(
     floor,
     combatFloor: cf,
     isBoss: false,
+    isElite: false,
     skills: skillListFor(kind, cf),
     skillIds: [...(base.skillIds || TYPE_SKILL_IDS[kind] || ["gnaw"])],
   };
+  if (isElite) applyEliteTrash(m);
+  return m;
+}
+
+const ELITE_STAT_MULT = 1.3;
+
+/** 强化小怪：约 1.3 倍属性 */
+export function applyEliteTrash(m) {
+  if (!m || m.isBoss) return m;
+  const mult = ELITE_STAT_MULT;
+  m.isElite = true;
+  m.maxHp = Math.max(1, Math.floor((m.maxHp || m.hp || 1) * mult));
+  m.hp = m.maxHp;
+  m.atk = Math.max(1, Math.floor((m.atk || 1) * mult));
+  m.def = Math.max(0, Math.floor((m.def || 0) * mult));
+  m.spd = Math.max(4, Math.floor((m.spd || 8) * mult));
+  m.exp = Math.max(1, Math.round((m.exp || 1) * mult));
+  m.gold = Math.max(1, Math.round((m.gold || 1) * mult));
+  const baseName = String(m.name || "").replace(/·强化$/, "");
+  m.name = `${baseName}·强化`;
+  return m;
 }
 
 export function createSlime(opts = {}) {

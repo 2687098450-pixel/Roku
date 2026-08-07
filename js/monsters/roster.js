@@ -4,17 +4,17 @@
  * - Boss：多在后排中央；坦克 Boss 偶发前排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=144";
+import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=145";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=144";
+} from "./skills.js?v=145";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=144";
-import { createBoss } from "./boss.js?v=144";
+} from "../characters/progression.js?v=145";
+import { createBoss } from "./boss.js?v=145";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -350,7 +350,11 @@ export function buildEncounter(touched, floor, scale) {
           color: touched.color,
           hp: touched.hp,
           maxHp: touched.maxHp,
+          atk: touched.atk,
+          def: touched.def,
+          spd: touched.spd,
           isBoss: false,
+          isElite: !!touched.isElite,
         })
       );
     }

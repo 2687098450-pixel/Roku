@@ -1,4 +1,4 @@
-import { APP_VERSION } from "../core/version.js?v=144";
+import { APP_VERSION } from "../core/version.js?v=145";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
@@ -165,6 +165,9 @@ export function preloadMonsterImages() {
  * 地图 canvas：有图且已加载则画图，否则画彩色方块
  */
 export function drawMonsterSprite(ctx, cx, cy, size, unit) {
+  if (unit?.isElite && !unit?.isBoss) {
+    drawEliteAura(ctx, cx, cy, size);
+  }
   const kind = monsterKindOf(unit);
   if (useMonsterImage(kind)) {
     const img = getMonsterImage(kind);
@@ -174,6 +177,26 @@ export function drawMonsterSprite(ctx, cx, cy, size, unit) {
     }
   }
   drawMonsterSquare(ctx, cx, cy, size, unit?.color || "#888", monsterSquareRadius(kind));
+}
+
+/** 强化小怪柔和光晕（弱于 Boss 存在感） */
+function drawEliteAura(ctx, cx, cy, size) {
+  const r = size * 0.95;
+  ctx.save();
+  const g = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
+  g.addColorStop(0, "rgba(255, 214, 130, 0.28)");
+  g.addColorStop(0.45, "rgba(255, 190, 90, 0.14)");
+  g.addColorStop(1, "rgba(255, 170, 60, 0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 200, 110, 0.35)";
+  ctx.lineWidth = Math.max(1.2, size * 0.06);
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.55, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawMonsterImage(ctx, cx, cy, size, img, isBoss) {
