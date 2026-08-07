@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=139";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=139";
+import { $, clamp, irand } from "../core/utils.js?v=140";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=140";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,7 +26,7 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=139";
+} from "../characters/omni/index.js?v=140";
 import {
   gainExp,
   splitExp,
@@ -36,30 +36,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=139";
+} from "../characters/progression.js?v=140";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=139";
-import { buildEncounter } from "../monsters/roster.js?v=139";
+} from "../characters/skills.js?v=140";
+import { buildEncounter } from "../monsters/roster.js?v=140";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   clampMonsterDotGauge,
   PULSE_DOT_INTERVAL,
-} from "../monsters/skills.js?v=139";
-import { rollBattleLoot } from "../loot/drops.js?v=139";
+} from "../monsters/skills.js?v=140";
+import { rollBattleLoot } from "../loot/drops.js?v=140";
 import {
   GAUGE_MAX,
   getBattleAutoEnabled,
   setBattleAutoEnabled,
-} from "../characters/stats.js?v=139";
-import { createTicker } from "../core/time.js?v=139";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=139";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=139";
+} from "../characters/stats.js?v=140";
+import { createTicker } from "../core/time.js?v=140";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=140";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=140";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -73,8 +73,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=139";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=139";
+} from "./status.js?v=140";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=140";
 
 export function createBattleApi(ctx) {
   const {
@@ -900,6 +900,29 @@ export function createBattleApi(ctx) {
     if (target.hp <= 0 && opts.source && opts.source.id !== target.id) {
       notePinkKill(opts.source);
     }
+    // 减益词条：任意对敌有效伤害均可触发（技能/灼烧/附魔/反伤等）
+    if (
+      raw > 0 &&
+      !opts.skipAffixDebuff &&
+      opts.source?.isHero &&
+      !target.isHero &&
+      opts.source.id !== target.id
+    ) {
+      const srcHero = actingHero(opts.source);
+      const affixMods = sumSkillMods(srcHero?.equip);
+      if (
+        affixMods &&
+        (affixMods.stunChance ||
+          affixMods.slowChance ||
+          affixMods.silenceChance ||
+          affixMods.healCutChance)
+      ) {
+        recordControl(
+          opts.source,
+          tryApplySkillStatuses(opts.source, target, {}, affixMods)
+        );
+      }
+    }
     if (
       !opts.fromEnchant &&
       !opts.fromReflect &&
@@ -1021,9 +1044,10 @@ export function createBattleApi(ctx) {
       if (b && !target.isHero) tryWindEnchantExtra(b, attacker, target);
     }
     if (dealt > 0 || weave) {
+      // 技能自带 apply；装备减益词条改由 dealDamage 统一按「伤害」触发
       recordControl(
         attacker,
-        tryApplySkillStatuses(attacker, target, def?.apply || {}, mods)
+        tryApplySkillStatuses(attacker, target, def?.apply || {}, null)
       );
       if (def?.dot) applyMonsterDot(target, attacker, { dot: def.dot });
       if (dealt > 0) applySelfRecoil(attacker, dealt, def);
@@ -1073,7 +1097,7 @@ export function createBattleApi(ctx) {
           skillId,
           scaledSkillDef(skillId, skillLv) || SKILL_POWER[skillId]
         );
-        recordControl(ally, tryApplySkillStatuses(ally, t, def?.apply || {}, mods));
+        recordControl(ally, tryApplySkillStatuses(ally, t, def?.apply || {}, null));
         if (def?.dot) applyMonsterDot(t, ally, { dot: def.dot });
       }
       if (t.hp <= 0) remaining += 1;

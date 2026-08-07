@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=139";
+import { scaleGoldGain } from "../../core/economy.js?v=140";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -90,13 +90,13 @@ const SKILL_AFFIX_POOL = [
   { id: "pwr_flat2", skillMods: { powerFlat: 8 }, text: "技能伤害 +8" },
   { id: "heal", skillMods: { healMult: 0.15 }, text: "治疗效果 +15%" },
   { id: "heal2", skillMods: { healMult: 0.25 }, text: "治疗效果 +25%" },
-  { id: "stun_hit", skillMods: { stunChance: 0.18 }, text: "攻击附带眩晕 18%" },
-  { id: "slow_hit", skillMods: { slowChance: 0.22, slowPower: 0.25 }, text: "攻击附带减速 22%" },
-  { id: "silence_hit", skillMods: { silenceChance: 0.12 }, text: "攻击附带禁魔 12%" },
+  { id: "stun_hit", skillMods: { stunChance: 0.18 }, text: "伤害附带眩晕 18%" },
+  { id: "slow_hit", skillMods: { slowChance: 0.22, slowPower: 0.25 }, text: "伤害附带减速 22%" },
+  { id: "silence_hit", skillMods: { silenceChance: 0.12 }, text: "伤害附带禁魔 12%" },
   {
     id: "healcut_hit",
     skillMods: { healCutChance: 0.2, healCutPower: 0.4 },
-    text: "攻击附带减疗 20%",
+    text: "伤害附带减疗 20%",
   },
   { id: "self_haste", skillMods: { selfHaste: 0.2 }, text: "施法后增速 20%" },
   { id: "self_dodge", skillMods: { selfDodge: 0.12 }, text: "施法后闪避 +12%" },
@@ -758,10 +758,10 @@ function formatSkillModsText(m = {}) {
       parts.push(`技能伤害×${Math.round(m.hitDamageMult * 100)}%`);
     }
     if (m.healMult) parts.push(`治疗效果 +${Math.round(m.healMult * 100)}%`);
-    if (m.stunChance) parts.push(`攻击附带眩晕 ${Math.round(m.stunChance * 100)}%`);
-    if (m.slowChance) parts.push(`攻击附带减速 ${Math.round(m.slowChance * 100)}%`);
-    if (m.silenceChance) parts.push(`攻击附带禁魔 ${Math.round(m.silenceChance * 100)}%`);
-    if (m.healCutChance) parts.push(`攻击附带减疗 ${Math.round(m.healCutChance * 100)}%`);
+    if (m.stunChance) parts.push(`伤害附带眩晕 ${Math.round(m.stunChance * 100)}%`);
+    if (m.slowChance) parts.push(`伤害附带减速 ${Math.round(m.slowChance * 100)}%`);
+    if (m.silenceChance) parts.push(`伤害附带禁魔 ${Math.round(m.silenceChance * 100)}%`);
+    if (m.healCutChance) parts.push(`伤害附带减疗 ${Math.round(m.healCutChance * 100)}%`);
     if (m.selfHaste) parts.push(`施法后增速 ${Math.round(m.selfHaste * 100)}%`);
     if (m.selfDodge) parts.push(`施法后闪避 +${Math.round(m.selfDodge * 100)}%`);
     if (m.selfHit) parts.push(`施法后命中 +${Math.round(m.selfHit * 100)}%`);
