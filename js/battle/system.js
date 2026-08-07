@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=158";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=158";
+import { $, clamp, irand } from "../core/utils.js?v=159";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=159";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=158";
-import { mergeStackableTools } from "../characters/affixItems.js?v=158";
+} from "../characters/omni/index.js?v=159";
+import { mergeStackableTools } from "../characters/affixItems.js?v=159";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=158";
+} from "../characters/progression.js?v=159";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=158";
-import { buildEncounter } from "../monsters/roster.js?v=158";
+} from "../characters/skills.js?v=159";
+import { buildEncounter } from "../monsters/roster.js?v=159";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=158";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=158";
+} from "../monsters/skills.js?v=159";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=159";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=158";
-import { createTicker } from "../core/time.js?v=158";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=158";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=158";
+} from "../characters/stats.js?v=159";
+import { createTicker } from "../core/time.js?v=159";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=159";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=159";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=158";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=158";
+} from "./status.js?v=159";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=159";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,9 +86,10 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=158";
+} from "./timing.js?v=159";
 import {
   boardDist,
+  boardXY,
   skillAttackRange,
   skillAoeRadius,
   unitsInRadius,
@@ -96,7 +97,9 @@ import {
   stepUnitToward,
   pickNearestUnit,
   unitsInAttackRange,
-} from "./grid.js?v=158";
+  syncBoardPosFromRowCol,
+  BOARD_LANE_IDS,
+} from "./grid.js?v=159";
 
 export function createBattleApi(ctx) {
   const {
@@ -390,11 +393,75 @@ export function createBattleApi(ctx) {
   function renderLane(el, units, enemy, peers = null) {
     if (!el) return;
     const cells = Array.from({ length: FORMATION_COLS }, (_, col) => {
-      const u = units.find((x) => x.col === col && x.hp > 0);
+      const u = units.find((x) => {
+        if (x.hp <= 0) return false;
+        const bx = boardXY(x).x;
+        return bx === col;
+      });
       if (!u) return `<div class="battle-unit spacer" data-col="${col}" aria-hidden="true"></div>`;
-      return unitHtml(u, enemy, peers);
+      const asEnemy = enemy != null ? enemy : !u.isHero;
+      return unitHtml(u, asEnemy, peers);
     });
     el.innerHTML = cells.join("");
+  }
+
+  function renderBattle(b) {
+    const allyPeers = b.allies;
+    if (isFlowBattle(b)) {
+      // 按 boardY 塞进 6 条巷道，穿场走位才能看见
+      for (let y = 0; y < BOARD_LANE_IDS.length; y++) {
+        const laneUnits = battleUnits(b).filter(
+          (u) => u.hp > 0 && boardXY(u).y === y
+        );
+        const el = $(BOARD_LANE_IDS[y]);
+        if (el) el.classList.toggle("is-empty", !laneUnits.length);
+        renderLane(el, laneUnits, null, allyPeers);
+      }
+      const frontEl = $("enemyFront");
+      if (frontEl) {
+        const upperEmpty = ![0, 1].some((y) =>
+          battleUnits(b).some((u) => u.hp > 0 && boardXY(u).y === y)
+        );
+        frontEl.classList.toggle("solo-row", upperEmpty);
+      }
+      updateGaugeBars(b);
+      return;
+    }
+
+    const backUnits = b.enemies.filter((e) => e.row === "back");
+    const midUnits = b.enemies.filter((e) => e.row === "mid");
+    const frontUnits = b.enemies.filter((e) => e.row === "front");
+    const midAlive = midUnits.some((e) => e.hp > 0);
+    const backAlive = backUnits.some((e) => e.hp > 0);
+    const midEl = $("enemyMid");
+    if (midEl) midEl.classList.toggle("is-empty", !midAlive);
+    const backEl = $("enemyBack");
+    if (backEl) backEl.classList.toggle("is-empty", !backAlive);
+    const frontEl = $("enemyFront");
+    if (frontEl) frontEl.classList.toggle("solo-row", !backAlive && !midAlive);
+
+    renderLane($("enemyBack"), backUnits, true, null);
+    renderLane($("enemyMid"), midUnits, true, null);
+    renderLane($("enemyFront"), frontUnits, true, null);
+    renderLane(
+      $("allyFront"),
+      b.allies.filter((a) => a.row === "front"),
+      false,
+      allyPeers
+    );
+    renderLane(
+      $("allyMid"),
+      b.allies.filter((a) => a.row === "mid"),
+      false,
+      allyPeers
+    );
+    renderLane(
+      $("allyBack"),
+      b.allies.filter((a) => a.row === "back"),
+      false,
+      allyPeers
+    );
+    updateGaugeBars(b);
   }
 
   function crossTargets(b, center) {
@@ -443,12 +510,17 @@ export function createBattleApi(ctx) {
     return [...(b?.allies || []), ...(b?.enemies || [])];
   }
 
-  /** 接战距离：英雄看普攻；怪物取技能里最远的 */
+  /** 接战距离：英雄看普攻（buff/治疗普攻按远程算）；怪物取技能最远 */
   function flowEngageRange(unit) {
     if (unit?.isHero) {
       const hero = actingHero(unit);
       const id = basicAttackId(hero);
-      return skillAttackRange(SKILL_POWER[id] || { style: "melee" });
+      const def = SKILL_POWER[id] || { style: "melee" };
+      // 小青普攻是风刃(buff)，不能按治疗距离去「站着不动」
+      if (def.style === "buff" || def.style === "heal") {
+        return skillAttackRange({ style: "ranged", range: def.range });
+      }
+      return skillAttackRange(def);
     }
     const ids = unit?.skillIds || ["gnaw"];
     let best = 1;
@@ -514,7 +586,8 @@ export function createBattleApi(ctx) {
       u.moveAcc = (u.moveAcc || 0) + scaledDt;
       if (u.moveAcc < need) continue;
       u.moveAcc = 0;
-      if (stepUnitToward(u, goal, battleOccupants(b))) moved = true;
+      if (stepUnitToward(u, goal, battleOccupants(b), { fullBoard: true }))
+        moved = true;
     }
     if (moved) {
       renderBattle(b);
@@ -1029,41 +1102,6 @@ export function createBattleApi(ctx) {
     }
   }
 
-  function renderBattle(b) {
-    const allyPeers = b.allies;
-    const backUnits = b.enemies.filter((e) => e.row === "back");
-    const midUnits = b.enemies.filter((e) => e.row === "mid");
-    const frontUnits = b.enemies.filter((e) => e.row === "front");
-    const midAlive = midUnits.some((e) => e.hp > 0);
-    const backAlive = backUnits.some((e) => e.hp > 0);
-    const midEl = $("enemyMid");
-    if (midEl) midEl.classList.toggle("is-empty", !midAlive);
-    const backEl = $("enemyBack");
-    if (backEl) backEl.classList.toggle("is-empty", !backAlive);
-    const frontEl = $("enemyFront");
-    if (frontEl) frontEl.classList.toggle("solo-row", !backAlive && !midAlive);
-
-    renderLane($("enemyBack"), backUnits, true, null);
-    renderLane($("enemyMid"), midUnits, true, null);
-    renderLane($("enemyFront"), frontUnits, true, null);
-    renderLane(
-      $("allyFront"),
-      b.allies.filter((a) => a.row === "front"),
-      false,
-      allyPeers
-    );
-    renderLane(
-      $("allyMid"),
-      b.allies.filter((a) => a.row === "mid"),
-      false,
-      allyPeers
-    );
-    renderLane(
-      $("allyBack"),
-      b.allies.filter((a) => a.row === "back"),
-      false,
-      allyPeers
-    );
     updateGaugeBars(b);
   }
 
@@ -2507,6 +2545,7 @@ export function createBattleApi(ctx) {
     }));
 
     for (const e of enemies) ensureCombat(e);
+    for (const u of [...allies, ...enemies]) syncBoardPosFromRowCol(u);
 
     const autoMode = getBattleAutoMode();
     state.battle = {

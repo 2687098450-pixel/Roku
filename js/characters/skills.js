@@ -57,7 +57,7 @@ export const SKILL_POWER = {
     style: "ranged",
     hitAllFront: true,
     aoeRadius: 1,
-    range: 3,
+    range: 2,
   },
   /** 主动：提升自身攻击与暴击伤害 */
   pink_fervor: {
@@ -112,7 +112,7 @@ export const SKILL_POWER = {
     style: "ranged",
     hitAllFront: true,
     aoeRadius: 1,
-    range: 3,
+    range: 2,
     apply: { slow: 0.25 },
   },
   blue_freeze: { mult: 0.9, flat: 2, style: "ranged", apply: { stun: true } },
@@ -138,7 +138,7 @@ export const SKILL_POWER = {
     style: "ranged",
     hitAllFront: true,
     aoeRadius: 1,
-    range: 3,
+    range: 2,
     dot: { type: "pulse", mult: 0.06, flat: 0, gauge: 100 },
   },
   orange_blaze: {

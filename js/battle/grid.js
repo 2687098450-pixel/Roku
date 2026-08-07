@@ -1,9 +1,9 @@
 /**
- * 流畅模式棋盘：敌我各占半场，用统一坐标算射程 / 走位 / 范围伤害
+ * 流畅模式棋盘：敌我统一 3×6 格
  *
- * y: 敌后0 敌中1 敌前2 | 我前3 我中4 我后5
- * x: col 0–2
- * 距离：切比雪夫（王步），与自走棋格距接近
+ * y: 敌后0 敌中1 敌前2 | 我前3 我中4 我后5（开战初始）
+ * 流畅可穿场走位；距离用切比雪夫（王步）
+ * boardX/boardY 为坐标源；row/col 仅作初始与 UI 回写
  */
 
 export const BOARD_COLS = 3;
@@ -19,26 +19,56 @@ const Y_TO_ROW = {
   5: "back",
 };
 
+/** 战场 6 行对应的 DOM 巷道（上敌下我） */
+export const BOARD_LANE_IDS = [
+  "enemyBack",
+  "enemyMid",
+  "enemyFront",
+  "allyFront",
+  "allyMid",
+  "allyBack",
+];
+
 export function isHeroUnit(unit) {
   return !!(unit && (unit.isHero || unit.side === "ally"));
 }
 
-export function boardXY(unit) {
+/** 由阵型 row/col 写入 board 坐标（开战时） */
+export function syncBoardPosFromRowCol(unit) {
   if (!unit) return { x: 1, y: 3 };
   const x = Math.max(0, Math.min(2, Number(unit.col) || 0));
   const row = unit.row || "front";
   const y = isHeroUnit(unit) ? ALLY_Y[row] ?? 3 : ENEMY_Y[row] ?? 2;
+  unit.boardX = x;
+  unit.boardY = y;
+  unit.col = x;
   return { x, y };
+}
+
+export function boardXY(unit) {
+  if (!unit) return { x: 1, y: 3 };
+  if (unit.boardX != null && unit.boardY != null) {
+    return {
+      x: Math.max(0, Math.min(2, Math.floor(Number(unit.boardX)))),
+      y: Math.max(0, Math.min(5, Math.floor(Number(unit.boardY)))),
+    };
+  }
+  return syncBoardPosFromRowCol(unit);
 }
 
 export function applyBoardXY(unit, x, y) {
   if (!unit) return;
-  unit.col = Math.max(0, Math.min(2, x));
-  const row = Y_TO_ROW[y];
+  const bx = Math.max(0, Math.min(2, x));
+  const by = Math.max(0, Math.min(5, y));
+  unit.boardX = bx;
+  unit.boardY = by;
+  unit.col = bx;
+  const row = Y_TO_ROW[by];
   if (row) unit.row = row;
 }
 
-export function sideYBounds(unit) {
+export function sideYBounds(unit, opts = {}) {
+  if (opts.fullBoard) return { min: 0, max: 5 };
   return isHeroUnit(unit) ? { min: 3, max: 5 } : { min: 0, max: 2 };
 }
 
@@ -53,14 +83,14 @@ export function chebyshev(x0, y0, x1, y1) {
   return Math.max(Math.abs(x0 - x1), Math.abs(y0 - y1));
 }
 
-/** 技能攻击距离：可写 def.range；否则近战1 / 远程3 */
+/** 技能攻击距离：可写 def.range；否则近战1 / 远程2 */
 export function skillAttackRange(def) {
   if (!def) return 1;
   if (def.range != null) return Math.max(0, Math.floor(Number(def.range) || 0));
-  if (def.style === "heal") return 4;
-  if (def.style === "buff") return 4;
+  if (def.style === "heal") return 3;
+  if (def.style === "buff") return 2;
   if (def.style === "melee") return 1;
-  return 3;
+  return 2;
 }
 
 /**
@@ -104,15 +134,15 @@ export function occupiedKeySet(units) {
   return set;
 }
 
-/** 向目标走近一格（不越半场、不叠人）；成功返回 true */
-export function stepUnitToward(mover, target, allUnits) {
+/** 向目标走近一格（不叠人）；flow 可传 fullBoard 穿场 */
+export function stepUnitToward(mover, target, allUnits, opts = {}) {
   if (!mover || !target || mover.hp <= 0) return false;
   const from = boardXY(mover);
   const goal = boardXY(target);
   const curDist = chebyshev(from.x, from.y, goal.x, goal.y);
   if (curDist <= 0) return false;
 
-  const bounds = sideYBounds(mover);
+  const bounds = sideYBounds(mover, opts);
   const occ = occupiedKeySet(allUnits);
   occ.delete(`${from.x},${from.y}`);
 
@@ -129,7 +159,6 @@ export function stepUnitToward(mover, target, allUnits) {
       if (occ.has(`${nx},${ny}`)) continue;
       const d = chebyshev(nx, ny, goal.x, goal.y);
       if (d > bestDist) continue;
-      // 同等距离时优先减少「前后」差，更像推进战线
       const tie = Math.abs(ny - goal.y) * 10 + Math.abs(nx - goal.x);
       if (d < bestDist || (d === bestDist && tie < bestTie)) {
         bestDist = d;
