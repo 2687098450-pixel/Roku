@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=164";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=164";
+import { $, clamp, irand } from "../core/utils.js?v=165";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=165";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=164";
-import { mergeStackableTools } from "../characters/affixItems.js?v=164";
+} from "../characters/omni/index.js?v=165";
+import { mergeStackableTools } from "../characters/affixItems.js?v=165";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=164";
+} from "../characters/progression.js?v=165";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=164";
-import { buildEncounter } from "../monsters/roster.js?v=164";
+} from "../characters/skills.js?v=165";
+import { buildEncounter } from "../monsters/roster.js?v=165";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=164";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=164";
+} from "../monsters/skills.js?v=165";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=165";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=164";
-import { createTicker } from "../core/time.js?v=164";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=164";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=164";
+} from "../characters/stats.js?v=165";
+import { createTicker } from "../core/time.js?v=165";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=165";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=165";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=164";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=164";
+} from "./status.js?v=165";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=165";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,7 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=164";
+} from "./timing.js?v=165";
 import {
   boardDist,
   boardXY,
@@ -99,7 +99,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=164";
+} from "./grid.js?v=165";
 
 export function createBattleApi(ctx) {
   const {
@@ -510,33 +510,93 @@ export function createBattleApi(ctx) {
     return [...(b?.allies || []), ...(b?.enemies || [])];
   }
 
+  /** 接战距离：英雄看普攻；怪物取技能最远 */
+  function flowEngageRange(unit) {
+    if (unit?.isHero) {
+      const hero = actingHero(unit);
+      const id = basicAttackId(hero);
+      const def = SKILL_POWER[id] || { style: "melee" };
+      // 小青普攻是风刃(buff)，不能按治疗距离去「站着不动」
+      if (def.style === "buff" || def.style === "heal") {
+        return skillAttackRange({ style: "ranged", range: def.range });
+      }
+      return skillAttackRange(def);
+    }
+    const ids = unit?.skillIds || ["gnaw"];
+    let best = 1;
+    for (const id of ids) {
+      const sk = MONSTER_SKILLS[id];
+      if (!sk) continue;
+      best = Math.max(best, skillAttackRange(sk));
+    }
+    return best;
+  }
+
+  function flowHasTargetInRange(b, unit) {
+    const range = flowEngageRange(unit);
+    if (unit.isHero) {
+      return unitsInAttackRange(unit, livingEnemies(b), range).length > 0;
+    }
+    return unitsInAttackRange(unit, targetableAllies(b), range).length > 0;
+  }
+
   /**
-   * 流畅：满条且有目标就能出手。
-   * 敌我都不限制攻击距离（群体仍按目标半径溅射）。
+   * 流畅：满条且能出手才行动。
+   * 攻击要够得着；纯 buff/治疗可在任意站位出手（自动时看下一招）。
    */
   function canFlowStartAction(b, unit) {
     if (!unit || unit.hp <= 0) return false;
-    if (unit.isHero) {
-      const hero = actingHero(unit);
-      if (!hero) return livingEnemies(b).length > 0;
-      if (b.autoMode > 0) {
-        let { skillId } = nextAutoSkill(hero, unit.rotIndex || 0);
-        if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
-        if (isBuffSkill(skillId) || isHealSkill(skillId)) return true;
-      }
-      return livingEnemies(b).length > 0;
+    if (!unit.isHero) return flowHasTargetInRange(b, unit);
+    const hero = actingHero(unit);
+    if (!hero) return flowHasTargetInRange(b, unit);
+    if (b.autoMode > 0) {
+      let { skillId } = nextAutoSkill(hero, unit.rotIndex || 0);
+      if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
+      if (isBuffSkill(skillId) || isHealSkill(skillId)) return true;
     }
-    return targetableAllies(b).length > 0;
+    return flowHasTargetInRange(b, unit);
   }
 
-  /** 流畅：双方均无限射程，不再为接敌走位 */
-  function advanceFlowMovement() {
-    /* no-op */
+  /** 流畅走位：与行动条无关，条未满也能靠近 */
+  function advanceFlowMovement(b, scaledDt) {
+    if (!isFlowBattle(b) || !(scaledDt > 0)) return;
+    let moved = false;
+    for (const u of battleUnits(b)) {
+      if (u.hp <= 0 || isStunned(u)) continue;
+      // 自己正在播攻击动画时不挪；等玩家选招 / 充能时可以走
+      if (
+        b.actingId &&
+        u.id === b.actingId &&
+        b.busy &&
+        !b.waitingPlayer
+      ) {
+        continue;
+      }
+      const foes = u.isHero ? livingEnemies(b) : targetableAllies(b);
+      const goal = pickNearestUnit(u, foes);
+      if (!goal) continue;
+      if (boardDist(u, goal) <= flowEngageRange(u)) {
+        u.moveAcc = 0;
+        continue;
+      }
+      const spd = Math.max(1, effectiveSpd(u));
+      const need = MOVE_STEP_SECONDS * (DEFAULT_HERO_SPEED / spd);
+      u.moveAcc = (u.moveAcc || 0) + scaledDt;
+      if (u.moveAcc < need) continue;
+      u.moveAcc = 0;
+      if (stepUnitToward(u, goal, battleOccupants(b), { fullBoard: true }))
+        moved = true;
+    }
+    if (moved) {
+      renderBattle(b);
+      updateGaugeBars(b);
+    }
   }
 
-  /** 流畅：英雄无限射程，在全体敌人里挑目标 */
+  /** 流畅：优先在射程内挑目标，否则 null（走近由 tick 负责） */
   function pickFlowEnemy(b, ally, skillId, def, hero) {
-    const pool = livingEnemies(b);
+    const range = skillAttackRange(def);
+    const pool = unitsInAttackRange(ally, livingEnemies(b), range);
     if (!pool.length) return null;
     if (skillId === "pink_burst") {
       return pool
@@ -622,17 +682,29 @@ export function createBattleApi(ctx) {
         await playSkillAnim("buff", ally.id, primary.id, fxMeta);
         for (const a of list) applyBuffTo(a);
       } else if (def.target === "ally") {
+        const range = skillAttackRange(def);
         let candidates = livingAllies(b).filter((a) => a.id !== ally.id);
         if (def.windEnchant) {
           candidates = candidates.length ? candidates : livingAllies(b);
         }
-        const t = def.windEnchant
-          ? candidates.slice().sort((a, c) => (c.atk || 0) - (a.atk || 0))[0] ||
-            ally
-          : candidates
-              .slice()
-              .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0] ||
-            ally;
+        let t = null;
+        const inRange = unitsInAttackRange(ally, candidates, range);
+        if (inRange.length) {
+          t = def.windEnchant
+            ? inRange.slice().sort((a, c) => (c.atk || 0) - (a.atk || 0))[0]
+            : inRange
+                .slice()
+                .sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp)[0];
+        } else {
+          const goal =
+            pickNearestUnit(ally, candidates) ||
+            pickNearestUnit(ally, livingAllies(b));
+          if (goal && goal.id !== ally.id) {
+            // 走位不占行动条：本招失败，条保持，等走近后再放
+            return false;
+          }
+          t = ally;
+        }
         if (!t) return false;
         await playSkillAnim("buff", ally.id, t.id, fxMeta);
         applyBuffTo(t);
@@ -652,16 +724,39 @@ export function createBattleApi(ctx) {
           applyMendPulse(b, ally, t, healed || amount);
         }
       } else {
+        const range = skillAttackRange(def);
         const allies = livingAllies(b);
-        if (!allies.length) return false;
-        const t =
-          used === "green_mend"
-            ? pickAllyBySkillAi(b, hero, used)
-            : allies
-                .slice()
-                .sort(
-                  (a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp
-                )[0];
+        const inRange = unitsInAttackRange(ally, allies, range);
+        let t = null;
+        if (inRange.length) {
+          t =
+            used === "green_mend"
+              ? (() => {
+                  const mode = getSkillAiMode(hero, used);
+                  if (mode === "maxDef") {
+                    return inRange
+                      .slice()
+                      .sort(
+                        (a, c) =>
+                          (c.def || 0) - (a.def || 0) ||
+                          a.hp / a.maxHp - c.hp / c.maxHp
+                      )[0];
+                  }
+                  return inRange
+                    .slice()
+                    .sort(
+                      (a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp
+                    )[0];
+                })()
+              : inRange
+                  .slice()
+                  .sort(
+                    (a, c) => a.hp / a.maxHp - c.hp / c.maxHp || a.hp - c.hp
+                  )[0];
+        } else {
+          // 走位独立，治疗等够得着再放
+          return false;
+        }
         if (!t) return false;
         const amount = skillHealAmount(ally, used, mods, skillLv, t);
         await playSkillAnim(style, ally.id, t.id, fxMeta);
@@ -671,7 +766,7 @@ export function createBattleApi(ctx) {
       applyLifeFlowBuff(b, ally);
       syncHeroHp(b);
     } else {
-      // 攻击：英雄无限射程；群体按目标半径溅射，伤害随命中人数变薄
+      // 攻击：够不着则等走位；够着则按半径溅射，伤害随命中人数变薄
       let center = pickFlowEnemy(b, ally, used, def, hero);
       if (!center) return false;
 
@@ -1956,28 +2051,52 @@ export function createBattleApi(ctx) {
 
     let targets;
     if (isFlowBattle(b)) {
-      // 流畅：怪物也不限距离；群体按目标半径溅射
-      const allies = targetableAllies(b);
-      if (!allies.length) return false;
-      const primary = pickAllyTarget(b) || allies[0];
-      if (!primary) return false;
-      targets = flowAllySplashTargets(b, primary, skill);
+      // 优先当前抽到的技能；若够不着则换一个够得着的，避免满条空转
+      let skillFlow = skill;
+      let inRange = unitsInAttackRange(
+        actor,
+        targetableAllies(b),
+        skillAttackRange(skillFlow)
+      );
+      if (!inRange.length) {
+        const ids = actor.skillIds || ["gnaw"];
+        skillFlow = null;
+        for (const id of ids) {
+          const sk = MONSTER_SKILLS[id];
+          if (!sk) continue;
+          const pool = unitsInAttackRange(
+            actor,
+            targetableAllies(b),
+            skillAttackRange(sk)
+          );
+          if (pool.length) {
+            skillFlow = sk;
+            inRange = pool;
+            break;
+          }
+        }
+      }
+      if (!skillFlow || !inRange.length) return false;
+
+      const powerFlow = monsterSkillDamage(actor, skillFlow);
+      const primary = inRange[irand(0, inRange.length - 1)] || inRange[0];
+      targets = flowAllySplashTargets(b, primary, skillFlow);
       if (!targets.length) targets = [primary];
       const scale = splashDamageScale(targets.length);
-      await playSkillAnim(skill.style || "melee", actor.id, primary.id, {
-        skillId: skill.id,
+      await playSkillAnim(skillFlow.style || "melee", actor.id, primary.id, {
+        skillId: skillFlow.id,
         statsId: "enemy",
         color: actor.color || "",
         shotDuration: skillAnimMs({
-          style: skill.style || "melee",
-          skillId: skill.id,
-          pace: skill.style === "buff" ? "fast" : "slow",
+          style: skillFlow.style || "melee",
+          skillId: skillFlow.id,
+          pace: skillFlow.style === "buff" ? "fast" : "slow",
         }),
       });
       for (const t of targets) {
         const dealt = dealDamage(
           t,
-          Math.max(1, Math.floor(power * scale)),
+          Math.max(1, Math.floor(powerFlow * scale)),
           { source: actor }
         );
         if (dealt > 0) {
@@ -1986,11 +2105,11 @@ export function createBattleApi(ctx) {
             tryApplySkillStatuses(
               actor,
               t,
-              amplifyBossSkillApply(actor, skill.apply || {}),
+              amplifyBossSkillApply(actor, skillFlow.apply || {}),
               null
             )
           );
-          applyMonsterDot(t, actor, skill);
+          applyMonsterDot(t, actor, skillFlow);
         }
       }
       syncHeroHp(b);
