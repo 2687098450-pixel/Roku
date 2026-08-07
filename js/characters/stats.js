@@ -5,7 +5,7 @@
  * 行动条：满值 GAUGE_MAX=100；速度=每 0.1 秒涨条点数。
  */
 
-import { TICK_SECONDS } from "../core/time.js?v=166";
+import { TICK_SECONDS } from "../core/time.js?v=167";
 
 export const GAUGE_MAX = 100;
 export { TICK_SECONDS };

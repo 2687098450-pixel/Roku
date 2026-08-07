@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=166";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=166";
+import { $, clamp, irand } from "../core/utils.js?v=167";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=167";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=166";
-import { mergeStackableTools } from "../characters/affixItems.js?v=166";
+} from "../characters/omni/index.js?v=167";
+import { mergeStackableTools } from "../characters/affixItems.js?v=167";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=166";
+} from "../characters/progression.js?v=167";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=166";
-import { buildEncounter } from "../monsters/roster.js?v=166";
+} from "../characters/skills.js?v=167";
+import { buildEncounter } from "../monsters/roster.js?v=167";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=166";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=166";
+} from "../monsters/skills.js?v=167";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=167";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=166";
-import { createTicker } from "../core/time.js?v=166";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=166";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=166";
+} from "../characters/stats.js?v=167";
+import { createTicker } from "../core/time.js?v=167";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=167";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=167";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=166";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=166";
+} from "./status.js?v=167";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=167";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,7 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=166";
+} from "./timing.js?v=167";
 import {
   boardDist,
   boardXY,
@@ -99,7 +99,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=166";
+} from "./grid.js?v=167";
 
 export function createBattleApi(ctx) {
   const {
@@ -1095,7 +1095,22 @@ export function createBattleApi(ctx) {
       const unit = document.querySelector(`.battle-unit[data-id="${u.id}"]`);
       if (unit) {
         const stunned = isStunned(u);
-        unit.classList.toggle("ready", u.gauge >= GAUGE_MAX && !stunned);
+        const canAct =
+          !isFlowBattle(b) ||
+          canFlowStartAction(b, u) ||
+          (b.waitingPlayer && b.readyHero?.id === u.id);
+        unit.classList.toggle(
+          "ready",
+          u.gauge >= GAUGE_MAX && !stunned && canAct
+        );
+        unit.classList.toggle(
+          "approaching",
+          isFlowBattle(b) &&
+            u.gauge >= GAUGE_MAX &&
+            !stunned &&
+            !canFlowStartAction(b, u) &&
+            !(b.waitingPlayer && b.readyHero?.id === u.id)
+        );
         unit.classList.toggle("stun", stunned);
         const mark = unit.querySelector(".stun-mark");
         if (mark) mark.hidden = !stunned;
@@ -2322,6 +2337,21 @@ export function createBattleApi(ctx) {
         updateBattleSkillButtons(unit);
         setBattleButtons(true);
         $("btnFlee").disabled = false;
+        $("battleActions")?.scrollIntoView?.({
+          block: "nearest",
+          behavior: "smooth",
+        });
+        const toast = $("lootToast") || $("toast");
+        if (toast) {
+          toast.textContent = `${unit.name} 行动：点底部技能出手（或开自动）`;
+          toast.classList.remove("hidden");
+          clearTimeout(toast._pickSkillTimer);
+          toast._pickSkillTimer = setTimeout(
+            () => toast.classList.add("hidden"),
+            2200
+          );
+        }
+        updateGaugeBars(b);
         return;
       }
       await runHeroAutoSkill(b, unit);

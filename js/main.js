@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=166";
+import { $ } from "./core/utils.js?v=167";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=166";
-import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=166";
-import { MAX_FLOOR } from "./map/floors.js?v=166";
+} from "./map/island15.js?v=167";
+import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=167";
+import { MAX_FLOOR } from "./map/floors.js?v=167";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,17 +25,17 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=166";
-import { getSavedFormation, setCharacterSettingsKey } from "./characters/stats.js?v=166";
-import { moveSlimeOnce } from "./monsters/slime.js?v=166";
-import { createBattleApi } from "./battle/system.js?v=166";
-import { createUI } from "./ui/shell.js?v=166";
+} from "./characters/omni/index.js?v=167";
+import { getSavedFormation, setCharacterSettingsKey } from "./characters/stats.js?v=167";
+import { moveSlimeOnce } from "./monsters/slime.js?v=167";
+import { createBattleApi } from "./battle/system.js?v=167";
+import { createUI } from "./ui/shell.js?v=167";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
   setSaveKey,
-} from "./core/save.js?v=166";
+} from "./core/save.js?v=167";
 import {
   PACE_MODES,
   PACE_META,
@@ -46,7 +46,7 @@ import {
   writePacePref,
   migrateLegacyForMode,
   peekModeSaveSummary,
-} from "./core/gameMode.js?v=166";
+} from "./core/gameMode.js?v=167";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");

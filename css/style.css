@@ -1276,6 +1276,30 @@ html, body {
   pointer-events: none;
 }
 
+/* 流畅：条满但还没进射程 — 不要误当成可以出手 */
+.battle-unit.approaching .shape-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 180, 255, 0.28), transparent 70%);
+  animation: approachPulse 1.4s ease-in-out infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes approachPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
 .battle-unit.stun { opacity: 0.78; filter: grayscale(0.2); }
 .battle-unit.spirit-form {
   opacity: 0.5;
