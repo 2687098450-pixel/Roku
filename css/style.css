@@ -1463,7 +1463,7 @@ html, body {
   border-radius: var(--mr, 14px);
 }
 
-/* 怪物贴图：无外框色块 / 白边 / 脚下阴影 */
+/* 怪物贴图：无外框色块 / 白边 / 脚下阴影；内容已裁切，固定盒即可 */
 .battle-unit .monster-art-wrap {
   width: 48px;
   height: 48px;
@@ -1486,8 +1486,6 @@ html, body {
   display: block;
   pointer-events: none;
   user-select: none;
-  transform: scale(var(--mscale, 1));
-  transform-origin: center center;
 }
 
 .battle-unit.has-monster-art .unit-shadow {
@@ -3630,8 +3628,6 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
-  transform: scale(var(--mscale, 1));
-  transform-origin: center center;
 }
 .unit-ico .square {
   width: 72%;

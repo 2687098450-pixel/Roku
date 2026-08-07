@@ -1,10 +1,12 @@
-import { APP_VERSION } from "../core/version.js?v=147";
+import { APP_VERSION } from "../core/version.js?v=149";
 
 /**
  * 怪物外观资源（内部配置，不暴露到游戏 UI）
  *
  * USE_MONSTER_IMAGES = false → 一律彩色方块（默认；按种类用不同颜色/圆角区分）
  * USE_MONSTER_IMAGES = true  → 有图的种类从 assets/monsters/ 加载图片，无图仍回退方块
+ *
+ * 统一大小：裁掉透明边距后放入固定盒，不用 transform scale 乘比例。
  */
 
 /** 内部开关：改这里即可切换方块 / 图片 */
@@ -80,28 +82,11 @@ const IMAGE_BASE = new URL("../../assets/monsters/", import.meta.url).href;
 /** @type {Map<string, HTMLImageElement>} */
 const _imgCache = new Map();
 /**
- * 贴图不透明内容框（用于统一可视大小）
- * @type {Map<string, { sx:number, sy:number, sw:number, sh:number, visualScale:number }>}
+ * 贴图不透明内容框 + 裁切后的 DOM 用图
+ * @type {Map<string, { sx:number, sy:number, sw:number, sh:number, cropUrl:string }>}
  */
 const _metaCache = new Map();
 let _preloadPromise = null;
-
-/** 内容最长边占画布比例的目标值；小于此值的图在 UI 上放大补偿 */
-const TARGET_CONTENT_RATIO = 0.88;
-
-/** 分析完成前的兜底缩放（狼/骑士等透明边距偏大） */
-const FALLBACK_VISUAL_SCALE = {
-  wolf: 1.28,
-  wisp: 1.16,
-  slime: 1.14,
-  harpy: 1.12,
-  spider: 1.12,
-  frost: 1.1,
-  knight: 1.14,
-  boss_saw: 1.1,
-  boss_sand: 1.08,
-  boss_sun: 1.06,
-};
 
 export function monsterKindOf(unit) {
   if (!unit) return "slime";
@@ -119,6 +104,12 @@ export function monsterImageUrl(kind) {
   return url.href;
 }
 
+/** DOM 用：优先裁切后的内容图，未分析完时回退原图 */
+export function monsterDomImageUrl(kind) {
+  const crop = _metaCache.get(kind)?.cropUrl;
+  return crop || monsterImageUrl(kind);
+}
+
 /** 当前是否应对该种类画图（开关开且有登记文件） */
 export function useMonsterImage(kind) {
   return Boolean(USE_MONSTER_IMAGES && MONSTER_IMAGE_FILES[kind]);
@@ -128,15 +119,8 @@ export function monsterSquareRadius(kind) {
   return MONSTER_SQUARE_RADIUS[kind] ?? 8;
 }
 
-/** 战斗 UI 用的可视缩放（补偿透明边距） */
-export function monsterVisualScale(kind) {
-  const meta = _metaCache.get(kind);
-  if (meta?.visualScale) return meta.visualScale;
-  return FALLBACK_VISUAL_SCALE[kind] ?? 1;
-}
-
 /**
- * 战斗 / DOM 用：方块或图片
+ * 战斗 / DOM 用：方块或图片（固定盒 + 裁切内容，无 scale 比例）
  * @returns {{ className: string, style: string, inner: string }}
  */
 export function monsterShapeDomProps(unit) {
@@ -144,11 +128,10 @@ export function monsterShapeDomProps(unit) {
   const color = unit?.color || "#888";
   const radius = monsterSquareRadius(kind);
   if (useMonsterImage(kind)) {
-    const url = monsterImageUrl(kind);
-    const scale = monsterVisualScale(kind);
+    const url = monsterDomImageUrl(kind);
     return {
       className: "monster-art-wrap",
-      style: `--mscale:${scale}`,
+      style: "",
       inner: `<img class="monster-art" src="${url}" alt="" draggable="false" decoding="async" data-kind="${kind}" />`,
     };
   }
@@ -192,16 +175,18 @@ function analyzeImageContent(kind, img) {
     if (maxx < 0) return;
     const sw = maxx - minx + 1;
     const sh = maxy - miny + 1;
-    const maxRatio = Math.max(sw / w, sh / h);
-    // 内容偏小则放大；已铺满的略压一点避免过大
-    let visualScale = TARGET_CONTENT_RATIO / Math.max(0.45, maxRatio);
-    visualScale = Math.min(1.38, Math.max(0.92, visualScale));
+    const crop = document.createElement("canvas");
+    crop.width = sw;
+    crop.height = sh;
+    const cctx = crop.getContext("2d");
+    if (!cctx) return;
+    cctx.drawImage(img, minx, miny, sw, sh, 0, 0, sw, sh);
     _metaCache.set(kind, {
       sx: minx,
       sy: miny,
       sw,
       sh,
-      visualScale,
+      cropUrl: crop.toDataURL("image/png"),
     });
   } catch {
     /* ignore analyze failures */
@@ -281,15 +266,15 @@ function drawEliteAura(ctx, cx, cy, size) {
 }
 
 function drawMonsterImage(ctx, cx, cy, size, img, isBoss, kind) {
-  // 以不透明内容框最长边对齐目标尺寸，消除透明边距造成的大小不一
-  const base = size * (isBoss ? 1.85 : 1.72);
+  // 固定目标边长（px），把裁切后的内容最长边贴齐，不用额外乘比例补偿
+  const edge = isBoss ? size + 28 : size + 22;
   const meta = kind ? _metaCache.get(kind) : null;
   ctx.save();
   ctx.translate(cx, cy);
   if (meta && meta.sw > 0 && meta.sh > 0) {
-    const fit = base / Math.max(meta.sw, meta.sh);
-    const dw = meta.sw * fit;
-    const dh = meta.sh * fit;
+    const long = Math.max(meta.sw, meta.sh);
+    const dw = (meta.sw / long) * edge;
+    const dh = (meta.sh / long) * edge;
     ctx.drawImage(
       img,
       meta.sx,
@@ -302,14 +287,13 @@ function drawMonsterImage(ctx, cx, cy, size, img, isBoss, kind) {
       dh
     );
   } else {
-    const s = base;
-    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.drawImage(img, -edge / 2, -edge / 2, edge, edge);
   }
   ctx.restore();
 }
 
 export function drawMonsterSquare(ctx, cx, cy, size, color, radiusPx = 8) {
-  const s = size * 1.5;
+  const s = size + 16;
   const r = Math.min(radiusPx, s / 2);
   ctx.save();
   ctx.translate(cx, cy);
