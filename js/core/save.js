@@ -15,12 +15,12 @@ import {
   refreshSkillTexts,
   expToNext,
   normalizeSkillAi,
-} from "../characters/omni/index.js?v=162";
-import { createPatrolMonster } from "../monsters/slime.js?v=162";
-import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=162";
-import { digFloorSecretPath } from "../map/dungeon.js?v=162";
-import { mergeStackableTools } from "../characters/affixItems.js?v=162";
-import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=162";
+} from "../characters/omni/index.js?v=163";
+import { createPatrolMonster } from "../monsters/slime.js?v=163";
+import { createBoss, createFoolHiddenBoss } from "../monsters/boss.js?v=163";
+import { digFloorSecretPath } from "../map/dungeon.js?v=163";
+import { mergeStackableTools } from "../characters/affixItems.js?v=163";
+import { setSavedFormation, clearCharacterSettings } from "../characters/stats.js?v=163";
 
 /** 默认经典槽；启动选节奏后由 setSaveKey 切换 */
 export let SAVE_KEY = "moku_game_progress_v1_classic";

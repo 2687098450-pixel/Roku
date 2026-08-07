@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=162";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=162";
+import { $, clamp, irand } from "../core/utils.js?v=163";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=163";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=162";
-import { mergeStackableTools } from "../characters/affixItems.js?v=162";
+} from "../characters/omni/index.js?v=163";
+import { mergeStackableTools } from "../characters/affixItems.js?v=163";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=162";
+} from "../characters/progression.js?v=163";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=162";
-import { buildEncounter } from "../monsters/roster.js?v=162";
+} from "../characters/skills.js?v=163";
+import { buildEncounter } from "../monsters/roster.js?v=163";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=162";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=162";
+} from "../monsters/skills.js?v=163";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=163";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=162";
-import { createTicker } from "../core/time.js?v=162";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=162";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=162";
+} from "../characters/stats.js?v=163";
+import { createTicker } from "../core/time.js?v=163";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=163";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=163";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=162";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=162";
+} from "./status.js?v=163";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=163";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,7 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=162";
+} from "./timing.js?v=163";
 import {
   boardDist,
   boardXY,
@@ -99,7 +99,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=162";
+} from "./grid.js?v=163";
 
 export function createBattleApi(ctx) {
   const {
@@ -510,30 +510,9 @@ export function createBattleApi(ctx) {
     return [...(b?.allies || []), ...(b?.enemies || [])];
   }
 
-  /** 接战距离：英雄无限；怪物取技能最远 */
-  function flowEngageRange(unit) {
-    if (unit?.isHero) return 99;
-    const ids = unit?.skillIds || ["gnaw"];
-    let best = 1;
-    for (const id of ids) {
-      const sk = MONSTER_SKILLS[id];
-      if (!sk) continue;
-      best = Math.max(best, skillAttackRange(sk));
-    }
-    return best;
-  }
-
-  function flowHasTargetInRange(b, unit) {
-    if (unit?.isHero) {
-      return livingEnemies(b).length > 0;
-    }
-    const range = flowEngageRange(unit);
-    return unitsInAttackRange(unit, targetableAllies(b), range).length > 0;
-  }
-
   /**
-   * 流畅：满条且能出手才行动。
-   * 英雄不限制攻击距离；怪物仍需走进射程。
+   * 流畅：满条且有目标就能出手。
+   * 敌我都不限制攻击距离（群体仍按目标半径溅射）。
    */
   function canFlowStartAction(b, unit) {
     if (!unit || unit.hp <= 0) return false;
@@ -547,46 +526,12 @@ export function createBattleApi(ctx) {
       }
       return livingEnemies(b).length > 0;
     }
-    return flowHasTargetInRange(b, unit);
+    return targetableAllies(b).length > 0;
   }
 
-  /** 流畅走位：与行动条无关；仅怪物需要靠脚程接敌，英雄无限射程不挪 */
-  function advanceFlowMovement(b, scaledDt) {
-    if (!isFlowBattle(b) || !(scaledDt > 0)) return;
-    let moved = false;
-    for (const u of battleUnits(b)) {
-      if (u.hp <= 0 || isStunned(u)) continue;
-      if (u.isHero) continue;
-      // 自己正在播攻击动画时不挪
-      if (
-        b.actingId &&
-        u.id === b.actingId &&
-        b.busy &&
-        !b.waitingPlayer
-      ) {
-        continue;
-      }
-      const foes = targetableAllies(b);
-      const goal = pickNearestUnit(u, foes);
-      if (!goal) continue;
-      if (boardDist(u, goal) <= flowEngageRange(u)) {
-        u.moveAcc = 0;
-        continue;
-      }
-      const spd = Math.max(1, effectiveSpd(u));
-      const need =
-        MOVE_STEP_SECONDS *
-        (DEFAULT_HERO_SPEED / spd);
-      u.moveAcc = (u.moveAcc || 0) + scaledDt;
-      if (u.moveAcc < need) continue;
-      u.moveAcc = 0;
-      if (stepUnitToward(u, goal, battleOccupants(b), { fullBoard: true }))
-        moved = true;
-    }
-    if (moved) {
-      renderBattle(b);
-      updateGaugeBars(b);
-    }
+  /** 流畅：双方均无限射程，不再为接敌走位 */
+  function advanceFlowMovement() {
+    /* no-op */
   }
 
   /** 流畅：英雄无限射程，在全体敌人里挑目标 */
@@ -2014,53 +1959,28 @@ export function createBattleApi(ctx) {
 
     let targets;
     if (isFlowBattle(b)) {
-      // 优先当前抽到的技能；若够不着则换一个够得着的，避免满条空转
-      let skillFlow = skill;
-      let inRange = unitsInAttackRange(
-        actor,
-        targetableAllies(b),
-        skillAttackRange(skillFlow)
-      );
-      if (!inRange.length) {
-        const ids = actor.skillIds || ["gnaw"];
-        skillFlow = null;
-        for (const id of ids) {
-          const sk = MONSTER_SKILLS[id];
-          if (!sk) continue;
-          const pool = unitsInAttackRange(
-            actor,
-            targetableAllies(b),
-            skillAttackRange(sk)
-          );
-          if (pool.length) {
-            skillFlow = sk;
-            inRange = pool;
-            break;
-          }
-        }
-      }
-      if (!skillFlow || !inRange.length) return false;
-
-      const powerFlow = monsterSkillDamage(actor, skillFlow);
-      const primary =
-        inRange[irand(0, inRange.length - 1)] || inRange[0];
-      targets = flowAllySplashTargets(b, primary, skillFlow);
+      // 流畅：怪物也不限距离；群体按目标半径溅射
+      const allies = targetableAllies(b);
+      if (!allies.length) return false;
+      const primary = pickAllyTarget(b) || allies[0];
+      if (!primary) return false;
+      targets = flowAllySplashTargets(b, primary, skill);
       if (!targets.length) targets = [primary];
       const scale = splashDamageScale(targets.length);
-      await playSkillAnim(skillFlow.style || "melee", actor.id, primary.id, {
-        skillId: skillFlow.id,
+      await playSkillAnim(skill.style || "melee", actor.id, primary.id, {
+        skillId: skill.id,
         statsId: "enemy",
         color: actor.color || "",
         shotDuration: skillAnimMs({
-          style: skillFlow.style || "melee",
-          skillId: skillFlow.id,
-          pace: skillFlow.style === "buff" ? "fast" : "slow",
+          style: skill.style || "melee",
+          skillId: skill.id,
+          pace: skill.style === "buff" ? "fast" : "slow",
         }),
       });
       for (const t of targets) {
         const dealt = dealDamage(
           t,
-          Math.max(1, Math.floor(powerFlow * scale)),
+          Math.max(1, Math.floor(power * scale)),
           { source: actor }
         );
         if (dealt > 0) {
@@ -2069,11 +1989,11 @@ export function createBattleApi(ctx) {
             tryApplySkillStatuses(
               actor,
               t,
-              amplifyBossSkillApply(actor, skillFlow.apply || {}),
+              amplifyBossSkillApply(actor, skill.apply || {}),
               null
             )
           );
-          applyMonsterDot(t, actor, skillFlow);
+          applyMonsterDot(t, actor, skill);
         }
       }
       syncHeroHp(b);
