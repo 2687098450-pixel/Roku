@@ -2328,6 +2328,12 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   transform: translateY(1px);
 }
 
+.equip-pick-item.on {
+  border-color: rgba(226, 61, 74, 0.55);
+  box-shadow: 0 0 0 2px rgba(226, 61, 74, 0.22);
+  background: #fff5f5;
+}
+
 .equip-pick-cta {
   align-self: stretch;
   text-align: center;
