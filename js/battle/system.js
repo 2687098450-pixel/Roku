@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=171";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=171";
+import { $, clamp, irand } from "../core/utils.js?v=172";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=172";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=171";
-import { mergeStackableTools } from "../characters/affixItems.js?v=171";
+} from "../characters/omni/index.js?v=172";
+import { mergeStackableTools } from "../characters/affixItems.js?v=172";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=171";
+} from "../characters/progression.js?v=172";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=171";
-import { buildEncounter } from "../monsters/roster.js?v=171";
+} from "../characters/skills.js?v=172";
+import { buildEncounter } from "../monsters/roster.js?v=172";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=171";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=171";
+} from "../monsters/skills.js?v=172";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=172";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=171";
-import { createTicker } from "../core/time.js?v=171";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=171";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=171";
+} from "../characters/stats.js?v=172";
+import { createTicker } from "../core/time.js?v=172";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=172";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=172";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=171";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=171";
+} from "./status.js?v=172";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=172";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -87,7 +87,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=171";
+} from "./timing.js?v=172";
 import {
   boardDist,
   boardXY,
@@ -100,7 +100,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=171";
+} from "./grid.js?v=172";
 
 export function createBattleApi(ctx) {
   const {
@@ -2300,7 +2300,7 @@ export function createBattleApi(ctx) {
   function flee() {
     const b = getState().battle;
     if (!b || b.ending) return;
-    if (b.busy && !b.waitingPlayer) return;
+    // 随时可逃（流畅几乎一直 busy，不能再要求「不忙」）
     endBattle("flee");
   }
 
