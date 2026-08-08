@@ -6,7 +6,7 @@
 import {
   bossControlEffectMult,
   isSpecialBossFloor,
-} from "../monsters/bossKinds.js?v=169";
+} from "../monsters/bossKinds.js?v=168";
 
 export const DEFAULT_STATUS_GAUGE = 50;
 export const DEFAULT_HIT_RATE = 1;
@@ -34,14 +34,7 @@ export function hasStatus(unit, id) {
 }
 
 export function isStunned(unit) {
-  if (hasStatus(unit, "stun")) return true;
-  // 兼容旧字段；若 statuses 里已无 stun，清掉残留，避免永久「满条不行动」
-  if (unit && unit.stun > 0 && !unit.statuses?.stun) {
-    if ((unit.stunBar || 0) < unit.stun) return true;
-    unit.stun = 0;
-    unit.stunBar = 0;
-  }
-  return false;
+  return hasStatus(unit, "stun") || !!(unit && unit.stun > 0);
 }
 
 export function isSilenced(unit) {
@@ -87,9 +80,8 @@ export function applyStun(unit, amount) {
 
 /** 状态条推进；walked 用基础速度，避免减速拖长控制 */
 export function tickStatuses(unit, walked) {
-  if (!unit) return;
-  if (!unit.statuses) {
-    if (unit.stun > 0) {
+  if (!unit?.statuses) {
+    if (unit && unit.stun > 0) {
       unit.stunBar = (unit.stunBar || 0) + walked;
       if (unit.stunBar >= unit.stun) {
         unit.stun = 0;
@@ -97,14 +89,6 @@ export function tickStatuses(unit, walked) {
       }
     }
     return;
-  }
-  // 空 statuses {} 时也要推进旧 stun 字段
-  if (unit.stun > 0 && !unit.statuses.stun) {
-    unit.stunBar = (unit.stunBar || 0) + walked;
-    if (unit.stunBar >= unit.stun) {
-      unit.stun = 0;
-      unit.stunBar = 0;
-    }
   }
   for (const id of Object.keys(unit.statuses)) {
     const st = unit.statuses[id];
