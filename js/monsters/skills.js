@@ -12,7 +12,7 @@ import {
   bossSkillPowerMult,
   isSpecialBossFloor,
   isDecadeBossFloor,
-} from "./bossKinds.js?v=168";
+} from "./bossKinds.js?v=170";
 
 /** 脉动 DoT：每走多少行动点跳一次 */
 export const PULSE_DOT_INTERVAL = 10;
