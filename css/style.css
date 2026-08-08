@@ -3212,6 +3212,19 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
 
 .stat-list li span { color: var(--muted); font-weight: 600; }
 
+.stat-list li.stat-group-label {
+  background: transparent;
+  padding: 6px 2px 0;
+  font-size: 11px;
+  justify-content: flex-start;
+}
+.stat-list li.stat-group-label span {
+  color: var(--ink, #2a3340);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.stat-list li.stat-group-label b { display: none; }
+
 .stat-atk-scale {
   flex-wrap: wrap;
   gap: 6px 8px;

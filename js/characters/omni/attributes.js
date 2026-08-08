@@ -1,31 +1,34 @@
-/** 从力智敏换算战斗属性，再叠装备 */
+/** 力智敏（含装备）→ convertPrimary → 战斗属性 */
 
-import { getCharacterStats } from "../stats.js?v=176";
-import { levelPrimaryBonus } from "../progression.js?v=176";
+import { getCharacterStats } from "../stats.js?v=177";
+import { levelPrimaryBonus } from "../progression.js?v=177";
 import {
   addPrimary,
   convertPrimary,
   readPrimary,
-} from "../primary.js?v=176";
+} from "../primary.js?v=177";
 
 const sheet = getCharacterStats("omni");
 export const BASE = { ...sheet.base };
 export const PASSIVE_BOOST = { ...sheet.passiveBoost };
 
 export function calcStats(base, passiveBoost, equipBonus, level = 1, growth = null) {
+  const eq = equipBonus || {};
   const prim = addPrimary(
-    addPrimary(readPrimary(base), readPrimary(passiveBoost)),
-    levelPrimaryBonus(level, growth)
+    addPrimary(
+      addPrimary(readPrimary(base), readPrimary(passiveBoost)),
+      levelPrimaryBonus(level, growth)
+    ),
+    readPrimary(eq)
   );
   const core = convertPrimary(prim.str, prim.int, prim.agi);
-  const eq = equipBonus || {};
   return {
     primary: prim,
-    maxHp: core.maxHp + (eq.hp || 0),
-    atk: core.atk + (eq.atk || 0),
-    def: core.def + (eq.def || 0),
-    spd: core.spd + (eq.spd || 0),
-    skillAtk: core.skillAtk + Math.floor((eq.atk || 0) * 0.35),
+    maxHp: core.maxHp,
+    atk: core.atk,
+    def: core.def,
+    spd: core.spd,
+    skillAtk: core.skillAtk,
     maxMp: core.maxMp,
     critRateFromAgi: core.critRate,
   };

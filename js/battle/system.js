@@ -1,11 +1,11 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=176";
+import { $, clamp, irand } from "../core/utils.js?v=177";
 import {
   playSkillAnim,
   playReflectSpikes,
   setBattleAnimSpeed,
-} from "./anim.js?v=176";
+} from "./anim.js?v=177";
 import {
   refreshHeroStats,
   skillPower,
@@ -30,8 +30,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=176";
-import { mergeStackableTools } from "../characters/affixItems.js?v=176";
+} from "../characters/omni/index.js?v=177";
+import { mergeStackableTools } from "../characters/affixItems.js?v=177";
 import {
   gainExp,
   splitExp,
@@ -41,30 +41,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=176";
+} from "../characters/progression.js?v=177";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=176";
-import { buildEncounter } from "../monsters/roster.js?v=176";
+} from "../characters/skills.js?v=177";
+import { buildEncounter } from "../monsters/roster.js?v=177";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=176";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=176";
+} from "../monsters/skills.js?v=177";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=177";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=176";
-import { createTicker } from "../core/time.js?v=176";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=176";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=176";
+} from "../characters/stats.js?v=177";
+import { createTicker } from "../core/time.js?v=177";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=177";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=177";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -79,8 +79,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=176";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=176";
+} from "./status.js?v=177";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=177";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -91,7 +91,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=176";
+} from "./timing.js?v=177";
 import {
   boardDist,
   boardXY,
@@ -104,7 +104,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=176";
+} from "./grid.js?v=177";
 
 export function createBattleApi(ctx) {
   const {
@@ -1196,7 +1196,6 @@ export function createBattleApi(ctx) {
       skipHitCheck: true,
       source,
       fromEnchant: true,
-      reflectEnemies: !!foe.isHero,
     });
   }
 
@@ -1275,15 +1274,7 @@ export function createBattleApi(ctx) {
       unit.classList.add(crit ? "crit" : "hit");
     }
     if (!opts.fromReflect && !opts.skipReflect && raw > 0) {
-      const fromAlly = !!(
-        opts.source?.isHero &&
-        target.isHero &&
-        opts.source.id !== target.id
-      );
-      triggerReflect(target, opts.source || null, {
-        // 治疗脉动等友伤：至少打到敌人（有强化则全场）
-        hitEnemies: !!opts.reflectEnemies || fromAlly,
-      });
+      triggerReflect(target, opts.source || null);
     }
     return raw;
   }
@@ -1307,13 +1298,14 @@ export function createBattleApi(ctx) {
     }
   }
 
-  function triggerReflect(victim, source = null, opts = {}) {
+  function triggerReflect(victim, source = null) {
     const b = getState().battle;
     if (!b || !victim?.isHero) return;
     const hero = actingHero(victim);
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
     const lv = getSkillLevel(hero, "yellow_reflect");
     const p = getReflectParams(lv);
+    // 唯一装挂在 affixes 时也由 heroHasUnique 识别
     const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
     let allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
     const enemyDmg = reflectBaseDamage(victim);
@@ -1323,25 +1315,10 @@ export function createBattleApi(ctx) {
     const units = battleUnits(b).filter(
       (u) => u && u.hp > 0 && u.id !== victim.id
     );
-    /**
-     * 默认只反击伤害来源；
-     * 强化反伤 → 全体；
-     * 友军脉动等 → 至少全体敌人（来源友军仍按友方比例）。
-     */
-    let targets;
-    if (hasUnique) {
-      targets = units;
-    } else if (opts.hitEnemies) {
-      const enemies = units.filter((u) => !u.isHero);
-      const src =
-        source && source.id !== victim.id
-          ? units.find((u) => u.id === source.id)
-          : null;
-      targets = enemies.slice();
-      if (src && allyRatio !== 0) targets.push(src);
-    } else {
-      targets = units.filter((u) => source && u.id === source.id);
-    }
+    /** 默认只反击伤害来源；强化反伤 → 全体其他单位 */
+    const targets = hasUnique
+      ? units
+      : units.filter((u) => source && u.id === source.id);
 
     /** 友军飞针透明度：伤害/治疗比例越低越透明，仍可见 */
     const allyFxOpacity = (ratio) => {
@@ -1539,8 +1516,6 @@ export function createBattleApi(ctx) {
   /** 治疗者走行动条时，推进其施加的所有愈合脉冲 */
   function advanceMendPulsesFromHealer(b, healer, walked) {
     if (!healer?.id || !(walked > 0)) return;
-    // 开场技期间先不跳脉动，避免和开场动画/重绘抢特效
-    if (b?.opening) return;
     for (const u of battleUnits(b)) {
       if (u?.mendPulse?.healerId === healer.id) {
         advanceMendPulse(b, u, walked);
@@ -1583,12 +1558,11 @@ export function createBattleApi(ctx) {
     }
     p.walk += walked;
     if (p.walk >= 10 && !p.lostThisCycle) {
-      // 脉动流失可触发小黄反伤（来源记为治疗者）；友伤也要打到敌人
+      // 脉动流失走正常受伤结算（来源=治疗者）→ 可触发反伤；有强化则全场
       const lost = dealDamage(unit, p.tickDmg, {
         trueDamage: true,
         skipHitCheck: true,
         source: healer,
-        reflectEnemies: true,
       });
       p.lastLost = lost || p.tickDmg;
       p.lostThisCycle = true;

@@ -9,21 +9,21 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=176";
-import { makeFoolSeal } from "../characters/seals.js?v=176";
-import { makeAffixCondenser } from "../characters/affixItems.js?v=176";
-import { getFloorDef } from "../map/floors.js?v=176";
+} from "../characters/omni/equipment.js?v=177";
+import { makeFoolSeal } from "../characters/seals.js?v=177";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=177";
+import { getFloorDef } from "../map/floors.js?v=177";
 
 const NORMAL_POOL = [
-  { name: "皮帽", slot: "helmet", base: { def: 1 }, icon: "hat.png" },
-  { name: "铜坠", slot: "necklace", base: { hp: 8 }, icon: "pendant.png" },
-  { name: "布衣", slot: "armor", base: { def: 2, hp: 10 }, icon: "cloth.png" },
-  { name: "草鞋", slot: "shoes", base: { spd: 1 }, icon: "sandals.png" },
+  { name: "皮帽", slot: "helmet", base: { str: 1 }, icon: "hat.png" },
+  { name: "铜坠", slot: "necklace", base: { str: 1, int: 2 }, icon: "pendant.png" },
+  { name: "布衣", slot: "armor", base: { str: 4 }, icon: "cloth.png" },
+  { name: "草鞋", slot: "shoes", base: { agi: 2 }, icon: "sandals.png" },
   { name: "木戒", slot: "ringL", base: {}, icon: "ring.png" },
-  { name: "短剑", slot: "weapon", base: { atk: 4 }, icon: "sword.png", kind: "剑" },
-  { name: "木盾", slot: "shield", base: { def: 2 }, icon: "wood_shield.png" },
-  { name: "手枪", slot: "weapon", base: { atk: 5, spd: 1 }, icon: "pistol.png", kind: "手枪" },
-  { name: "法杖", slot: "weapon", base: { atk: 2, hp: 12 }, icon: "staff.png", kind: "法杖" },
+  { name: "短剑", slot: "weapon", base: { str: 4 }, icon: "sword.png", kind: "剑" },
+  { name: "木盾", slot: "shield", base: { str: 2 }, icon: "wood_shield.png" },
+  { name: "手枪", slot: "weapon", base: { str: 4, agi: 2 }, icon: "pistol.png", kind: "手枪" },
+  { name: "法杖", slot: "weapon", base: { int: 5 }, icon: "staff.png", kind: "法杖" },
 ];
 
 /** 部分层特殊 Boss 必掉唯一红装（仅 5 / 10 / 30… 等关口） */
@@ -32,7 +32,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "冠廊爆裂枪",
       slot: "weapon",
-      base: { atk: 8, spd: 2 },
+      base: { str: 7, int: 1, agi: 4 },
       icon: "pistol.png",
       kind: "手枪",
       uniqueId: "pink_burst_echo",
@@ -43,7 +43,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "冠廊反伤盾",
       slot: "shield",
-      base: { def: 6, hp: 22 },
+      base: { str: 12 },
       icon: "wood_shield.png",
       kind: "Boss",
       uniqueId: "yellow_reflect_shield",
@@ -54,7 +54,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "雾林灵衡坠",
       slot: "necklace",
-      base: { hp: 28, def: 2 },
+      base: { str: 6, int: 7 },
       icon: "pendant.png",
       kind: "Boss",
       uniqueId: "omni_balance_spirit",
@@ -65,7 +65,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "雾林脉动戒",
       slot: "ringL",
-      base: { hp: 16, atk: 1 },
+      base: { str: 5 },
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "green_mend_pulse",
@@ -76,7 +76,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "雾林春芽戒",
       slot: "ringR",
-      base: { hp: 12, atk: 2 },
+      base: { str: 5 },
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "green_spring_bloom",
@@ -87,7 +87,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "环礁生机杖",
       slot: "weapon",
-      base: { atk: 4, hp: 26 },
+      base: { int: 10 },
       icon: "staff.png",
       kind: "法杖",
       uniqueId: "green_life_flow",
@@ -100,7 +100,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "爪屿寒锁杖",
       slot: "weapon",
-      base: { atk: 6, hp: 20 },
+      base: { int: 11 },
       icon: "staff.png",
       kind: "法杖",
       uniqueId: "blue_freeze_lock",
@@ -111,7 +111,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "黑曜烬焚枪",
       slot: "weapon",
-      base: { atk: 10, spd: 1 },
+      base: { str: 9, int: 1, agi: 2 },
       icon: "pistol.png",
       kind: "手枪",
       uniqueId: "orange_blaze_ember",
@@ -124,7 +124,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "深渊疾风靴",
       slot: "shoes",
-      base: { spd: 4, def: 2 },
+      base: { str: 2, agi: 8 },
       icon: "sandals.png",
       kind: "Boss",
       uniqueId: "cyan_tailwind_gale",
@@ -135,7 +135,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "深渊风刃戒",
       slot: "ringL",
-      base: { atk: 4, spd: 2 },
+      base: { str: 4, agi: 4 },
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "cyan_cut_gale",
@@ -146,7 +146,7 @@ export const UNIQUE_BOSS_BY_FLOOR = {
     {
       name: "深渊织律戒",
       slot: "ringR",
-      base: { hp: 14, atk: 2 },
+      base: { str: 6 },
       icon: "ring.png",
       kind: "Boss",
       uniqueId: "status_weave_ring",
@@ -170,7 +170,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "海岛短剑",
       slot: "weapon",
-      base: { atk: 5 },
+      base: { str: 4 },
       icon: "sword.png",
       kind: "剑",
       rarity: "purple",
@@ -181,7 +181,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "潮光坠",
       slot: "necklace",
-      base: { hp: 14 },
+      base: { str: 2, int: 4 },
       icon: "pendant.png",
       rarity: "purple",
       skillMods: { healMult: 0.12 },
@@ -193,7 +193,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "沙洲手枪",
       slot: "weapon",
-      base: { atk: 6, spd: 1 },
+      base: { str: 5, int: 1, agi: 2 },
       icon: "pistol.png",
       kind: "手枪",
       rarity: "purple",
@@ -204,7 +204,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "风蚀草鞋",
       slot: "shoes",
-      base: { spd: 2 },
+      base: { agi: 4 },
       icon: "sandals.png",
       rarity: "purple",
       skillMods: { powerMult: 0.12 },
@@ -216,7 +216,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "冠廊法杖",
       slot: "weapon",
-      base: { atk: 3, hp: 18 },
+      base: { int: 7 },
       icon: "staff.png",
       kind: "法杖",
       rarity: "orange",
@@ -227,7 +227,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "浪纹盾",
       slot: "shield",
-      base: { def: 3, hp: 12 },
+      base: { str: 6 },
       icon: "wood_shield.png",
       rarity: "purple",
       skillMods: { powerFlat: 4 },
@@ -239,7 +239,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "港湾佩枪",
       slot: "weapon",
-      base: { atk: 7, spd: 1 },
+      base: { str: 6, int: 1, agi: 2 },
       icon: "pistol.png",
       kind: "手枪",
       rarity: "orange",
@@ -250,7 +250,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "缆绳之戒",
       slot: "ringL",
-      base: { atk: 2 },
+      base: { str: 2 },
       icon: "ring.png",
       rarity: "purple",
       skillMods: { powerMult: 0.14 },
@@ -262,7 +262,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "雾林翠枝盾",
       slot: "shield",
-      base: { def: 3, hp: 20 },
+      base: { str: 8 },
       icon: "vine_shield.png",
       rarity: "orange",
       skillMods: { healMult: 0.25 },
@@ -272,7 +272,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "迷踪布衣",
       slot: "armor",
-      base: { def: 3, hp: 22 },
+      base: { str: 9 },
       icon: "cloth.png",
       rarity: "purple",
       skillMods: { powerMult: 0.1 },
@@ -284,7 +284,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "环礁连击戒",
       slot: "ringL",
-      base: { atk: 3 },
+      base: { str: 3 },
       icon: "ring.png",
       rarity: "orange",
       skillMods: { powerMult: 0.18, powerFlat: 4 },
@@ -294,7 +294,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "珊瑚坠",
       slot: "necklace",
-      base: { hp: 24 },
+      base: { str: 3, int: 6 },
       icon: "pendant.png",
       rarity: "orange",
       skillMods: { powerFlat: 8 },
@@ -306,7 +306,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "双殿穿心剑",
       slot: "weapon",
-      base: { atk: 8 },
+      base: { str: 7, int: 1 },
       icon: "sword.png",
       kind: "剑",
       rarity: "orange",
@@ -317,7 +317,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "石殿盔",
       slot: "helmet",
-      base: { def: 4, hp: 16 },
+      base: { str: 8 },
       icon: "hat.png",
       rarity: "orange",
       skillMods: { powerMult: 0.18 },
@@ -329,7 +329,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "遗迹爆裂符",
       slot: "necklace",
-      base: { hp: 20 },
+      base: { str: 2, int: 5 },
       icon: "pendant.png",
       rarity: "red",
       skillMods: { powerMult: 0.28 },
@@ -339,7 +339,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "齐射徽章",
       slot: "ringR",
-      base: { spd: 2, atk: 1 },
+      base: { str: 1, agi: 4 },
       icon: "ring.png",
       rarity: "orange",
       skillMods: { powerMult: 0.2, powerFlat: 5 },
@@ -351,7 +351,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "锯齿怒枪",
       slot: "weapon",
-      base: { atk: 9, spd: 2 },
+      base: { str: 8, int: 1, agi: 4 },
       icon: "pistol.png",
       kind: "手枪",
       rarity: "red",
@@ -362,7 +362,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "回春翠枝",
       slot: "shield",
-      base: { def: 4, hp: 28 },
+      base: { str: 11 },
       icon: "vine_shield.png",
       rarity: "red",
       skillMods: { healMult: 0.3 },
@@ -374,7 +374,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "终焉法冠",
       slot: "helmet",
-      base: { def: 5, hp: 30 },
+      base: { str: 13 },
       icon: "hat.png",
       rarity: "red",
       skillMods: { powerMult: 0.35, powerFlat: 10 },
@@ -384,7 +384,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "爪屿誓戒",
       slot: "ringR",
-      base: { atk: 4, spd: 2 },
+      base: { str: 4, agi: 4 },
       icon: "ring.png",
       rarity: "red",
       skillMods: { hitBonus: 1, hitDamageMult: 0.6 },
@@ -394,7 +394,7 @@ const BOSS_LOOT_BY_FLOOR = {
     {
       name: "深渊穿心剑",
       slot: "weapon",
-      base: { atk: 10 },
+      base: { str: 9, int: 1 },
       icon: "sword.png",
       kind: "剑",
       rarity: "red",
@@ -408,44 +408,44 @@ const BOSS_LOOT_BY_FLOOR = {
 /** 各层 Boss 额外「普通装」小池（造型主题不同，无技能词条） */
 const BOSS_NORMAL_BY_FLOOR = {
   1: [
-    { name: "海滩皮帽", slot: "helmet", base: { def: 2 }, icon: "hat.png" },
-    { name: "贝壳坠", slot: "necklace", base: { hp: 12 }, icon: "pendant.png" },
+    { name: "海滩皮帽", slot: "helmet", base: { str: 2 }, icon: "hat.png" },
+    { name: "贝壳坠", slot: "necklace", base: { str: 2, int: 3 }, icon: "pendant.png" },
   ],
   2: [
-    { name: "沙纹布衣", slot: "armor", base: { def: 2, hp: 14 }, icon: "cloth.png" },
-    { name: "干裂草鞋", slot: "shoes", base: { spd: 2 }, icon: "sandals.png" },
+    { name: "沙纹布衣", slot: "armor", base: { str: 6 }, icon: "cloth.png" },
+    { name: "干裂草鞋", slot: "shoes", base: { agi: 4 }, icon: "sandals.png" },
   ],
   3: [
-    { name: "潮木盾", slot: "shield", base: { def: 3 }, icon: "wood_shield.png" },
+    { name: "潮木盾", slot: "shield", base: { str: 3 }, icon: "wood_shield.png" },
     { name: "海藻戒", slot: "ringL", base: {}, icon: "ring.png" },
   ],
   4: [
-    { name: "锚链坠", slot: "necklace", base: { hp: 16 }, icon: "pendant.png" },
-    { name: "码头短剑", slot: "weapon", base: { atk: 5 }, icon: "sword.png", kind: "剑" },
+    { name: "锚链坠", slot: "necklace", base: { str: 2, int: 4 }, icon: "pendant.png" },
+    { name: "码头短剑", slot: "weapon", base: { str: 4 }, icon: "sword.png", kind: "剑" },
   ],
   5: [
-    { name: "雾丝衣", slot: "armor", base: { def: 3, hp: 18 }, icon: "cloth.png" },
+    { name: "雾丝衣", slot: "armor", base: { str: 7 }, icon: "cloth.png" },
     { name: "苔环", slot: "ringL", base: {}, icon: "ring.png" },
   ],
   6: [
-    { name: "礁石盔", slot: "helmet", base: { def: 3, hp: 10 }, icon: "hat.png" },
-    { name: "暗潮鞋", slot: "shoes", base: { spd: 2 }, icon: "sandals.png" },
+    { name: "礁石盔", slot: "helmet", base: { str: 5 }, icon: "hat.png" },
+    { name: "暗潮鞋", slot: "shoes", base: { agi: 4 }, icon: "sandals.png" },
   ],
   7: [
-    { name: "殿卫盾", slot: "shield", base: { def: 4 }, icon: "wood_shield.png" },
-    { name: "甬道杖", slot: "weapon", base: { atk: 4, hp: 14 }, icon: "staff.png", kind: "法杖" },
+    { name: "殿卫盾", slot: "shield", base: { str: 4 }, icon: "wood_shield.png" },
+    { name: "甬道杖", slot: "weapon", base: { int: 8 }, icon: "staff.png", kind: "法杖" },
   ],
   8: [
-    { name: "残阶袍", slot: "armor", base: { def: 4, hp: 20 }, icon: "cloth.png" },
-    { name: "遗火坠", slot: "necklace", base: { hp: 18, atk: 1 }, icon: "pendant.png" },
+    { name: "残阶袍", slot: "armor", base: { str: 9 }, icon: "cloth.png" },
+    { name: "遗火坠", slot: "necklace", base: { str: 2, int: 4 }, icon: "pendant.png" },
   ],
   9: [
-    { name: "海湾枪套", slot: "shield", base: { def: 3, spd: 1 }, icon: "holster.png" },
+    { name: "海湾枪套", slot: "shield", base: { str: 3, agi: 2 }, icon: "holster.png" },
     { name: "浪刃戒", slot: "ringR", base: {}, icon: "ring.png" },
   ],
   10: [
-    { name: "终焉披风", slot: "armor", base: { def: 5, hp: 26 }, icon: "cloth.png" },
-    { name: "深渊鞋", slot: "shoes", base: { spd: 3 }, icon: "sandals.png" },
+    { name: "终焉披风", slot: "armor", base: { str: 11 }, icon: "cloth.png" },
+    { name: "深渊鞋", slot: "shoes", base: { agi: 6 }, icon: "sandals.png" },
   ],
 };
 

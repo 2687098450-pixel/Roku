@@ -5,7 +5,7 @@
  * 智：技能强度、治疗、蓝量、少量生命
  * 敏：速度、暴击、少量普攻
  *
- * 装备仍可直接加 hp/atk/def/spd/crit（叠在换算之后）
+ * 装备主属性叠在 convert 之前；附属词条（暴击/命中/闪避）仍叠在换算之后
  */
 
 export const PRIMARY_KEYS = ["str", "int", "agi"];

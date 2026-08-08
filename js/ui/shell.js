@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=176";
+import { $, clamp, styleTag } from "../core/utils.js?v=177";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -21,6 +21,8 @@ import {
   itemPrice,
   toBagEquip,
   BONUS_LABEL,
+  PRIMARY_STAT_KEYS,
+  SECONDARY_STAT_KEYS,
   affixCountForRarity,
   canUpgradeEquip,
   upgradeEquipCost,
@@ -57,23 +59,23 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=176";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=176";
-import { setSavedFormation } from "../characters/stats.js?v=176";
-import { resetGameLocalData } from "../core/save.js?v=176";
-import { createAllUniqueItems } from "../loot/drops.js?v=176";
-import { APP_VERSION } from "../core/version.js?v=176";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=176";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=176";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=176";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=176";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=176";
+} from "../characters/omni/index.js?v=177";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=177";
+import { setSavedFormation } from "../characters/stats.js?v=177";
+import { resetGameLocalData } from "../core/save.js?v=177";
+import { createAllUniqueItems } from "../loot/drops.js?v=177";
+import { APP_VERSION } from "../core/version.js?v=177";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=177";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=177";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=177";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=177";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=177";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
   sealIconUrl,
-} from "../characters/seals.js?v=176";
+} from "../characters/seals.js?v=177";
 import {
   isAffixItem,
   toolSortPriority,
@@ -84,7 +86,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=176";
+} from "../characters/affixItems.js?v=177";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -1264,16 +1266,17 @@ export function createUI(ctx) {
     bumpSave();
   }
 
-  function formatBonusRows(bonus, compact = false, emptyText = "无加成") {
-    const rows = ["hp", "atk", "def", "spd", "critRate", "critDmg", "hitRate", "dodgeRate"]
+  function formatBonusRows(bonus, compact = false, emptyText = "无加成", keys = null) {
+    const list = keys || [...PRIMARY_STAT_KEYS, ...SECONDARY_STAT_KEYS];
+    const rows = list
       .map((k) => {
         const v = bonus?.[k] || 0;
         if (!v) return "";
-        if (k === "critRate" || k === "critDmg" || k === "hitRate" || k === "dodgeRate") {
+        if (SECONDARY_STAT_KEYS.includes(k)) {
           const pct = Math.round(v * 1000) / 10;
-          return `<li><span>${BONUS_LABEL[k]}</span><b>+${pct}%</b></li>`;
+          return `<li><span>${BONUS_LABEL[k] || k}</span><b>+${pct}%</b></li>`;
         }
-        return `<li><span>${BONUS_LABEL[k]}</span><b>${v > 0 ? "+" : ""}${v}</b></li>`;
+        return `<li><span>${BONUS_LABEL[k] || k}</span><b>${v > 0 ? "+" : ""}${v}</b></li>`;
       })
       .filter(Boolean);
     const cls = compact ? "equip-preview-stats compact" : "equip-preview-stats";
@@ -1284,18 +1287,26 @@ export function createUI(ctx) {
   }
 
   function formatEquipStatsHtml(item, compact = false) {
-    return formatBonusRows(getItemBonus(item), compact);
+    const bonus = getItemBonus(item);
+    const primaryHtml = formatBonusRows(bonus, compact, "无", PRIMARY_STAT_KEYS);
+    const sec = SECONDARY_STAT_KEYS.some((k) => bonus?.[k]);
+    if (!sec) return primaryHtml;
+    return (
+      primaryHtml +
+      `<div class="equip-section-label">附属词条属性</div>` +
+      formatBonusRows(bonus, compact, "无", SECONDARY_STAT_KEYS)
+    );
   }
 
   function formatPrimaryHtml(item, compact = false) {
     if (item?.slot === "ringL" || item?.slot === "ringR") return "";
     const primary = item.primary || {};
-    const has = Object.values(primary).some((v) => Number(v) > 0);
+    const has = PRIMARY_STAT_KEYS.some((k) => Number(primary[k]) > 0);
     const head = `<div class="equip-section-label">主属性 · 等级 ${itemLevel(item)}</div>`;
     if (!has) {
-      return `${head}${formatBonusRows({}, compact, "无")}`;
+      return `${head}${formatBonusRows({}, compact, "无", PRIMARY_STAT_KEYS)}`;
     }
-    return `${head}${formatBonusRows(primary, compact, "无")}`;
+    return `${head}${formatBonusRows(primary, compact, "无", PRIMARY_STAT_KEYS)}`;
   }
 
   function formatAffixesHtml(item, compact = false) {
@@ -1450,6 +1461,15 @@ export function createUI(ctx) {
       <div class="equip-preview-bonus">合计 ${formatItemBonus(getItemBonus(item))}</div>
       <p class="equip-preview-desc">${item.desc || "暂无说明。"}</p>
       ${formatPrimaryHtml(item)}
+      ${(() => {
+        const b = getItemBonus(item);
+        const hasSec = SECONDARY_STAT_KEYS.some((k) => b?.[k]);
+        if (!hasSec) return "";
+        return (
+          `<div class="equip-section-label">附属词条属性</div>` +
+          formatBonusRows(b, false, "无", SECONDARY_STAT_KEYS)
+        );
+      })()}
       ${formatAffixesHtml(item)}`;
   }
 
@@ -2275,7 +2295,11 @@ export function createUI(ctx) {
           </li>`
       : `<li title="速度${capNote}"><span>速度</span><b>${hero.spd}</b></li>`;
     $("statList").innerHTML = [
-      `<li title="力${hero.str || 0} · 智${hero.int || 0} · 敏${hero.agi || 0}"><span>力 / 智 / 敏</span><b>${hero.str || 0} / ${hero.int || 0} / ${hero.agi || 0}</b></li>`,
+      `<li class="stat-group-label"><span>主属性</span><b></b></li>`,
+      `<li title="力（含装备）"><span>力</span><b>${hero.str || 0}</b></li>`,
+      `<li title="智（含装备）"><span>智</span><b>${hero.int || 0}</b></li>`,
+      `<li title="敏（含装备）"><span>敏</span><b>${hero.agi || 0}</b></li>`,
+      `<li class="stat-group-label"><span>战斗属性</span><b></b></li>`,
       `<li title="生命${capNote}"><span>生命</span><b>${Math.ceil(hero.hp)} / ${hero.maxHp}</b></li>`,
       atkRow,
       `<li title="技能与治疗强度（主要来自智）"><span>技能强度</span><b>${hero.skillAtk ?? hero.atk}</b></li>`,

@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=176";
+import { scaleGoldGain } from "../../core/economy.js?v=177";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -29,6 +29,9 @@ export const SLOT_LABEL = {
 };
 
 export const BONUS_LABEL = {
+  str: "力",
+  int: "智",
+  agi: "敏",
   hp: "生命",
   atk: "攻击",
   def: "防御",
@@ -61,21 +64,23 @@ export const RARITY = {
   red: { id: "red", label: "红", rank: 5, affixes: 3, color: "#e23d4a" },
 };
 
-/** 主属性键（整数成长） */
-const PRIMARY_STAT_KEYS = ["hp", "atk", "def", "spd"];
-/** 全部可加成属性（含百分比暴击） */
-const STAT_KEYS = ["hp", "atk", "def", "spd", "critRate", "critDmg", "hitRate", "dodgeRate"];
-const PCT_STAT_KEYS = new Set(["critRate", "critDmg", "hitRate", "dodgeRate"]);
-const DPS_STAT_KEYS = ["atk", "spd", "critRate", "critDmg", "hitRate"];
-const TANK_STAT_KEYS = ["hp", "def", "spd", "dodgeRate"];
-const SUPPORT_STAT_KEYS = ["spd", "hp", "hitRate", "dodgeRate"];
+/** 主属性键：力 / 智 / 敏（经 convertPrimary 换算战斗属性） */
+export const PRIMARY_STAT_KEYS = ["str", "int", "agi"];
+/** 附属词条池（百分比） */
+export const SECONDARY_STAT_KEYS = ["critRate", "critDmg", "hitRate", "dodgeRate"];
+/** 合计加成键 = 主属性 + 附属 */
+const STAT_KEYS = [...PRIMARY_STAT_KEYS, ...SECONDARY_STAT_KEYS];
+const PCT_STAT_KEYS = new Set(SECONDARY_STAT_KEYS);
+const OLD_FLAT_KEYS = ["hp", "atk", "def", "spd"];
+const DPS_STAT_KEYS = ["str", "int", "agi", "critRate", "critDmg", "hitRate"];
+const TANK_STAT_KEYS = ["str", "agi", "dodgeRate", "hitRate"];
+const SUPPORT_STAT_KEYS = ["int", "agi", "str", "hitRate", "dodgeRate"];
 
-/** 属性词条成长（随装备等级；暴击/命中/闪避为小数比例） */
+/** 属性词条成长（主属性整数；附属为小数比例）。不再新出 hp/atk/def/spd */
 const STAT_AFFIX_GROWTH = {
-  hp: { base: 4, perLevel: 2.2 },
-  atk: { base: 1, perLevel: 0.42 },
-  def: { base: 1, perLevel: 0.38 },
-  spd: { base: 0.5, perLevel: 0.1 },
+  str: { base: 1, perLevel: 0.42 },
+  int: { base: 1, perLevel: 0.4 },
+  agi: { base: 1, perLevel: 0.36 },
   critRate: { base: 0.012, perLevel: 0.0035 },
   critDmg: { base: 0.04, perLevel: 0.01 },
   hitRate: { base: 0.04, perLevel: 0.008 },
@@ -429,9 +434,67 @@ function refreshAffixText(a) {
   }
 }
 
+/** 旧 flat 主属性/词条 → 力智敏（幂等） */
+function migrateFlatMap(src = {}) {
+  const out = {};
+  for (const k of PRIMARY_STAT_KEYS) {
+    const v = Number(src[k]) || 0;
+    if (v) out[k] = (out[k] || 0) + Math.round(v);
+  }
+  for (const k of SECONDARY_STAT_KEYS) {
+    const v = Number(src[k]) || 0;
+    if (v) out[k] = (out[k] || 0) + v;
+  }
+  const hp = Number(src.hp) || 0;
+  const atk = Number(src.atk) || 0;
+  const def = Number(src.def) || 0;
+  const spd = Number(src.spd) || 0;
+  if (hp) out.str = (out.str || 0) + Math.max(1, Math.round(hp / 4));
+  if (atk) {
+    out.str = (out.str || 0) + Math.max(1, Math.round(atk * 0.9));
+    const bitInt = Math.round(atk * 0.1);
+    if (bitInt > 0) out.int = (out.int || 0) + bitInt;
+  }
+  if (def) out.str = (out.str || 0) + Math.max(1, Math.round(def));
+  if (spd) out.agi = (out.agi || 0) + Math.max(1, Math.round(spd * 2));
+  return out;
+}
+
+function migrateAffixStat(a) {
+  if (!a || a.type !== "stat" || !a.key) return;
+  if (!OLD_FLAT_KEYS.includes(a.key)) return;
+  const mapped = migrateFlatMap({ [a.key]: a.value });
+  const nextKey = PRIMARY_STAT_KEYS.find((k) => mapped[k]) || "str";
+  a.key = nextKey;
+  a.value = Math.max(1, Math.round(mapped[nextKey] || 1));
+  refreshAffixText(a);
+}
+
+/**
+ * 旧存档装备：hp/atk/def/spd 主属性与词条 → 力/智/敏
+ * 在读档 / 穿戴 / 取加成时调用
+ */
+export function migrateItemPrimaryStats(item) {
+  if (!item || typeof item !== "object") return item;
+  if (item.baseBonus && typeof item.baseBonus === "object") {
+    item.baseBonus = migrateFlatMap(item.baseBonus);
+  }
+  if (item.primary && typeof item.primary === "object") {
+    item.primary = migrateFlatMap(item.primary);
+  }
+  if (item.bonus && typeof item.bonus === "object") {
+    item.bonus = migrateFlatMap(item.bonus);
+  }
+  if (Array.isArray(item.affixes)) {
+    for (const a of item.affixes) migrateAffixStat(a);
+  }
+  return item;
+}
+
 /** 按当前等级重算主属性与合计加成 */
 export function rebuildEquipStats(item) {
   if (!item) return item;
+  migrateItemPrimaryStats(item);
   const level = itemLevel(item);
   const kind = item.kind && item.kind !== "equip" ? item.kind : "";
   let primary = {};
@@ -690,21 +753,23 @@ export function rollAffixCountForRarity(rarity, rng = Math.random, slot = null) 
 
 /** @deprecated 品质不再倍率缩放主属性；保留兼容旧调用 */
 export function scaleBonus(baseBonus = {}, _rarity = "white") {
+  const src = migrateFlatMap(baseBonus);
   const out = {};
   for (const key of STAT_KEYS) {
-    const v = Number(baseBonus[key]) || 0;
+    const v = Number(src[key]) || 0;
     if (!v) continue;
-    out[key] = Math.max(1, Math.round(v));
+    out[key] = PCT_STAT_KEYS.has(key) ? v : Math.max(1, Math.round(v));
   }
   return out;
 }
 
-/** L1 模板随等级成长 → 主属性 */
+/** L1 模板随等级成长 → 主属性（仅力智敏） */
 export function primaryFromTemplate(baseBonus = {}, level = 1) {
   const L = Math.max(1, level);
+  const src = migrateFlatMap(baseBonus);
   const out = {};
-  for (const key of STAT_KEYS) {
-    const v = Number(baseBonus[key]) || 0;
+  for (const key of PRIMARY_STAT_KEYS) {
+    const v = Number(src[key]) || 0;
     if (!v) continue;
     // 等级 1 = 模板值；每升 1 级约 +35% 模板
     out[key] = Math.max(1, Math.round(v * (1 + (L - 1) * 0.35)));
@@ -712,51 +777,50 @@ export function primaryFromTemplate(baseBonus = {}, level = 1) {
   return out;
 }
 
-/** 无模板时按部位生成主属性 */
+/** 无模板时按部位生成主属性（力/智/敏） */
 export function slotPrimaryBonus(slot, level, kind = "") {
   const L = Math.max(1, level);
   switch (slot) {
     case "weapon":
       if (kind === "手枪") {
         return {
-          atk: Math.round(2 + L * 1.15),
-          spd: Math.max(1, Math.round(0.4 + L * 0.12)),
+          str: Math.round(2 + L * 1.0),
+          agi: Math.max(1, Math.round(1 + L * 0.24)),
         };
       }
       if (kind === "法杖") {
-        return {
-          atk: Math.round(1 + L * 0.75),
-          hp: Math.round(8 + L * 3.2),
-        };
+        return { int: Math.round(3 + L * 1.2) };
       }
-      return { atk: Math.round(2 + L * 1.1) };
+      // 剑等：力
+      return { str: Math.round(2 + L * 1.0) };
     case "shield":
-      return {
-        def: Math.round(1 + L * 0.65),
-        hp: Math.round(4 + L * 1.8),
-      };
     case "helmet":
-      return { def: Math.round(1 + L * 0.45), hp: Math.round(3 + L * 1.4) };
     case "armor":
-      return { def: Math.round(1 + L * 0.75), hp: Math.round(8 + L * 3.5) };
+      return {
+        str: Math.round(
+          slot === "armor" ? 3 + L * 1.3 : slot === "shield" ? 2 + L * 0.9 : 1 + L * 0.7
+        ),
+      };
     case "shoes":
-      return { spd: Math.max(1, Math.round(0.5 + L * 0.18)) };
+      return { agi: Math.max(1, Math.round(1 + L * 0.36)) };
     case "necklace":
-      return { hp: Math.round(8 + L * 3.8) };
+      return {
+        str: Math.round(1 + L * 0.5),
+        int: Math.round(1 + L * 0.7),
+      };
     case "ringL":
     case "ringR":
       return {};
     default:
-      return { hp: Math.round(4 + L * 1.5) };
+      return { str: Math.round(1 + L * 0.5) };
   }
 }
 
 function emptyBonus() {
   return {
-    hp: 0,
-    atk: 0,
-    def: 0,
-    spd: 0,
+    str: 0,
+    int: 0,
+    agi: 0,
     critRate: 0,
     critDmg: 0,
     hitRate: 0,
@@ -1047,6 +1111,7 @@ export function bonusFromParts(primary = {}, affixes = []) {
 /** 取装备实际加成 */
 export function getItemBonus(item) {
   if (!item) return emptyBonus();
+  migrateItemPrimaryStats(item);
   if (item.bonus && Object.keys(item.bonus).length) {
     return mergeBonus(item.bonus);
   }
@@ -1061,10 +1126,9 @@ export function itemPrice(item) {
   const level = itemLevel(item);
   const bonus = getItemBonus(item);
   const power =
-    (bonus.hp || 0) +
-    (bonus.atk || 0) * 4 +
-    (bonus.def || 0) * 4 +
-    (bonus.spd || 0) * 4 +
+    (bonus.str || 0) * 3 +
+    (bonus.int || 0) * 3 +
+    (bonus.agi || 0) * 3 +
     (bonus.critRate || 0) * 220 +
     (bonus.critDmg || 0) * 80 +
     (bonus.hitRate || 0) * 180 +
@@ -1099,15 +1163,17 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
   const level = extra.level != null ? itemLevel({ level: extra.level }) : 1;
   const kind = extra.kind || "";
   const ring = isRingSlot(slot);
-  const templateBonus = ring ? {} : baseBonus || {};
+  const templateBonus = ring ? {} : migrateFlatMap(baseBonus || {});
 
   let primary = {};
   if (!ring) {
+    const fromExtra = extra.primary ? migrateFlatMap(extra.primary) : null;
     primary =
-      extra.primary ||
-      (templateBonus && Object.keys(templateBonus).length
-        ? primaryFromTemplate(templateBonus, level)
-        : slotPrimaryBonus(slot, level, kind));
+      fromExtra && Object.keys(fromExtra).length
+        ? fromExtra
+        : templateBonus && Object.keys(templateBonus).length
+          ? primaryFromTemplate(templateBonus, level)
+          : slotPrimaryBonus(slot, level, kind);
     primary = applyMilestoneToPrimary(primary, level);
   }
 
@@ -1115,6 +1181,9 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
   let affixes = Array.isArray(extra.affixes)
     ? extra.affixes.slice(0, maxAffix)
     : null;
+  if (affixes) {
+    for (const a of affixes) migrateAffixStat(a);
+  }
   if (!affixes) {
     const need = rollAffixCountForRarity(rarity, extra.rng, slot);
     const preferDps =
@@ -1175,7 +1244,7 @@ export function makeItem(name, slot, baseBonus = {}, extra = {}) {
     if (extra.skillOwner) item.skillOwner = extra.skillOwner;
   }
   if (extra.price != null) item.price = extra.price;
-  return item;
+  return migrateItemPrimaryStats(item);
 }
 
 export function sumSkillMods(equip = {}) {
@@ -1250,28 +1319,28 @@ function fixedAffixes(entries) {
 
 function baseGear() {
   return {
-    helmet: makeItem("皮帽", "helmet", { def: 1 }, {
+    helmet: makeItem("皮帽", "helmet", { str: 1 }, {
       id: "hat",
       rarity: "white",
       level: 1,
       icon: "hat.png",
       desc: "轻便皮帽。主属性随等级成长。",
     }),
-    necklace: makeItem("铜坠", "necklace", { hp: 8 }, {
+    necklace: makeItem("铜坠", "necklace", { str: 1, int: 2 }, {
       id: "pendant",
       rarity: "white",
       level: 1,
       icon: "pendant.png",
       desc: "普通铜坠。主属性随等级成长。",
     }),
-    armor: makeItem("布衣", "armor", { def: 2, hp: 10 }, {
+    armor: makeItem("布衣", "armor", { str: 5 }, {
       id: "cloth",
       rarity: "white",
       level: 1,
       icon: "cloth.png",
       desc: "朴素布衣。主属性随等级成长。",
     }),
-    shoes: makeItem("草鞋", "shoes", { spd: 1 }, {
+    shoes: makeItem("草鞋", "shoes", { agi: 2 }, {
       id: "sandals",
       rarity: "white",
       level: 1,
@@ -1285,8 +1354,8 @@ function baseGear() {
       icon: "ring.png",
       desc: "木制戒指。绿戒额外词条。",
       affixes: fixedAffixes([
-        { key: "hp", value: 5 },
-        { key: "atk", value: 1 },
+        { key: "str", value: 1 },
+        { key: "int", value: 1 },
       ]),
     }),
     ringR: null,
@@ -1298,7 +1367,7 @@ export function createDefaultEquip(statsId = "omni") {
   if (statsId === "pink") {
     return {
       ...gear,
-      weapon: makeItem("手枪", "weapon", { atk: 5, spd: 1 }, {
+      weapon: makeItem("手枪", "weapon", { str: 5, agi: 2 }, {
         id: "pistol",
         kind: "手枪",
         rarity: "blue",
@@ -1306,11 +1375,11 @@ export function createDefaultEquip(statsId = "omni") {
         icon: "pistol.png",
         desc: "轻巧手枪。蓝装带 2 条词条。",
         affixes: fixedAffixes([
-          { key: "atk", value: 1 },
-          { key: "spd", value: 1 },
+          { key: "str", value: 1 },
+          { key: "agi", value: 2 },
         ]),
       }),
-      shield: makeItem("皮套", "shield", { def: 1 }, {
+      shield: makeItem("皮套", "shield", { str: 1 }, {
         id: "holster",
         rarity: "white",
         level: 1,
@@ -1322,29 +1391,29 @@ export function createDefaultEquip(statsId = "omni") {
   if (statsId === "green") {
     return {
       ...gear,
-      weapon: makeItem("法杖", "weapon", { atk: 2, hp: 12 }, {
+      weapon: makeItem("法杖", "weapon", { int: 5 }, {
         id: "staff",
         kind: "法杖",
         rarity: "green",
         level: 1,
         icon: "staff.png",
         desc: "治愈用法杖。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "hp", value: 6 }]),
+        affixes: fixedAffixes([{ key: "int", value: 2 }]),
       }),
-      shield: makeItem("翠枝盾", "shield", { def: 1, hp: 6 }, {
+      shield: makeItem("翠枝盾", "shield", { str: 3 }, {
         id: "vine_shield",
         rarity: "green",
         level: 1,
         icon: "vine_shield.png",
         desc: "藤枝编成的小盾。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "def", value: 1 }]),
+        affixes: fixedAffixes([{ key: "str", value: 1 }]),
       }),
     };
   }
   if (statsId === "yellow") {
     return {
       ...gear,
-      weapon: makeItem("短剑", "weapon", { atk: 3 }, {
+      weapon: makeItem("短剑", "weapon", { str: 3 }, {
         id: "sword_yellow",
         kind: "剑",
         rarity: "white",
@@ -1352,37 +1421,37 @@ export function createDefaultEquip(statsId = "omni") {
         icon: "sword.png",
         desc: "坦克配刀。白装无额外词条。",
       }),
-      shield: makeItem("木盾", "shield", { def: 4, hp: 8 }, {
+      shield: makeItem("木盾", "shield", { str: 6 }, {
         id: "wood_shield_yellow",
         rarity: "green",
         level: 1,
         icon: "wood_shield.png",
         desc: "厚实木盾。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "def", value: 2 }]),
+        affixes: fixedAffixes([{ key: "str", value: 2 }]),
       }),
-      armor: makeItem("布衣", "armor", { def: 3, hp: 14 }, {
+      armor: makeItem("布衣", "armor", { str: 7 }, {
         id: "cloth_yellow",
         rarity: "green",
         level: 1,
         icon: "cloth.png",
         desc: "厚实布甲。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "hp", value: 8 }]),
+        affixes: fixedAffixes([{ key: "str", value: 2 }]),
       }),
     };
   }
   if (statsId === "blue") {
     return {
       ...gear,
-      weapon: makeItem("法杖", "weapon", { atk: 3, hp: 8 }, {
+      weapon: makeItem("法杖", "weapon", { int: 5 }, {
         id: "staff_blue",
         kind: "法杖",
         rarity: "green",
         level: 1,
         icon: "staff.png",
         desc: "霜语法杖。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "def", value: 1 }]),
+        affixes: fixedAffixes([{ key: "int", value: 1 }]),
       }),
-      shield: makeItem("翠枝盾", "shield", { def: 2, hp: 4 }, {
+      shield: makeItem("翠枝盾", "shield", { str: 3 }, {
         id: "vine_shield_blue",
         rarity: "white",
         level: 1,
@@ -1394,16 +1463,16 @@ export function createDefaultEquip(statsId = "omni") {
   if (statsId === "orange") {
     return {
       ...gear,
-      weapon: makeItem("手枪", "weapon", { atk: 5, spd: 1 }, {
+      weapon: makeItem("手枪", "weapon", { str: 5, agi: 2 }, {
         id: "pistol_orange",
         kind: "手枪",
         rarity: "green",
         level: 1,
         icon: "pistol.png",
         desc: "烬火佩枪。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "atk", value: 1 }]),
+        affixes: fixedAffixes([{ key: "str", value: 1 }]),
       }),
-      shield: makeItem("皮套", "shield", { def: 1 }, {
+      shield: makeItem("皮套", "shield", { str: 1 }, {
         id: "holster_orange",
         rarity: "white",
         level: 1,
@@ -1415,24 +1484,24 @@ export function createDefaultEquip(statsId = "omni") {
   if (statsId === "cyan") {
     return {
       ...gear,
-      weapon: makeItem("短剑", "weapon", { atk: 3, spd: 1 }, {
+      weapon: makeItem("短剑", "weapon", { str: 3, agi: 2 }, {
         id: "sword_cyan",
         kind: "剑",
         rarity: "green",
         level: 1,
         icon: "sword.png",
         desc: "疾风短刃。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "spd", value: 1 }]),
+        affixes: fixedAffixes([{ key: "agi", value: 2 }]),
       }),
-      shoes: makeItem("草鞋", "shoes", { spd: 2 }, {
+      shoes: makeItem("草鞋", "shoes", { agi: 4 }, {
         id: "sandals_cyan",
         rarity: "green",
         level: 1,
         icon: "sandals.png",
         desc: "疾行草鞋。绿装带 1 条词条。",
-        affixes: fixedAffixes([{ key: "spd", value: 1 }]),
+        affixes: fixedAffixes([{ key: "agi", value: 2 }]),
       }),
-      shield: makeItem("皮套", "shield", { def: 1 }, {
+      shield: makeItem("皮套", "shield", { str: 1 }, {
         id: "holster_cyan",
         rarity: "white",
         level: 1,
@@ -1443,7 +1512,7 @@ export function createDefaultEquip(statsId = "omni") {
   }
   return {
     ...gear,
-    weapon: makeItem("短剑", "weapon", { atk: 4 }, {
+    weapon: makeItem("短剑", "weapon", { str: 4 }, {
       id: "sword",
       kind: "剑",
       rarity: "white",
@@ -1451,7 +1520,7 @@ export function createDefaultEquip(statsId = "omni") {
       icon: "sword.png",
       desc: "趁手短剑。白装无额外词条。",
     }),
-    shield: makeItem("木盾", "shield", { def: 2 }, {
+    shield: makeItem("木盾", "shield", { str: 2 }, {
       id: "wood_shield",
       rarity: "white",
       level: 1,
