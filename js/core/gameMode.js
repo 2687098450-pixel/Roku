@@ -20,7 +20,7 @@ export const PACE_META = {
     id: PACE_FLOW,
     title: "流畅",
     tagline: "行动时条继续走",
-    desc: "有人出手时，其他人行动条照常前进。整体更紧凑。",
+    desc: "有人出手时，其他人行动条照常前进；条满即自动放技能。整体更紧凑。",
   },
 };
 

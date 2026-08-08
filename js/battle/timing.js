@@ -33,3 +33,4 @@ export function battleSpeedFromMode(mode) {
 }
 
 export const AUTO_MODE_LABELS = ["自动", "自动·1x", "自动·1.5x", "自动·2x"];
+export const FLOW_SPEED_LABELS = ["倍速·1x", "倍速·1x", "倍速·1.5x", "倍速·2x"];

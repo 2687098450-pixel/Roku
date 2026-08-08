@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=170";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=170";
+import { $, clamp, irand } from "../core/utils.js?v=171";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=171";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=170";
-import { mergeStackableTools } from "../characters/affixItems.js?v=170";
+} from "../characters/omni/index.js?v=171";
+import { mergeStackableTools } from "../characters/affixItems.js?v=171";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=170";
+} from "../characters/progression.js?v=171";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=170";
-import { buildEncounter } from "../monsters/roster.js?v=170";
+} from "../characters/skills.js?v=171";
+import { buildEncounter } from "../monsters/roster.js?v=171";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=170";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=170";
+} from "../monsters/skills.js?v=171";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=171";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=170";
-import { createTicker } from "../core/time.js?v=170";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=170";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=170";
+} from "../characters/stats.js?v=171";
+import { createTicker } from "../core/time.js?v=171";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=171";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=171";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=170";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=170";
+} from "./status.js?v=171";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=171";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,8 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=170";
+  FLOW_SPEED_LABELS,
+} from "./timing.js?v=171";
 import {
   boardDist,
   boardXY,
@@ -99,7 +100,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=170";
+} from "./grid.js?v=171";
 
 export function createBattleApi(ctx) {
   const {
@@ -506,20 +507,25 @@ export function createBattleApi(ctx) {
     return !!b?.atbDuringAct;
   }
 
+  /** 流畅：条满即放，不等人点技能；经典才在关闭「自动」时手操 */
+  function usesAutoCast(b) {
+    return isFlowBattle(b) || !!(b && b.autoMode > 0);
+  }
+
   function battleOccupants(b) {
     return [...(b?.allies || []), ...(b?.enemies || [])];
   }
 
   /**
    * 流畅：满条有目标就能出手。
-   * 敌我不限攻击距离（群体仍按目标半径溅射）；不再为接敌走位。
+   * 敌我不限攻击距离（群体仍按目标半径溅射）。
    */
   function canFlowStartAction(b, unit) {
     if (!unit || unit.hp <= 0) return false;
     if (unit.isHero) {
       const hero = actingHero(unit);
       if (!hero) return livingEnemies(b).length > 0;
-      if (b.autoMode > 0) {
+      if (usesAutoCast(b)) {
         let { skillId } = nextAutoSkill(hero, unit.rotIndex || 0);
         if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
         if (isBuffSkill(skillId) || isHealSkill(skillId)) return true;
@@ -2048,6 +2054,13 @@ export function createBattleApi(ctx) {
     const btn = $("btnAuto");
     if (!btn) return;
     const mode = b.autoMode || 0;
+    if (isFlowBattle(b)) {
+      // 流畅永远自动放技能；按钮只调倍速
+      btn.textContent = FLOW_SPEED_LABELS[mode] || "倍速·1x";
+      btn.classList.toggle("on", true);
+      btn.setAttribute("aria-pressed", "true");
+      return;
+    }
     btn.textContent = AUTO_MODE_LABELS[mode] || "自动";
     btn.classList.toggle("on", mode > 0);
     btn.setAttribute("aria-pressed", mode > 0 ? "true" : "false");
@@ -2055,15 +2068,11 @@ export function createBattleApi(ctx) {
 
   function pickReadyUnit(b) {
     let ready = null;
-    const waitingId = b.waitingPlayer && b.readyHero ? b.readyHero.id : null;
-    const manualWait = !!(b.waitingPlayer && !(b.autoMode > 0));
     for (const u of battleUnits(b)) {
       if (u.hp <= 0 || isStunned(u)) continue;
       if (u.gauge < GAUGE_MAX) continue;
-      // 正在等选招的人不能再被挑去做「下一个行动」
-      if (waitingId && u.id === waitingId) continue;
-      // 手操等招：其他英雄满条只排队，先让怪物出手；否则会反复抢 readyHero 导致全场假死
-      if (manualWait && u.isHero) continue;
+      // 经典手操：正在等选招的人跳过
+      if (b.waitingPlayer && b.readyHero?.id === u.id) continue;
       if (isFlowBattle(b) && !canFlowStartAction(b, u)) continue;
       if (!ready || effectiveSpd(u) > effectiveSpd(ready)) ready = u;
     }
@@ -2073,66 +2082,23 @@ export function createBattleApi(ctx) {
   async function finishUnitAction(b) {
     if (!b || b.ending) return;
     if (!livingEnemies(b).length) return endBattle("win");
-    // 灵体存在时：非灵体友军全灭即失败；否则全灭失败
     if (b.allies.some((a) => a.spiritForm)) {
       if (!mortalAllies(b).length) return endBattle("lose");
     } else if (!livingAllies(b).length) {
       return endBattle("lose");
     }
 
-    // 流畅下手操等招时，别人出手完要恢复选招状态
-    const keepHero =
-      isFlowBattle(b) &&
-      b.waitingPlayer &&
-      b.readyHero &&
-      b.readyHero.hp > 0
-        ? b.readyHero
-        : null;
-
     b.waitingPlayer = false;
     b.readyHero = null;
     b.autoResolving = false;
     b.actingId = null;
 
-    // 已有满条单位时立刻接上，避免 Boss 顶满条却要等小怪先打完才动
     const next = pickReadyUnit(b);
-    if (next && (!keepHero || next.id !== keepHero.id)) {
+    if (next) {
       b.busy = true;
       setBattleButtons(false);
       updateGaugeBars(b);
-      if (keepHero) {
-        b.waitingPlayer = true;
-        b.readyHero = keepHero;
-      }
       await unitAct(b, next, { chained: true });
-      // unitAct 可能清掉 waiting；链式结束后若仍要手操则补回
-      if (
-        keepHero &&
-        keepHero.hp > 0 &&
-        isFlowBattle(b) &&
-        !b.ending &&
-        !b.waitingPlayer
-      ) {
-        b.waitingPlayer = true;
-        b.readyHero = keepHero;
-        b.actingId = keepHero.id;
-        b.busy = false;
-        updateBattleSkillButtons(keepHero);
-        setBattleButtons(true);
-        $("btnFlee").disabled = false;
-      }
-      return;
-    }
-
-    if (keepHero) {
-      b.waitingPlayer = true;
-      b.readyHero = keepHero;
-      b.actingId = keepHero.id;
-      b.busy = false;
-      updateBattleSkillButtons(keepHero);
-      setBattleButtons(true);
-      $("btnFlee").disabled = false;
-      updateGaugeBars(b);
       return;
     }
 
@@ -2144,25 +2110,21 @@ export function createBattleApi(ctx) {
   async function runHeroAutoSkill(b, unit) {
     if (!b || !unit || b.ending || b.autoResolving) return;
     if (isFlowBattle(b) && !canFlowStartAction(b, unit)) {
-      // 动不了就放弃这次等待，避免 tick 只卡在 readyHero 上
-      unit.gauge = GAUGE_MAX;
-      b.autoResolving = false;
-      b.busy = false;
-      b.actingId = null;
-      if (b.waitingPlayer && b.readyHero?.id === unit.id) {
-        b.waitingPlayer = false;
-        b.readyHero = null;
-      }
+      // 无目标：吞掉本回合，接上下一个满条单位
+      unit.gauge = 0;
+      await finishUnitAction(b);
       return;
     }
     b.autoResolving = true;
     b.busy = true;
     b.waitingPlayer = false;
+    b.readyHero = null;
     b.actingId = unit.id;
     setBattleButtons(false);
 
     syncHeroHp(b);
     if (unit.hp <= 0) {
+      unit.gauge = 0;
       await finishUnitAction(b);
       return;
     }
@@ -2172,10 +2134,15 @@ export function createBattleApi(ctx) {
     if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
     unit.rotIndex = nextIndex;
     try {
-      const ok = await resolveHeroSkill(b, unit, skillId);
-      if (isFlowBattle(b)) {
-        unit.gauge = ok ? 0 : GAUGE_MAX;
+      let ok = await resolveHeroSkill(b, unit, skillId);
+      if (!ok) {
+        const basic = basicAttackId(hero);
+        if (basic && basic !== skillId) {
+          ok = await resolveHeroSkill(b, unit, basic);
+        }
       }
+      // 条满就该打完这一下；失败也清空，轮到下一个人
+      unit.gauge = 0;
     } finally {
       await finishUnitAction(b);
     }
@@ -2185,78 +2152,48 @@ export function createBattleApi(ctx) {
     if (!b || b.ending) return;
     if (b.busy && !opts.chained) return;
     if (isFlowBattle(b) && !canFlowStartAction(b, unit)) {
-      unit.gauge = GAUGE_MAX;
+      unit.gauge = 0;
+      if (opts.chained) await finishUnitAction(b);
+      else {
+        b.busy = false;
+        b.actingId = null;
+      }
       return;
     }
-    const holdHero =
-      isFlowBattle(b) &&
-      b.waitingPlayer &&
-      b.readyHero &&
-      unit.id !== b.readyHero.id
-        ? b.readyHero
-        : null;
 
     b.busy = true;
-    if (!holdHero) {
-      b.waitingPlayer = false;
-      b.readyHero = null;
-    }
+    b.waitingPlayer = false;
+    b.readyHero = null;
     b.actingId = unit.id;
     setBattleButtons(false);
+    // 经典：一出手就清空；流畅：出手结束再清（见各分支）
     if (!isFlowBattle(b)) unit.gauge = 0;
 
     if (unit.isHero) {
-      if (!(b.autoMode > 0)) {
-        // 已有人在等选招：绝不抢 readyHero（否则满条英雄互相抢、怪物永不动）
-        if (holdHero) {
-          b.busy = false;
-          b.actingId = null;
-          b.waitingPlayer = true;
-          b.readyHero = holdHero;
-          return;
-        }
-        b.waitingPlayer = true;
-        b.readyHero = unit;
-        if (isFlowBattle(b)) b.busy = false;
-        updateBattleSkillButtons(unit);
-        setBattleButtons(true);
-        $("btnFlee").disabled = false;
-        $("battleActions")?.scrollIntoView?.({
-          block: "nearest",
-          behavior: "smooth",
-        });
-        const toast = $("lootToast") || $("toast");
-        if (toast) {
-          toast.textContent = `${unit.name} 行动：点底部技能出手（或开自动）`;
-          toast.classList.remove("hidden");
-          clearTimeout(toast._pickSkillTimer);
-          toast._pickSkillTimer = setTimeout(
-            () => toast.classList.add("hidden"),
-            2200
-          );
-        }
-        updateGaugeBars(b);
+      // 流畅永远自动放技能；经典仅开「自动」时如此
+      if (usesAutoCast(b)) {
+        await runHeroAutoSkill(b, unit);
         return;
       }
-      await runHeroAutoSkill(b, unit);
+      // 经典手操：等点底部技能
+      b.waitingPlayer = true;
+      b.readyHero = unit;
+      updateBattleSkillButtons(unit);
+      setBattleButtons(true);
+      $("btnFlee").disabled = false;
+      updateGaugeBars(b);
       return;
     }
 
     try {
       syncHeroHp(b);
       if (unit.hp <= 0) {
-        if (isFlowBattle(b)) unit.gauge = 0;
+        unit.gauge = 0;
         return;
       }
-      const ok = await resolveEnemySkill(b, unit);
-      if (isFlowBattle(b)) {
-        unit.gauge = ok === false ? GAUGE_MAX : 0;
-      }
+      await resolveEnemySkill(b, unit);
+      unit.gauge = 0;
     } finally {
-      if (holdHero && holdHero.hp > 0) {
-        b.waitingPlayer = true;
-        b.readyHero = holdHero;
-      }
       await finishUnitAction(b);
     }
   }
@@ -2334,26 +2271,15 @@ export function createBattleApi(ctx) {
     syncHeroHp(b);
     updateGaugeBars(b);
 
+    // 流畅不等人点技能；经典手操才可能 waitingPlayer
     if (b.autoMode > 0 && b.waitingPlayer && b.readyHero && !b.autoResolving) {
-      const waiter = b.readyHero;
-      if (!isFlowBattle(b) || canFlowStartAction(b, waiter)) {
-        void runHeroAutoSkill(b, waiter);
-        return;
-      }
-      // readyHero 当前无法出手：放下等待，本帧改挑其他人（含怪物）
-      b.waitingPlayer = false;
-      b.readyHero = null;
-      b.actingId = null;
+      void runHeroAutoSkill(b, b.readyHero);
+      return;
     }
 
-    if (!b.busy && !b.autoResolving) {
-      if (b.waitingPlayer && isFlowBattle(b)) {
-        const ready = pickReadyUnit(b);
-        if (ready) void unitAct(b, ready);
-      } else if (!b.waitingPlayer) {
-        const ready = pickReadyUnit(b);
-        if (ready) void unitAct(b, ready);
-      }
+    if (!b.busy && !b.autoResolving && !b.waitingPlayer) {
+      const ready = pickReadyUnit(b);
+      if (ready) void unitAct(b, ready);
     }
   }
 
