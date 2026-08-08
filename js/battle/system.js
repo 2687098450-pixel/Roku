@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=173";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=173";
+import { $, clamp, irand } from "../core/utils.js?v=174";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=174";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=173";
-import { mergeStackableTools } from "../characters/affixItems.js?v=173";
+} from "../characters/omni/index.js?v=174";
+import { mergeStackableTools } from "../characters/affixItems.js?v=174";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=173";
+} from "../characters/progression.js?v=174";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=173";
-import { buildEncounter } from "../monsters/roster.js?v=173";
+} from "../characters/skills.js?v=174";
+import { buildEncounter } from "../monsters/roster.js?v=174";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=173";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=173";
+} from "../monsters/skills.js?v=174";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=174";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=173";
-import { createTicker } from "../core/time.js?v=173";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=173";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=173";
+} from "../characters/stats.js?v=174";
+import { createTicker } from "../core/time.js?v=174";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=174";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=174";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=173";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=173";
+} from "./status.js?v=174";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=174";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -87,7 +87,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=173";
+} from "./timing.js?v=174";
 import {
   boardDist,
   boardXY,
@@ -100,7 +100,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=173";
+} from "./grid.js?v=174";
 
 export function createBattleApi(ctx) {
   const {
@@ -1807,6 +1807,7 @@ export function createBattleApi(ctx) {
       skillId: used,
       statsId: hero?.statsId || "",
       color: hero?.color || ally.color || "",
+      battleSpeed: b.battleSpeed || 1,
       shotDuration: skillAnimMs({
         style,
         skillId: used,
@@ -2035,6 +2036,7 @@ export function createBattleApi(ctx) {
         skillId: skill.id,
         statsId: "enemy",
         color: actor.color || "",
+        battleSpeed: b.battleSpeed || 1,
         shotDuration: skillAnimMs({
           style: skill.style || "melee",
           skillId: skill.id,
@@ -2076,6 +2078,7 @@ export function createBattleApi(ctx) {
       skillId: skill.id,
       statsId: "enemy",
       color: actor.color || "",
+      battleSpeed: b.battleSpeed || 1,
       shotDuration: skillAnimMs({
         style: skill.style || "melee",
         skillId: skill.id,
@@ -2306,7 +2309,14 @@ export function createBattleApi(ctx) {
   function toggleAuto() {
     const b = getState().battle;
     if (!b || b.ending) return;
-    const next = ((b.autoMode || 0) + 1) % 4;
+    let next;
+    if (isFlowBattle(b)) {
+      // 流畅：1x → 1.5x → 2x → 1x（不再空点一档）
+      const cur = b.autoMode >= 1 ? b.autoMode : 1;
+      next = cur >= 3 ? 1 : cur + 1;
+    } else {
+      next = ((b.autoMode || 0) + 1) % 4;
+    }
     b.autoMode = next;
     b.battleSpeed = battleSpeedFromMode(next);
     setBattleAutoMode(next);
@@ -2515,6 +2525,7 @@ export function createBattleApi(ctx) {
             skillId: "green_bloom",
             statsId: "green",
             color: hero?.color || ally.color || "",
+            battleSpeed: b.battleSpeed || 1,
             shotDuration: ANIM_SLOW_MS,
           });
           for (const t of list) {

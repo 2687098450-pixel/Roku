@@ -1,12 +1,12 @@
 /** 从力智敏换算战斗属性，再叠装备 */
 
-import { getCharacterStats } from "../stats.js?v=173";
-import { levelPrimaryBonus } from "../progression.js?v=173";
+import { getCharacterStats } from "../stats.js?v=174";
+import { levelPrimaryBonus } from "../progression.js?v=174";
 import {
   addPrimary,
   convertPrimary,
   readPrimary,
-} from "../primary.js?v=173";
+} from "../primary.js?v=174";
 
 const sheet = getCharacterStats("omni");
 export const BASE = { ...sheet.base };

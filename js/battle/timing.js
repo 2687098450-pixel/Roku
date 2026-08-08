@@ -24,7 +24,7 @@ export function skillAnimMs({ style, skillId, pace } = {}) {
   return ANIM_SLOW_MS;
 }
 
-/** 自动模式 0=关 1=1x 2=1.5x 3=2x */
+/** 0=关/1x  1=1x  2=1.5x  3=2x；缩放行动条 + 技能动画 */
 export function battleSpeedFromMode(mode) {
   const m = Math.floor(Number(mode) || 0);
   if (m <= 1) return 1;

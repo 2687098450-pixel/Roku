@@ -1,4 +1,18 @@
-import { $, wait } from "../core/utils.js?v=173";
+import { $, wait } from "../core/utils.js?v=174";
+
+/** 战斗倍速：由 playSkillAnim 写入，waitS 缩短动画等待 */
+let _animSpeed = 1;
+
+function waitS(ms) {
+  const sp = Math.max(0.25, _animSpeed || 1);
+  return wait(Math.max(16, Math.round((Number(ms) || 0) / sp)));
+}
+
+function msS(ms) {
+  const sp = Math.max(0.25, _animSpeed || 1);
+  return Math.max(16, Math.round((Number(ms) || 0) / sp));
+}
+
 
 function centerOf(el) {
   const r = el.getBoundingClientRect();
@@ -118,7 +132,7 @@ export async function animMelee(attackerId, targetId, profile = {}) {
   const lungeMs = Math.max(80, Math.floor(totalMs * 0.31));
   const returnMs = Math.max(80, Math.floor(totalMs * 0.38));
   if (!wrap || !targetEl) {
-    await wait(Math.min(totalMs, 120));
+    await waitS(Math.min(totalMs, 120));
     return;
   }
   const a = centerOf(wrap);
@@ -128,9 +142,9 @@ export async function animMelee(attackerId, targetId, profile = {}) {
   const theme = profile.theme || "enemy";
   const impactKind = profile.impact || "punch";
 
-  wrap.style.transition = `transform ${(lungeMs / 1000).toFixed(2)}s cubic-bezier(.2,.8,.2,1)`;
+  wrap.style.transition = `transform ${(msS(lungeMs) / 1000).toFixed(2)}s cubic-bezier(.2,.8,.2,1)`;
   wrap.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
-  await wait(lungeMs);
+  await waitS(lungeMs);
 
   const field = fieldRect();
   if (field) {
@@ -140,22 +154,22 @@ export async function animMelee(attackerId, targetId, profile = {}) {
     const slash = spawnFx(`fx-slash theme-${theme}`, mid.x, mid.y);
     if (slash) {
       slash.style.setProperty("--rot", `${rot}deg`);
-      wait(300).then(() => slash.remove());
+      waitS(300).then(() => slash.remove());
     }
     const punch = spawnFx(`fx-impact impact-${impactKind} theme-${theme}`, hit.x, hit.y);
-    if (punch) wait(360).then(() => punch.remove());
+    if (punch) waitS(360).then(() => punch.remove());
     const ring = spawnFx(`fx-hit-ring theme-${theme}`, hit.x, hit.y);
-    if (ring) wait(320).then(() => ring.remove());
+    if (ring) waitS(320).then(() => ring.remove());
     targetEl.classList.remove("melee-punched");
     void targetEl.offsetWidth;
     targetEl.classList.add("melee-punched");
-    wait(280).then(() => targetEl.classList.remove("melee-punched"));
+    waitS(280).then(() => targetEl.classList.remove("melee-punched"));
   }
 
-  await wait(Math.max(20, Math.floor(totalMs * 0.1)));
-  wrap.style.transition = `transform ${(returnMs / 1000).toFixed(2)}s ease-in`;
+  await waitS(Math.max(20, Math.floor(totalMs * 0.1)));
+  wrap.style.transition = `transform ${(msS(returnMs) / 1000).toFixed(2)}s ease-in`;
   wrap.style.transform = "translate(0, 0) scale(1)";
-  await wait(returnMs);
+  await waitS(returnMs);
   wrap.style.transition = "";
   wrap.style.transform = "";
 }
@@ -181,33 +195,33 @@ export function playReflectSpikes(fromId, toHits) {
 
   const a = toField(centerOf(fromEl), field);
   const aura = spawnFx("fx-reflect-aura theme-yellow", a.x, a.y);
-  if (aura) wait(320).then(() => aura.remove());
+  if (aura) waitS(320).then(() => aura.remove());
 
   hits.forEach((hit, i) => {
     const targetEl = document.querySelector(`.battle-unit[data-id="${hit.id}"]`);
     if (!targetEl) return;
     const opacity = Math.max(0.18, Math.min(1, Number(hit.opacity) || 1));
     const t = toField(centerOf(targetEl), field);
-    wait(i * 36).then(async () => {
+    waitS(i * 36).then(async () => {
       const needle = spawnFx("fx-needle theme-yellow", a.x, a.y);
       if (!needle) return;
       needle.style.opacity = String(opacity);
       const rot = angleDeg(a, t);
       needle.style.transform = `rotate(${rot}deg) scaleX(0.85)`;
-      await wait(12);
+      await waitS(12);
       needle.style.transition =
         "left 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), top 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), transform 0.22s ease-out, opacity 0.22s ease-out";
       needle.style.left = `${t.x}px`;
       needle.style.top = `${t.y}px`;
       needle.style.transform = `rotate(${rot}deg) scaleX(1.15)`;
-      await wait(230);
+      await waitS(230);
       needle.style.opacity = "0";
-      await wait(40);
+      await waitS(40);
       needle.remove();
       const prick = spawnFx("fx-needle-hit theme-yellow", t.x, t.y);
       if (prick) {
         prick.style.opacity = String(opacity);
-        wait(280).then(() => prick.remove());
+        waitS(280).then(() => prick.remove());
       }
       if (opacity >= 0.45) {
         targetEl.classList.remove("hit");
@@ -223,26 +237,26 @@ async function flyProjectile(fromId, toId, className, duration = 280) {
   const targetEl = document.querySelector(`.battle-unit[data-id="${toId}"]`);
   const field = fieldRect();
   if (!wrap || !targetEl || !field) {
-    await wait(duration);
+    await waitS(duration);
     return null;
   }
   const a = toField(centerOf(wrap), field);
   const t = toField(centerOf(targetEl), field);
   const el = spawnFx(className, a.x, a.y);
   if (!el) {
-    await wait(duration);
+    await waitS(duration);
     return null;
   }
   const rot = angleDeg(a, t);
   el.style.setProperty("--rot", `${rot}deg`);
   el.style.transform = `rotate(${rot}deg)`;
-  await wait(20);
-  const sec = (duration / 1000).toFixed(2);
+  await waitS(20);
+  const sec = (msS(duration) / 1000).toFixed(2);
   el.style.transition = `left ${sec}s ease-in, top ${sec}s ease-in, transform ${sec}s ease-in`;
   el.style.left = `${t.x}px`;
   el.style.top = `${t.y}px`;
   el.style.transform = `rotate(${rot}deg) scale(1.15)`;
-  await wait(duration + 20);
+  await waitS(duration + 20);
   return { el, t };
 }
 
@@ -261,7 +275,7 @@ async function animBolt(attackerId, targetId, profile) {
   hit.el.remove();
   if (profile.impact) {
     const boom = spawnFx(`fx-impact impact-${profile.impact} theme-${theme}`, hit.t.x, hit.t.y);
-    if (boom) wait(380).then(() => boom.remove());
+    if (boom) waitS(380).then(() => boom.remove());
   }
 }
 
@@ -273,7 +287,7 @@ async function animVolley(attackerId, targetId, profile) {
   for (let i = 0; i < n; i++) {
     jobs.push(
       (async () => {
-        await wait(i * 70);
+        await waitS(i * 70);
         const hit = await flyProjectile(
           attackerId,
           targetId,
@@ -283,7 +297,7 @@ async function animVolley(attackerId, targetId, profile) {
         if (hit) {
           const spark = spawnFx(`fx-impact impact-spark theme-${theme}`, hit.t.x, hit.t.y);
           hit.el.remove();
-          if (spark) wait(280).then(() => spark.remove());
+          if (spark) waitS(280).then(() => spark.remove());
         }
       })()
     );
@@ -304,7 +318,7 @@ async function animHeal(attackerId, targetId, profile) {
   hit.el.remove();
   const ring = spawnFx(`fx-impact impact-heal theme-${theme}`, hit.t.x, hit.t.y);
   const linger = Math.max(140, Math.floor(duration * 1.2));
-  if (ring) wait(linger).then(() => ring.remove());
+  if (ring) waitS(linger).then(() => ring.remove());
 }
 
 async function animHealBloom(attackerId, targetId, profile) {
@@ -320,9 +334,9 @@ async function animHealBloom(attackerId, targetId, profile) {
     if (!petal) continue;
     petal.style.setProperty("--dx", `${(i - 1) * 28}px`);
     petal.style.setProperty("--dy", `${-18 - i * 10}px`);
-    wait(petalMs).then(() => petal.remove());
+    waitS(petalMs).then(() => petal.remove());
   }
-  if (duration < 200) await wait(Math.max(40, duration * 0.35));
+  if (duration < 200) await waitS(Math.max(40, duration * 0.35));
 }
 
 async function animBuffRing(attackerId, profile) {
@@ -330,14 +344,14 @@ async function animBuffRing(attackerId, profile) {
   const field = fieldRect();
   const duration = profile.duration ?? 180;
   if (!wrap || !field) {
-    await wait(Math.min(duration, 200));
+    await waitS(Math.min(duration, 200));
     return;
   }
   const a = toField(centerOf(wrap), field);
   const theme = profile.theme || "pink";
   const ring = spawnFx(`fx-buff-ring theme-${theme}`, a.x, a.y);
   wrap.classList.add("fx-buffed");
-  await wait(duration);
+  await waitS(duration);
   wrap.classList.remove("fx-buffed");
   if (ring) ring.remove();
 }
@@ -349,7 +363,7 @@ async function animQuake(attackerId, targetId, profile) {
   if (!field || !targetEl) return;
   const t = toField(centerOf(targetEl), field);
   const shock = spawnFx(`fx-shockwave theme-omni`, t.x, t.y);
-  if (shock) wait(450).then(() => shock.remove());
+  if (shock) waitS(450).then(() => shock.remove());
 }
 
 /**
@@ -359,8 +373,9 @@ async function animQuake(attackerId, targetId, profile) {
  * @param {{ skillId?: string, statsId?: string, color?: string }} [meta]
  */
 export async function playSkillAnim(style, attackerId, primaryTargetId, meta = {}) {
+  _animSpeed = Math.max(0.25, Number(meta.battleSpeed) || 1);
   if (!primaryTargetId) {
-    await wait(100);
+    await waitS(100);
     return;
   }
   const profile = resolveFxProfile(style, meta);
