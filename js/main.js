@@ -1,4 +1,4 @@
-import { $ } from "./core/utils.js?v=179";
+import { $ } from "./core/utils.js?v=180";
 import {
   canWalk,
   isExitCell,
@@ -7,9 +7,9 @@ import {
   screenToTile,
   VIEW_COLS,
   preloadMonsterImages,
-} from "./map/island15.js?v=179";
-import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=179";
-import { MAX_FLOOR } from "./map/floors.js?v=179";
+} from "./map/island15.js?v=180";
+import { buildFloor, openFloorSecret } from "./map/dungeon.js?v=180";
+import { MAX_FLOOR } from "./map/floors.js?v=180";
 import {
   createOmniHero,
   createPinkHero,
@@ -25,17 +25,17 @@ import {
   makeItem,
   toBagEquip,
   refreshHeroStats,
-} from "./characters/omni/index.js?v=179";
-import { getSavedFormation, setCharacterSettingsKey } from "./characters/stats.js?v=179";
-import { moveSlimeOnce } from "./monsters/slime.js?v=179";
-import { createBattleApi } from "./battle/system.js?v=179";
-import { createUI } from "./ui/shell.js?v=179";
+} from "./characters/omni/index.js?v=180";
+import { getSavedFormation, setCharacterSettingsKey } from "./characters/stats.js?v=180";
+import { moveSlimeOnce } from "./monsters/slime.js?v=180";
+import { createBattleApi } from "./battle/system.js?v=180";
+import { createUI } from "./ui/shell.js?v=180";
 import {
   loadProgressIntoState,
   flushSave,
   sanitizeInventory,
   setSaveKey,
-} from "./core/save.js?v=179";
+} from "./core/save.js?v=180";
 import {
   PACE_MODES,
   PACE_META,
@@ -46,7 +46,7 @@ import {
   writePacePref,
   migrateLegacyForMode,
   peekModeSaveSummary,
-} from "./core/gameMode.js?v=179";
+} from "./core/gameMode.js?v=180";
 
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
@@ -693,16 +693,6 @@ function bindExplore() {
     const localY = (e.clientY - rect.top) * scaleY;
     const { x, y } = screenToTile(state.cam, state.tile, localX, localY);
     pathToTile(x, y);
-  });
-
-  $("btnPaceHome")?.addEventListener("click", () => {
-    if (!state.gameStarted) return;
-    if (state.mode === "battle") {
-      showToast("战斗中无法切换节奏", 1800);
-      return;
-    }
-    flushSave(state);
-    location.reload();
   });
 
   window.addEventListener("keydown", (e) => {

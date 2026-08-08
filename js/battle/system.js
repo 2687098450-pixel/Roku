@@ -1,11 +1,11 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=179";
+import { $, clamp, irand } from "../core/utils.js?v=180";
 import {
   playSkillAnim,
   playReflectSpikes,
   setBattleAnimSpeed,
-} from "./anim.js?v=179";
+} from "./anim.js?v=180";
 import {
   refreshHeroStats,
   skillPower,
@@ -30,8 +30,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=179";
-import { mergeStackableTools } from "../characters/affixItems.js?v=179";
+} from "../characters/omni/index.js?v=180";
+import { mergeStackableTools } from "../characters/affixItems.js?v=180";
 import {
   gainExp,
   splitExp,
@@ -41,30 +41,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=179";
+} from "../characters/progression.js?v=180";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=179";
-import { buildEncounter } from "../monsters/roster.js?v=179";
+} from "../characters/skills.js?v=180";
+import { buildEncounter } from "../monsters/roster.js?v=180";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=179";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=179";
+} from "../monsters/skills.js?v=180";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=180";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=179";
-import { createTicker } from "../core/time.js?v=179";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=179";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=179";
+} from "../characters/stats.js?v=180";
+import { createTicker } from "../core/time.js?v=180";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=180";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=180";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -79,8 +79,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=179";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=179";
+} from "./status.js?v=180";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=180";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -91,7 +91,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=179";
+} from "./timing.js?v=180";
 import {
   boardDist,
   boardXY,
@@ -104,7 +104,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=179";
+} from "./grid.js?v=180";
 
 export function createBattleApi(ctx) {
   const {

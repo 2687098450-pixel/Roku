@@ -4075,15 +4075,6 @@ body:has(#formationModal:not(.hidden)) #explore .unit-ico .shape {
   background: rgba(255, 255, 255, 0.45);
 }
 
-.menu-fab .ico-pace {
-  background:
-    linear-gradient(90deg, #7ad0a0 0 48%, transparent 48%),
-    linear-gradient(90deg, transparent 52%, #f0b35a 52% 100%),
-    #fff3d8;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-}
-
 /* 背包弹窗 */
 .modal-card.bag-card,
 .modal-card.form-card {
