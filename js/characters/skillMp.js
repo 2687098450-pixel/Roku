@@ -4,8 +4,8 @@
  * - 其余主动技：10 / 15 两档
  */
 
-import { SKILL_POWER } from "./skills.js?v=178";
-import { basicAttackId } from "./omni/autoAttack.js?v=178";
+import { SKILL_POWER } from "./skills.js?v=179";
+import { basicAttackId } from "./omni/autoAttack.js?v=179";
 
 /** 各英雄满蓝（统一 100） */
 export const HERO_MAX_MP = {

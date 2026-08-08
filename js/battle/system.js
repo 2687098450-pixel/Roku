@@ -1,11 +1,11 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=178";
+import { $, clamp, irand } from "../core/utils.js?v=179";
 import {
   playSkillAnim,
   playReflectSpikes,
   setBattleAnimSpeed,
-} from "./anim.js?v=178";
+} from "./anim.js?v=179";
 import {
   refreshHeroStats,
   skillPower,
@@ -30,8 +30,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=178";
-import { mergeStackableTools } from "../characters/affixItems.js?v=178";
+} from "../characters/omni/index.js?v=179";
+import { mergeStackableTools } from "../characters/affixItems.js?v=179";
 import {
   gainExp,
   splitExp,
@@ -41,30 +41,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=178";
+} from "../characters/progression.js?v=179";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=178";
-import { buildEncounter } from "../monsters/roster.js?v=178";
+} from "../characters/skills.js?v=179";
+import { buildEncounter } from "../monsters/roster.js?v=179";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=178";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=178";
+} from "../monsters/skills.js?v=179";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=179";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=178";
-import { createTicker } from "../core/time.js?v=178";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=178";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=178";
+} from "../characters/stats.js?v=179";
+import { createTicker } from "../core/time.js?v=179";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=179";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=179";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -79,8 +79,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=178";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=178";
+} from "./status.js?v=179";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=179";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -91,7 +91,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=178";
+} from "./timing.js?v=179";
 import {
   boardDist,
   boardXY,
@@ -104,7 +104,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=178";
+} from "./grid.js?v=179";
 
 export function createBattleApi(ctx) {
   const {
@@ -1305,7 +1305,6 @@ export function createBattleApi(ctx) {
     if (!hero?.skills?.some((s) => s.id === "yellow_reflect")) return;
     const lv = getSkillLevel(hero, "yellow_reflect");
     const p = getReflectParams(lv);
-    // 唯一装挂在 affixes 时也由 heroHasUnique 识别
     const hasUnique = heroHasUnique(hero, "yellow_reflect_shield");
     let allyRatio = applyReflectAllyUnique(p.allyRatio, hasUnique);
     const enemyDmg = reflectBaseDamage(victim);
@@ -1558,7 +1557,6 @@ export function createBattleApi(ctx) {
     }
     p.walk += walked;
     if (p.walk >= 10 && !p.lostThisCycle) {
-      // 脉动流失：按治疗者造成的真实伤害结算（反伤由 dealDamage → triggerReflect 自行处理）
       const lost = dealDamage(unit, p.tickDmg, {
         trueDamage: true,
         skipHitCheck: true,
@@ -1568,7 +1566,6 @@ export function createBattleApi(ctx) {
       p.lostThisCycle = true;
       if (healer?.windEnchant?.mendPulse || healer?.windEnchant?.unique) {
         const bb = getState().battle;
-        // 附魔段与脉动打同一目标
         if (bb) tryWindEnchantExtra(bb, healer, unit, { allowAlly: true });
       }
     }

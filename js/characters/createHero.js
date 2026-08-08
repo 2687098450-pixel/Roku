@@ -1,15 +1,15 @@
 /** 按总表 id 创建可上阵角色 */
 
-import { getCharacterStats, getAutoRotation } from "./stats.js?v=178";
-import { calcStats } from "./omni/attributes.js?v=178";
-import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=178";
+import { getCharacterStats, getAutoRotation } from "./stats.js?v=179";
+import { calcStats } from "./omni/attributes.js?v=179";
+import { createDefaultEquip, sumEquipBonus } from "./omni/equipment.js?v=179";
 import {
   createHeroSkills,
   refreshSkillTexts,
   attrPassiveSkillId,
   scaledPassiveBoost,
   createPinkSkills,
-} from "./skills.js?v=178";
+} from "./skills.js?v=179";
 import {
   expToNext,
   getSkillLevel,
@@ -17,9 +17,9 @@ import {
   DEFAULT_CRIT_DMG,
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "./progression.js?v=178";
-import { normalizeSpdScale } from "./seals.js?v=178";
-import { readPrimary } from "./primary.js?v=178";
+} from "./progression.js?v=179";
+import { normalizeSpdScale } from "./seals.js?v=179";
+import { readPrimary } from "./primary.js?v=179";
 
 /** 旧存档四维 → 力智敏（按角色表重写底座） */
 function migrateHeroPrimary(hero) {

@@ -1,12 +1,12 @@
 /** 力智敏（含装备）→ convertPrimary → 战斗属性 */
 
-import { getCharacterStats } from "../stats.js?v=178";
-import { levelPrimaryBonus } from "../progression.js?v=178";
+import { getCharacterStats } from "../stats.js?v=179";
+import { levelPrimaryBonus } from "../progression.js?v=179";
 import {
   addPrimary,
   convertPrimary,
   readPrimary,
-} from "../primary.js?v=178";
+} from "../primary.js?v=179";
 
 const sheet = getCharacterStats("omni");
 export const BASE = { ...sheet.base };

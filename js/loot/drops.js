@@ -9,10 +9,10 @@ import {
   affixCountForRarity,
   makeUniqueAffix,
   rollAffixes,
-} from "../characters/omni/equipment.js?v=178";
-import { makeFoolSeal } from "../characters/seals.js?v=178";
-import { makeAffixCondenser } from "../characters/affixItems.js?v=178";
-import { getFloorDef } from "../map/floors.js?v=178";
+} from "../characters/omni/equipment.js?v=179";
+import { makeFoolSeal } from "../characters/seals.js?v=179";
+import { makeAffixCondenser } from "../characters/affixItems.js?v=179";
+import { getFloorDef } from "../map/floors.js?v=179";
 
 const NORMAL_POOL = [
   { name: "皮帽", slot: "helmet", base: { str: 1 }, icon: "hat.png" },
