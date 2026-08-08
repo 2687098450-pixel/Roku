@@ -1,7 +1,7 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=168";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=168";
+import { $, clamp, irand } from "../core/utils.js?v=169";
+import { playSkillAnim, playReflectSpikes } from "./anim.js?v=169";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +26,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=168";
-import { mergeStackableTools } from "../characters/affixItems.js?v=168";
+} from "../characters/omni/index.js?v=169";
+import { mergeStackableTools } from "../characters/affixItems.js?v=169";
 import {
   gainExp,
   splitExp,
@@ -37,30 +37,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=168";
+} from "../characters/progression.js?v=169";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=168";
-import { buildEncounter } from "../monsters/roster.js?v=168";
+} from "../characters/skills.js?v=169";
+import { buildEncounter } from "../monsters/roster.js?v=169";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=168";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=168";
+} from "../monsters/skills.js?v=169";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=169";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=168";
-import { createTicker } from "../core/time.js?v=168";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=168";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=168";
+} from "../characters/stats.js?v=169";
+import { createTicker } from "../core/time.js?v=169";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=169";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=169";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +75,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=168";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=168";
+} from "./status.js?v=169";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=169";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -86,7 +86,7 @@ import {
   skillAnimMs,
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
-} from "./timing.js?v=168";
+} from "./timing.js?v=169";
 import {
   boardDist,
   boardXY,
@@ -99,7 +99,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=168";
+} from "./grid.js?v=169";
 
 export function createBattleApi(ctx) {
   const {
@@ -1540,8 +1540,21 @@ export function createBattleApi(ctx) {
       const hero = heroById(ally.id);
       if (!hero) continue;
       hero.hp = Math.max(0, ally.hp);
-      if (ally.mp != null) hero.mp = Math.max(0, ally.mp);
+      // 蓝量以战斗单位为准单向同步到英雄；勿在出手中把英雄蓝写回单位
     }
+  }
+
+  function syncHeroMpFromUnit(ally) {
+    const hero = actingHero(ally);
+    if (!hero || !ally) return;
+    if (ally.mp != null) hero.mp = Math.max(0, ally.mp);
+  }
+
+  function syncUnitMpFromHero(ally) {
+    const hero = actingHero(ally);
+    if (!hero || !ally) return;
+    ally.mp = hero.mp;
+    ally.maxMp = hero.maxMp;
   }
 
   function afterBattleHeal() {
@@ -1672,6 +1685,21 @@ export function createBattleApi(ctx) {
     const basic = basicAttackId(hero);
     if (canUseSkill(b, basic, hero)) return basic;
     return null;
+  }
+
+  /** 自动：优先本格技能，不可用则找可用技/普攻，避免满条空转 */
+  function pickAutoSkillId(b, hero, unit, preferredId) {
+    if (isSilenced(unit) && unit.firstSkillDone) {
+      const basic = basicAttackId(hero);
+      return canUseSkill(b, basic, hero) ? basic : null;
+    }
+    if (preferredId && canUseSkill(b, preferredId, hero)) return preferredId;
+    return firstUsableSkill(b, hero);
+  }
+
+  /** 出手尝试结束：流畅也必须清空条，禁止「失败→满条→永久抢权」 */
+  function consumeActionGauge(unit) {
+    if (unit) unit.gauge = 0;
   }
 
   function syncWorldHp(b) {
@@ -2138,8 +2166,8 @@ export function createBattleApi(ctx) {
   async function runHeroAutoSkill(b, unit) {
     if (!b || !unit || b.ending || b.autoResolving) return;
     if (isFlowBattle(b) && !canFlowStartAction(b, unit)) {
-      // 还没走进射程：保持满条，继续走位
-      unit.gauge = GAUGE_MAX;
+      // 无目标：吞掉本回合，避免顶满条死循环
+      consumeActionGauge(unit);
       b.autoResolving = false;
       b.busy = false;
       b.actingId = null;
@@ -2151,22 +2179,31 @@ export function createBattleApi(ctx) {
     b.actingId = unit.id;
     setBattleButtons(false);
 
+    syncHeroMpFromUnit(unit);
     syncHeroHp(b);
     if (unit.hp <= 0) {
+      consumeActionGauge(unit);
       await finishUnitAction(b);
       return;
     }
 
     const hero = actingHero(unit);
     let { skillId, nextIndex } = nextAutoSkill(hero, unit.rotIndex || 0);
-    if (isSilenced(unit) && unit.firstSkillDone) skillId = basicAttackId(hero);
+    skillId = pickAutoSkillId(b, hero, unit, skillId);
     unit.rotIndex = nextIndex;
     try {
-      const ok = await resolveHeroSkill(b, unit, skillId);
-      if (isFlowBattle(b)) {
-        unit.gauge = ok ? 0 : GAUGE_MAX;
+      let ok = false;
+      if (skillId) ok = await resolveHeroSkill(b, unit, skillId);
+      if (!ok) {
+        const basic = basicAttackId(hero);
+        if (skillId !== basic && canUseSkill(b, basic, hero)) {
+          ok = await resolveHeroSkill(b, unit, basic);
+        }
       }
+      // 无论成败都清空条：失败重试会让高速角色独占、其他人满条假死
+      consumeActionGauge(unit);
     } finally {
+      syncUnitMpFromHero(unit);
       await finishUnitAction(b);
     }
   }
@@ -2174,11 +2211,21 @@ export function createBattleApi(ctx) {
   async function unitAct(b, unit, opts = {}) {
     if (!b || b.ending) return;
     if (b.busy && !opts.chained) return;
+
     if (isFlowBattle(b) && !canFlowStartAction(b, unit)) {
-      // 无目标时保持满条
-      unit.gauge = GAUGE_MAX;
+      consumeActionGauge(unit);
       return;
     }
+
+    // 自动英雄：交给 runHeroAutoSkill（自带锁）
+    if (unit.isHero && b.autoMode > 0) {
+      await runHeroAutoSkill(b, unit);
+      return;
+    }
+
+    // 同步上锁，防止同一帧 tick 并发开两个人
+    b.busy = true;
+
     const holdHero =
       isFlowBattle(b) &&
       b.waitingPlayer &&
@@ -2187,56 +2234,47 @@ export function createBattleApi(ctx) {
         ? b.readyHero
         : null;
 
-    b.busy = true;
     if (!holdHero) {
       b.waitingPlayer = false;
       b.readyHero = null;
     }
     b.actingId = unit.id;
     setBattleButtons(false);
-    // 流畅：出手成功后再清空条；经典：一出手就清空
-    if (!isFlowBattle(b)) unit.gauge = 0;
+    if (!isFlowBattle(b)) consumeActionGauge(unit);
 
     if (unit.isHero) {
-      if (!(b.autoMode > 0)) {
-        b.waitingPlayer = true;
-        b.readyHero = unit;
-        // 流畅：等选招时不锁 busy，别人满条仍可出手
-        if (isFlowBattle(b)) b.busy = false;
-        updateBattleSkillButtons(unit);
-        setBattleButtons(true);
-        $("btnFlee").disabled = false;
-        $("battleActions")?.scrollIntoView?.({
-          block: "nearest",
-          behavior: "smooth",
-        });
-        const toast = $("lootToast") || $("toast");
-        if (toast) {
-          toast.textContent = `${unit.name} 行动：点底部技能出手（或开自动）`;
-          toast.classList.remove("hidden");
-          clearTimeout(toast._pickSkillTimer);
-          toast._pickSkillTimer = setTimeout(
-            () => toast.classList.add("hidden"),
-            2200
-          );
-        }
-        updateGaugeBars(b);
-        return;
+      b.waitingPlayer = true;
+      b.readyHero = unit;
+      if (isFlowBattle(b)) b.busy = false;
+      updateBattleSkillButtons(unit);
+      setBattleButtons(true);
+      $("btnFlee").disabled = false;
+      $("battleActions")?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      });
+      const toast = $("lootToast") || $("toast");
+      if (toast) {
+        toast.textContent = `${unit.name} 行动：点底部技能出手（或开自动）`;
+        toast.classList.remove("hidden");
+        clearTimeout(toast._pickSkillTimer);
+        toast._pickSkillTimer = setTimeout(
+          () => toast.classList.add("hidden"),
+          2200
+        );
       }
-      await runHeroAutoSkill(b, unit);
+      updateGaugeBars(b);
       return;
     }
 
     try {
       syncHeroHp(b);
       if (unit.hp <= 0) {
-        if (isFlowBattle(b)) unit.gauge = 0;
+        consumeActionGauge(unit);
         return;
       }
-      const ok = await resolveEnemySkill(b, unit);
-      if (isFlowBattle(b)) {
-        unit.gauge = ok === false ? GAUGE_MAX : 0;
-      }
+      await resolveEnemySkill(b, unit);
+      consumeActionGauge(unit);
     } finally {
       if (holdHero && holdHero.hp > 0) {
         b.waitingPlayer = true;
@@ -2256,27 +2294,30 @@ export function createBattleApi(ctx) {
     b.actingId = unit.id;
     setBattleButtons(false);
     try {
+      syncHeroMpFromUnit(unit);
       syncHeroHp(b);
-      if (unit.hp <= 0) return;
-      const ok = await resolveHeroSkill(b, unit, skillId);
-      if (isFlowBattle(b)) {
-        unit.gauge = ok ? 0 : GAUGE_MAX;
-        if (!ok) {
-          // 技能未生效：回到可选招，别吞掉回合
-          b.waitingPlayer = true;
-          b.readyHero = unit;
-          updateBattleSkillButtons(unit);
-          setBattleButtons(true);
-          $("btnFlee").disabled = false;
-          b.busy = false;
-          return;
-        }
+      if (unit.hp <= 0) {
+        consumeActionGauge(unit);
+        return;
       }
+      const ok = await resolveHeroSkill(b, unit, skillId);
+      if (!ok) {
+        // 手操失败：回到选招，不吞条
+        b.waitingPlayer = true;
+        b.readyHero = unit;
+        updateBattleSkillButtons(unit);
+        setBattleButtons(true);
+        $("btnFlee").disabled = false;
+        b.busy = false;
+        return;
+      }
+      consumeActionGauge(unit);
     } finally {
       const cur = getState().battle;
       if (cur && cur.waitingPlayer && cur.readyHero?.id === unit.id) {
         /* 已恢复选招 */
       } else {
+        syncUnitMpFromHero(unit);
         await finishUnitAction(b);
       }
     }

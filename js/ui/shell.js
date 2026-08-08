@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=168";
+import { $, clamp, styleTag } from "../core/utils.js?v=169";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -57,23 +57,23 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=168";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=168";
-import { setSavedFormation } from "../characters/stats.js?v=168";
-import { resetGameLocalData } from "../core/save.js?v=168";
-import { createAllUniqueItems } from "../loot/drops.js?v=168";
-import { APP_VERSION } from "../core/version.js?v=168";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=168";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=168";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=168";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=168";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=168";
+} from "../characters/omni/index.js?v=169";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=169";
+import { setSavedFormation } from "../characters/stats.js?v=169";
+import { resetGameLocalData } from "../core/save.js?v=169";
+import { createAllUniqueItems } from "../loot/drops.js?v=169";
+import { APP_VERSION } from "../core/version.js?v=169";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=169";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=169";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=169";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=169";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=169";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
   sealIconUrl,
-} from "../characters/seals.js?v=168";
+} from "../characters/seals.js?v=169";
 import {
   isAffixItem,
   toolSortPriority,
@@ -84,7 +84,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=168";
+} from "../characters/affixItems.js?v=169";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
