@@ -4,7 +4,7 @@
  * - 品质 → 词条数量（白0 / 绿1 / 蓝2 / 紫3 / 橙4 / 红5）
  */
 
-import { scaleGoldGain } from "../../core/economy.js?v=175";
+import { scaleGoldGain } from "../../core/economy.js?v=176";
 
 export const SLOT_KEYS = [
   "helmet",
@@ -303,7 +303,21 @@ export function heroHasUnique(hero, uniqueId) {
   if (meta?.owner && hero.statsId !== meta.owner) return false;
   for (const key of SLOT_KEYS) {
     const it = hero.equip[key];
-    if (it?.uniqueId === uniqueId) return true;
+    if (!it) continue;
+    if (it.uniqueId === uniqueId) return true;
+    // 词条冷凝后可能只挂在 affixes 上
+    const aff = Array.isArray(it.affixes) ? it.affixes : [];
+    if (
+      aff.some(
+        (a) =>
+          a &&
+          (a.uniqueId === uniqueId ||
+            ((a.type === "unique" || a.uniqueId) &&
+              (a.uniqueId || a.id) === uniqueId))
+      )
+    ) {
+      return true;
+    }
   }
   return false;
 }

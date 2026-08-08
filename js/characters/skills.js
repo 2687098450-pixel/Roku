@@ -1,8 +1,8 @@
 /** 各职业技能定义与战斗数值 */
 
-import { getCharacterStats } from "./stats.js?v=175";
-import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=175";
-import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=175";
+import { getCharacterStats } from "./stats.js?v=176";
+import { getSkillLevel, getBaseSkillLevel, MAX_SKILL_LEVEL } from "./progression.js?v=176";
+import { heroHasUnique, sumSkillMods } from "./omni/equipment.js?v=176";
 
 function fmtSkillNum(n) {
   const x = Math.round(Number(n) * 100) / 100;
