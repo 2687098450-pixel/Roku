@@ -1,14 +1,20 @@
 /** 关卡出口守护 Boss（按层固定主题 kind） */
 
-import { getMonsterStats, DEFAULT_MONSTER_SPEED, MONSTER_ATK_MULT } from "./stats.js?v=180";
+import {
+  getMonsterStats,
+  DEFAULT_MONSTER_SPEED,
+  MONSTER_ATK_MULT,
+  monsterCombatFromPrimary,
+} from "./stats.js?v=181";
 import {
   MONSTER_SKILLS,
   bossSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=180";
-import { bossKindForFloor, bossMilestoneMult, isSpecialBossFloor } from "./bossKinds.js?v=180";
-import { floorHasUniqueBossLoot } from "../loot/drops.js?v=180";
+} from "./skills.js?v=181";
+import { bossKindForFloor, bossMilestoneMult, isSpecialBossFloor } from "./bossKinds.js?v=181";
+import { floorHasUniqueBossLoot } from "../loot/drops.js?v=181";
+import { readPrimary } from "../characters/primary.js?v=181";
 
 export function createBoss({
   pos = { x: 8, y: 4 },
@@ -24,16 +30,18 @@ export function createBoss({
 } = {}) {
   const kind = kindOverride || bossKindForFloor(floor);
   const sheet = getMonsterStats(kind);
+  const primary = readPrimary(sheet);
+  const combat = monsterCombatFromPrimary(primary.str, primary.int, primary.agi, sheet.hpBonus || 0);
   const abs = { x: ox + pos.x, y: oy + pos.y };
   const cf = combatFloor || floor;
   const special = !hidden && isSpecialBossFloor(floor);
   const s = Math.max(1, scale) * 1.55 * bossMilestoneMult(floor) * (hidden ? 0.92 : 1);
-  const hp = Math.floor(sheet.hp * s);
-  const atk = Math.max(1, Math.floor(sheet.atk * s * MONSTER_ATK_MULT));
-  const def = Math.floor(sheet.def * s);
+  const hp = Math.floor(combat.hp * s);
+  const atk = Math.max(1, Math.floor(combat.atk * s * MONSTER_ATK_MULT));
+  const def = Math.floor(combat.def * s);
   const spd = Math.max(
     8,
-    Math.floor((sheet.spd ?? DEFAULT_MONSTER_SPEED) * (0.9 + scale * 0.05))
+    Math.floor((combat.spd ?? DEFAULT_MONSTER_SPEED) * (0.9 + scale * 0.05))
   );
   const skillIds =
     skillIdsOverride ||
@@ -56,6 +64,9 @@ export function createBoss({
     from: { ...abs },
     to: { ...abs },
     dir: 1,
+    str: primary.str,
+    int: primary.int,
+    agi: primary.agi,
     maxHp: hp,
     hp,
     atk,

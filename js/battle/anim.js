@@ -1,4 +1,4 @@
-import { $, wait } from "../core/utils.js?v=180";
+import { $, wait } from "../core/utils.js?v=181";
 
 /** 整场战斗时间倍率（与 UI --bsp、行动条同一套） */
 let _animSpeed = 1;

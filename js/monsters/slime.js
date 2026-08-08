@@ -1,14 +1,14 @@
 /** 史莱姆 / 通用小怪巡逻 */
 
-import { OX, OY, canWalk } from "../map/island15.js?v=180";
-import { createMonster } from "./roster.js?v=180";
+import { OX, OY, canWalk } from "../map/island15.js?v=181";
+import { createMonster } from "./roster.js?v=181";
 import {
   MONSTER_SKILLS,
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   monsterSkillBrief,
   monsterSkillRangeLabel,
-} from "./skills.js?v=180";
+} from "./skills.js?v=181";
 
 export const GNAW = { mult: 1.0, flat: 0, style: "melee" };
 
@@ -77,11 +77,14 @@ export function createPatrolMonster(
 
 const ELITE_STAT_MULT = 1.3;
 
-/** 强化小怪：约 1.3 倍属性 */
+/** 强化小怪：约 1.3 倍属性（三维与战斗属性同步放大） */
 export function applyEliteTrash(m) {
   if (!m || m.isBoss) return m;
   const mult = ELITE_STAT_MULT;
   m.isElite = true;
+  m.str = Math.max(0, Math.floor((m.str || 0) * mult));
+  m.int = Math.max(0, Math.floor((m.int || 0) * mult));
+  m.agi = Math.max(0, Math.floor((m.agi || 0) * mult));
   m.maxHp = Math.max(1, Math.floor((m.maxHp || m.hp || 1) * mult));
   m.hp = m.maxHp;
   m.atk = Math.max(1, Math.floor((m.atk || 1) * mult));

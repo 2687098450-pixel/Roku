@@ -1,6 +1,6 @@
 /** 游戏界面：探索 HUD / 背包 / 阵容 / 角色详情 */
 
-import { $, clamp, styleTag } from "../core/utils.js?v=180";
+import { $, clamp, styleTag } from "../core/utils.js?v=181";
 import {
   refreshHeroStats,
   SLOT_KEYS,
@@ -59,23 +59,23 @@ import {
   skillAiOptions,
   getSkillAiMode,
   setSkillAiMode,
-} from "../characters/omni/index.js?v=180";
-import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=180";
-import { setSavedFormation } from "../characters/stats.js?v=180";
-import { resetGameLocalData } from "../core/save.js?v=180";
-import { createAllUniqueItems } from "../loot/drops.js?v=180";
-import { APP_VERSION } from "../core/version.js?v=180";
-import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=180";
-import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=180";
-import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=180";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=180";
-import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=180";
+} from "../characters/omni/index.js?v=181";
+import { sumEquipBonus, UNIQUE_SKILL_IDS, uniqueAffixName, uniqueAffixDetail, CAST_ECHO_AFFIX, SKILL_LEVEL_AFFIX } from "../characters/omni/equipment.js?v=181";
+import { setSavedFormation } from "../characters/stats.js?v=181";
+import { resetGameLocalData } from "../core/save.js?v=181";
+import { createAllUniqueItems } from "../loot/drops.js?v=181";
+import { APP_VERSION } from "../core/version.js?v=181";
+import { MONSTER_SKILLS, TYPE_SKILL_IDS, monsterSkillBrief } from "../monsters/skills.js?v=181";
+import { buildFloorMonsterCatalog } from "../monsters/roster.js?v=181";
+import { getFloorDef, MAX_FLOOR } from "../map/floors.js?v=181";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=181";
+import { unitIconHtml, unitDiamondScale } from "./unitIcon.js?v=181";
 import {
   isSealItem,
   heroHasFoolSeal,
   sealDef,
   sealIconUrl,
-} from "../characters/seals.js?v=180";
+} from "../characters/seals.js?v=181";
 import {
   isAffixItem,
   toolSortPriority,
@@ -86,7 +86,7 @@ import {
   condenseEquipAffix,
   getAffixReplaceableIndices,
   AFFIX_CONDENSE_USE_ID,
-} from "../characters/affixItems.js?v=180";
+} from "../characters/affixItems.js?v=181";
 
 const BAG_SLOTS = 48;
 const PHONE_RESET_CODE = "*886#";
@@ -446,6 +446,10 @@ export function createUI(ctx) {
           const maxHp = Math.max(hp, Math.ceil(m.maxHp ?? hp));
           const atk = Math.max(0, Math.floor(m.atk ?? 0));
           const defStat = Math.max(0, Math.floor(m.def ?? 0));
+          const spd = Math.max(0, Math.floor(m.spd ?? 0));
+          const str = Math.max(0, Math.floor(m.str ?? 0));
+          const intel = Math.max(0, Math.floor(m.int ?? 0));
+          const agi = Math.max(0, Math.floor(m.agi ?? 0));
           const gold = scaleMonsterGoldGain(m.gold || Math.max(1, Math.round((m.exp || 10) * 0.45)));
           const exp = scaleExpGain(m.exp || 0);
           const skills = monsterSkillText(m);
@@ -455,8 +459,9 @@ export function createUI(ctx) {
             <div class="fm-main">
               <div class="fm-name">${escapeHtml(m.name || "怪物")}${bossTag}</div>
               <div class="fm-stats">
-                <div>生命 <b>${maxHp}</b></div>
-                <div>攻击 <b>${atk}</b> · 防御 <b>${defStat}</b></div>
+                <div>力 <b>${str}</b> · 智 <b>${intel}</b> · 敏 <b>${agi}</b></div>
+                <div>生命 <b>${maxHp}</b> · 攻击 <b>${atk}</b></div>
+                <div>防御 <b>${defStat}</b> · 速度 <b>${spd}</b></div>
                 <div>技能 ${escapeHtml(skills)}</div>
                 <div>价值 金币 <b>${gold}</b> · 经验 <b>${exp}</b></div>
               </div>

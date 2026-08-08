@@ -4,17 +4,23 @@
  * - Boss：多在后排中央；坦克 Boss 偶发前排中央 + 其余格位小怪
  */
 
-import { getMonsterStats, trashTypesForFloor, MONSTER_ATK_MULT } from "./stats.js?v=180";
+import {
+  getMonsterStats,
+  trashTypesForFloor,
+  MONSTER_ATK_MULT,
+  monsterCombatFromPrimary,
+} from "./stats.js?v=181";
 import {
   TYPE_SKILL_IDS,
   trashControlSkillIdsForFloor,
   bossSkillIdsForFloor,
-} from "./skills.js?v=180";
+} from "./skills.js?v=181";
 import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
-} from "../characters/progression.js?v=180";
-import { createBoss } from "./boss.js?v=180";
+} from "../characters/progression.js?v=181";
+import { readPrimary } from "../characters/primary.js?v=181";
+import { createBoss } from "./boss.js?v=181";
 
 let _seq = 1;
 function nextId(prefix) {
@@ -44,12 +50,15 @@ function skillIdsForTrash(kind, floor) {
  */
 export function createMonster(kind, opts = {}) {
   const base = getMonsterStats(kind);
+  const primary = readPrimary(base);
+  const combat = monsterCombatFromPrimary(primary.str, primary.int, primary.agi, base.hpBonus || 0);
   const scale = opts.scale ?? 1;
   const isBoss = Boolean(
     opts.isBoss || kind === "boss" || String(kind || "").startsWith("boss_")
   );
   const floor = opts.floor || 1;
   const combatFloor = opts.combatFloor || floor;
+  const hp = scaleStat(combat.hp, scale);
   return {
     id: nextId(kind),
     kind,
@@ -58,11 +67,14 @@ export function createMonster(kind, opts = {}) {
     shape: base.shape,
     x: opts.x ?? 0,
     y: opts.y ?? 0,
-    hp: scaleStat(base.hp, scale),
-    maxHp: scaleStat(base.hp, scale),
-    atk: Math.max(1, Math.round(scaleStat(base.atk, scale) * MONSTER_ATK_MULT)),
-    def: scaleStat(base.def, scale),
-    spd: Math.max(4, Math.round(base.spd + (scale - 1) * 2)),
+    str: primary.str,
+    int: primary.int,
+    agi: primary.agi,
+    hp,
+    maxHp: hp,
+    atk: Math.max(1, Math.round(scaleStat(combat.atk, scale) * MONSTER_ATK_MULT)),
+    def: scaleStat(combat.def, scale),
+    spd: Math.max(4, Math.round(combat.spd + (scale - 1) * 2)),
     exp: Math.max(1, Math.round((base.exp || 1) * (0.9 + scale * 0.35))),
     // 金币随层增长放缓：约 30 层累计够强化 3 件到 +15
     gold: Math.max(1, Math.round((base.gold || 6) * (0.9 + scale * 0.3))),
