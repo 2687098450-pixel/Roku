@@ -24,7 +24,7 @@ export function skillAnimMs({ style, skillId, pace } = {}) {
   return ANIM_SLOW_MS;
 }
 
-/** 0=关/1x  1=1x  2=1.5x  3=2x；缩放行动条 + 技能动画 */
+/** 0=关/1x  1=1x  2=1.5x  3=2x；整场战斗时间倍率：行动条/DoT/动画/特效 */
 export function battleSpeedFromMode(mode) {
   const m = Math.floor(Number(mode) || 0);
   if (m <= 1) return 1;
@@ -32,5 +32,5 @@ export function battleSpeedFromMode(mode) {
   return 2;
 }
 
-export const AUTO_MODE_LABELS = ["自动", "自动·1x", "自动·1.5x", "自动·2x"];
-export const FLOW_SPEED_LABELS = ["倍速·1x", "倍速·1x", "倍速·1.5x", "倍速·2x"];
+export const AUTO_MODE_LABELS = ["自动", "速度·1x", "速度·1.5x", "速度·2x"];
+export const FLOW_SPEED_LABELS = ["速度·1x", "速度·1x", "速度·1.5x", "速度·2x"];

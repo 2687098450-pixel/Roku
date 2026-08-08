@@ -1,7 +1,11 @@
 /** 战斗系统：读条、技能、自动循环 */
 
-import { $, clamp, irand } from "../core/utils.js?v=174";
-import { playSkillAnim, playReflectSpikes } from "./anim.js?v=174";
+import { $, clamp, irand } from "../core/utils.js?v=175";
+import {
+  playSkillAnim,
+  playReflectSpikes,
+  setBattleAnimSpeed,
+} from "./anim.js?v=175";
 import {
   refreshHeroStats,
   skillPower,
@@ -26,8 +30,8 @@ import {
   canAffordSkill,
   spendSkillMp,
   getSkillAiMode,
-} from "../characters/omni/index.js?v=174";
-import { mergeStackableTools } from "../characters/affixItems.js?v=174";
+} from "../characters/omni/index.js?v=175";
+import { mergeStackableTools } from "../characters/affixItems.js?v=175";
 import {
   gainExp,
   splitExp,
@@ -37,30 +41,30 @@ import {
   DEFAULT_HIT_RATE,
   DEFAULT_DODGE_RATE,
   isHeroDead,
-} from "../characters/progression.js?v=174";
+} from "../characters/progression.js?v=175";
 import {
   refreshSkillTexts,
   calcReflectEnemyDamage,
   getReflectParams,
   applyReflectAllyUnique,
-} from "../characters/skills.js?v=174";
-import { buildEncounter } from "../monsters/roster.js?v=174";
+} from "../characters/skills.js?v=175";
+import { buildEncounter } from "../monsters/roster.js?v=175";
 import {
   pickMonsterSkill,
   monsterSkillDamage,
   monsterDotTickDamage,
   MONSTER_SKILLS,
-} from "../monsters/skills.js?v=174";
-import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=174";
+} from "../monsters/skills.js?v=175";
+import { rollBattleLoot, bossUniqueUrgent, bossTauntLine } from "../loot/drops.js?v=175";
 import {
   GAUGE_MAX,
   getBattleAutoMode,
   setBattleAutoMode,
   DEFAULT_HERO_SPEED,
-} from "../characters/stats.js?v=174";
-import { createTicker } from "../core/time.js?v=174";
-import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=174";
-import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=174";
+} from "../characters/stats.js?v=175";
+import { createTicker } from "../core/time.js?v=175";
+import { scaleMonsterGoldGain, scaleExpGain } from "../core/economy.js?v=175";
+import { unitIconHtml, unitShapeHtml } from "../ui/unitIcon.js?v=175";
 import {
   applyStun as applyStunStatus,
   applyStatus,
@@ -75,8 +79,8 @@ import {
   effectiveSpd,
   statusBadgesHtml,
   DEFAULT_STATUS_GAUGE,
-} from "./status.js?v=174";
-import { basicAttackId } from "../characters/omni/autoAttack.js?v=174";
+} from "./status.js?v=175";
+import { basicAttackId } from "../characters/omni/autoAttack.js?v=175";
 import {
   DOT_TICK_SECONDS,
   ANIM_FAST_MS,
@@ -87,7 +91,7 @@ import {
   battleSpeedFromMode,
   AUTO_MODE_LABELS,
   FLOW_SPEED_LABELS,
-} from "./timing.js?v=174";
+} from "./timing.js?v=175";
 import {
   boardDist,
   boardXY,
@@ -100,7 +104,7 @@ import {
   unitsInAttackRange,
   syncBoardPosFromRowCol,
   BOARD_LANE_IDS,
-} from "./grid.js?v=174";
+} from "./grid.js?v=175";
 
 export function createBattleApi(ctx) {
   const {
@@ -2096,13 +2100,21 @@ export function createBattleApi(ctx) {
     renderBattle(b);
   }
 
+  /** 整场战斗时间倍率：行动条 / DoT / 技能等待 / CSS 特效同一套 */
+  function applyBattleSpeed(b) {
+    const sp = Math.max(0.25, Number(b?.battleSpeed) || 1);
+    setBattleAnimSpeed(sp);
+    const root = $("battle");
+    if (root) root.style.setProperty("--bsp", String(sp));
+  }
+
   function syncAutoButton(b) {
     const btn = $("btnAuto");
     if (!btn) return;
     const mode = b.autoMode || 0;
+    applyBattleSpeed(b);
     if (isFlowBattle(b)) {
-      // 流畅永远自动放技能；按钮只调倍速
-      btn.textContent = FLOW_SPEED_LABELS[mode] || "倍速·1x";
+      btn.textContent = FLOW_SPEED_LABELS[mode] || "速度·1x";
       btn.classList.toggle("on", true);
       btn.setAttribute("aria-pressed", "true");
       return;
@@ -2245,6 +2257,7 @@ export function createBattleApi(ctx) {
     if (!b || b.ending) return;
 
     if (!b.ticker) b.ticker = createTicker();
+    applyBattleSpeed(b);
 
     const scaledDt = dt * (b.battleSpeed || 1);
     advanceTimedDots(b, scaledDt);

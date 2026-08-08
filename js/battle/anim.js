@@ -1,7 +1,15 @@
-import { $, wait } from "../core/utils.js?v=174";
+import { $, wait } from "../core/utils.js?v=175";
 
-/** 战斗倍速：由 playSkillAnim 写入，waitS 缩短动画等待 */
+/** 整场战斗时间倍率（与 UI --bsp、行动条同一套） */
 let _animSpeed = 1;
+
+export function setBattleAnimSpeed(speed) {
+  _animSpeed = Math.max(0.25, Number(speed) || 1);
+}
+
+export function getBattleAnimSpeed() {
+  return _animSpeed;
+}
 
 function waitS(ms) {
   const sp = Math.max(0.25, _animSpeed || 1);
@@ -209,8 +217,9 @@ export function playReflectSpikes(fromId, toHits) {
       const rot = angleDeg(a, t);
       needle.style.transform = `rotate(${rot}deg) scaleX(0.85)`;
       await waitS(12);
+      const flySec = (msS(220) / 1000).toFixed(2);
       needle.style.transition =
-        "left 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), top 0.22s cubic-bezier(0.2, 0.7, 0.3, 1), transform 0.22s ease-out, opacity 0.22s ease-out";
+        `left ${flySec}s cubic-bezier(0.2, 0.7, 0.3, 1), top ${flySec}s cubic-bezier(0.2, 0.7, 0.3, 1), transform ${flySec}s ease-out, opacity ${flySec}s ease-out`;
       needle.style.left = `${t.x}px`;
       needle.style.top = `${t.y}px`;
       needle.style.transform = `rotate(${rot}deg) scaleX(1.15)`;
@@ -373,7 +382,10 @@ async function animQuake(attackerId, targetId, profile) {
  * @param {{ skillId?: string, statsId?: string, color?: string }} [meta]
  */
 export async function playSkillAnim(style, attackerId, primaryTargetId, meta = {}) {
-  _animSpeed = Math.max(0.25, Number(meta.battleSpeed) || 1);
+  // 优先用全局战斗速度；meta 可覆盖
+  if (meta.battleSpeed != null) {
+    setBattleAnimSpeed(meta.battleSpeed);
+  }
   if (!primaryTargetId) {
     await waitS(100);
     return;
