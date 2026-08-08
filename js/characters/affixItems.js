@@ -6,7 +6,7 @@ import {
   UNIQUE_SKILL_IDS,
   uniqueAffixName,
   uniqueAffixDetail,
-} from "./omni/equipment.js?v=177";
+} from "./omni/equipment.js?v=178";
 
 export const AFFIX_CONDENSE_USE_ID = "affix_condense";
 
